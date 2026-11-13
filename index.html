@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="Lumen Pit is a black infinite arena. Drift with WASD. The cursor aims a stream of neon rounds."
+    />
+    <title>Lumen Pit</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #000;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="view" aria-hidden="true"></canvas>
+    <div id="vignette" aria-hidden="true"></div>
+    <div id="frame" aria-hidden="true"></div>
+    <div id="flash" aria-hidden="true"></div>
+    <header id="hud">
+      <div class="title">
+        <p class="brand">Lumen Pit</p>
+        <p class="tag">Black infinite arena</p>
+      </div>
+      <div class="meters">
+        <div>
+          <p class="label">Score</p>
+          <p id="score" class="score">0</p>
+          <p id="best" class="best">Best 0</p>
+          <p id="combo" class="combo"></p>
+        </div>
+        <div>
+          <p class="label">Hull</p>
+          <div id="hull" class="hull"></div>
+          <p id="heat" class="heat">Heat 00</p>
+        </div>
+      </div>
+    </header>
+    <div class="tools">
+      <button id="mute" type="button" aria-pressed="true">Audio on</button>
+      <button id="full" type="button" aria-pressed="false">Full screen</button>
+    </div>
+    <p id="hint" class="hint">WASD drifts · cursor aims the stream</p>
+    <p id="live" class="sr-only" aria-live="polite"></p>
+    <div id="overlay" hidden>
+      <div class="card">
+        <p class="brand">Lumen Pit</p>
+        <h1>Core lost</h1>
+        <p id="final" class="final"></p>
+        <button id="again" type="button">Reform</button>
+        <p class="sub">Press R</p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
