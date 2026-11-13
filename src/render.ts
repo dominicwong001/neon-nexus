@@ -260,12 +260,23 @@ function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.save()
   if (blink) ctx.globalAlpha = 0.32
 
+  const glow = glowSprites().white
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+  ctx.drawImage(glow, -52, -52, 104, 104)
+  ctx.restore()
+
+  ctx.save()
+  ctx.rotate(state.time * 0.65)
+  strokePoly(ctx, 0, 0, 34, 6, 'rgba(255, 255, 255, 0.92)', 1.6, 0)
+  ctx.restore()
+
   const speed = Math.hypot(state.playerVx, state.playerVy)
   if (speed > 40) {
     ctx.save()
     ctx.rotate(Math.atan2(state.playerVy, state.playerVx) + Math.PI)
     const len = Math.min(28, 8 + speed * 0.035)
-    ctx.fillStyle = 'rgba(94, 242, 255, 0.95)'
+    ctx.fillStyle = '#ffffff'
     ctx.beginPath()
     ctx.moveTo(-10, 0)
     ctx.lineTo(-10 - len, 5)

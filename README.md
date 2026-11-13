@@ -2,7 +2,7 @@
 
 A black infinite arena. The core stays in the middle of the screen. WASD drifts the lattice, and white rounds fire toward the cursor.
 
-Hostile shapes wander in from the dark. Shards and orbs break in one hit. Blocks take two. Contact cracks the hull. Five cracks and the core is lost. Reform keeps your best score on this browser.
+Hostile shapes wander in from the dark. Triangles are fast and break in one hit. Squares take two. Circles split into smaller circles. Contact cracks the hull. Five cracks and the core is lost. Reform keeps your best score on this browser.
 
 ## Run
 

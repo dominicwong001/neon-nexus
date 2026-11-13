@@ -38,6 +38,7 @@ export interface Enemy {
   angle: number
   phase: number
   speed: number
+  generation: number
 }
 
 export interface Particle {
@@ -116,9 +117,9 @@ export interface StepEvents {
 }
 
 const KIND = [
-  { radius: 16, hp: 1, speed: 148, spin: 2.5 },
-  { radius: 22, hp: 2, speed: 96, spin: 1.15 },
-  { radius: 18, hp: 1, speed: 128, spin: 0.7 },
+  { radius: 14, hp: 1, speed: 230, spin: 2.8 },
+  { radius: 22, hp: 2, speed: 100, spin: 1.15 },
+  { radius: 20, hp: 1, speed: 108, spin: 0.8 },
 ] as const
 
 export function createGame(best = 0, seed = 1): GameState {
@@ -332,8 +333,33 @@ function damageEnemy(state: GameState, enemy: Enemy, events: StepEvents): void {
     color: ENEMY_COLOR[enemy.kind],
   })
   burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 14, 280)
+  if (enemy.kind === 2 && enemy.generation === 0) splitCircle(state, enemy)
   const idx = state.enemies.indexOf(enemy)
   if (idx >= 0) state.enemies.splice(idx, 1)
+}
+
+function splitCircle(state: GameState, enemy: Enemy): void {
+  const heading = Math.hypot(enemy.vx, enemy.vy) > 8 ? Math.atan2(enemy.vy, enemy.vx) : state.rng() * Math.PI * 2
+  for (const side of [-1, 1]) {
+    const a = heading + side * 0.9
+    const radius = Math.max(9, enemy.radius * 0.55)
+    const speed = enemy.speed
+    state.enemies.push({
+      x: enemy.x + Math.cos(a) * enemy.radius * 0.75,
+      y: enemy.y + Math.sin(a) * enemy.radius * 0.75,
+      vx: Math.cos(a) * speed * 0.55,
+      vy: Math.sin(a) * speed * 0.55,
+      radius,
+      kind: 2,
+      hp: 1,
+      hitCd: TUNING.hitCooldown,
+      spin: enemy.spin,
+      angle: enemy.angle + side,
+      phase: enemy.phase + side,
+      speed,
+      generation: 1,
+    })
+  }
 }
 
 function spawn(state: GameState, input: Input, dt: number): void {
@@ -353,8 +379,6 @@ function spawnOne(state: GameState, viewRadius: number): void {
   let kind: EnemyKind = 0
   if (roll > 0.8) kind = 2
   else if (roll > 0.46) kind = 1
-  if (state.time < 14 && kind === 2) kind = 0
-  if (state.time < 7 && kind === 1 && state.rng() < 0.55) kind = 0
   const spec = KIND[kind]
   const ang = state.rng() * Math.PI * 2
   const dist = Math.max(200, viewRadius) + 90 + state.rng() * 180
@@ -372,6 +396,7 @@ function spawnOne(state: GameState, viewRadius: number): void {
     angle: state.rng() * Math.PI * 2,
     phase: state.rng() * Math.PI * 2,
     speed: spec.speed * heatScale,
+    generation: 0,
   })
 }
 
@@ -449,7 +474,7 @@ function thrustEmbers(state: GameState, dt: number): void {
     life: 0.22,
     max: 0.22,
     size: 2.2,
-    color: state.rng() < 0.25 ? '#ff3df2' : '#5ef2ff',
+    color: '#ffffff',
   })
 }
 

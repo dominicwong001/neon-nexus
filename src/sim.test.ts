@@ -36,6 +36,7 @@ function enemy(over: Partial<Enemy> = {}): Enemy {
     angle: 0,
     phase: 0,
     speed: 120,
+    generation: 0,
     ...over,
   }
 }
@@ -141,6 +142,37 @@ describe('hostiles', () => {
     assert.equal(state.score, 10)
     assert.equal(state.best, 10)
     assert.equal(state.enemies.length, 0)
+  })
+
+  it('splits a circle into smaller circles that do not split again', () => {
+    const state = createGame(0, 19)
+    state.spawnCd = 50
+    state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, radius: 20, kind: 2, hp: 1, generation: 0 }))
+    const events = step(state, input(), 1 / 60)
+    assert.equal(events.kills, 1)
+    assert.equal(state.enemies.length, 2)
+    for (const child of state.enemies) {
+      assert.equal(child.kind, 2)
+      assert.equal(child.hp, 1)
+      assert.equal(child.generation, 1)
+      assert.ok(child.radius < 20)
+    }
+    const child = state.enemies[0]
+    assert.ok(child)
+    child.x = state.playerX + TUNING.muzzle
+    child.y = state.playerY
+    child.vx = 0
+    child.vy = 0
+    child.speed = 0
+    child.hitCd = 0
+    const kills = state.kills
+    for (let i = 0; i < 40 && state.enemies.includes(child); i++) {
+      step(state, input({ aimX: state.playerX + 200, aimY: state.playerY }), 1 / 60)
+    }
+    assert.equal(state.enemies.includes(child), false)
+    assert.equal(state.kills, kills + 1)
+    assert.equal(state.enemies.filter((e) => e.generation === 0).length, 0)
+    assert.ok(state.enemies.every((e) => e.generation === 1))
   })
 
   it('needs two hits to break a block', () => {
