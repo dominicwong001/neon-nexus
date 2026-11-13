@@ -3,9 +3,8 @@ export const TUNING = {
   maxSpeed: 450,
   drag: 6.5,
   bulletSpeed: 980,
-  fireInterval: 0.075,
+  fireInterval: 0.28,
   muzzle: 22,
-  spread: 6,
   playerRadius: 14,
   hullMax: 5,
   invuln: 1.15,
@@ -257,19 +256,15 @@ function fire(state: GameState, dt: number, events: StepEvents): void {
     state.fireCd += TUNING.fireInterval
     const cs = Math.cos(state.aim)
     const sn = Math.sin(state.aim)
-    const px = -sn
-    const py = cs
-    for (const side of [-1, 1]) {
-      state.bullets.push({
-        x: state.playerX + cs * TUNING.muzzle + px * TUNING.spread * side,
-        y: state.playerY + sn * TUNING.muzzle + py * TUNING.spread * side,
-        // Carry the core's velocity so the stream stays on the cursor line
-        // while the camera keeps the core centered.
-        vx: cs * TUNING.bulletSpeed + state.playerVx,
-        vy: sn * TUNING.bulletSpeed + state.playerVy,
-        life: 1.35,
-      })
-    }
+    state.bullets.push({
+      x: state.playerX + cs * TUNING.muzzle,
+      y: state.playerY + sn * TUNING.muzzle,
+      // Carry the core's velocity so the shot stays on the cursor line
+      // while the camera keeps the core centered.
+      vx: cs * TUNING.bulletSpeed + state.playerVx,
+      vy: sn * TUNING.bulletSpeed + state.playerVy,
+      life: 1.35,
+    })
     events.shots += 1
     state.muzzle = 0.05
     burst(state, state.playerX + cs * TUNING.muzzle, state.playerY + sn * TUNING.muzzle, '#e9fdff', 2, 160)
@@ -397,12 +392,8 @@ function moveEnemies(state: GameState, input: Input, dt: number): void {
     const steer = 1 - Math.exp(-3.1 * dt)
     e.vx += ((dx / dist) * speed - e.vx) * steer
     e.vy += ((dy / dist) * speed - e.vy) * steer
-    const weave = e.kind === 2 ? 78 : e.kind === 0 ? 26 : 0
-    const wobble = Math.sin(state.time * (e.kind === 2 ? 3.2 : 2.2) + e.phase) * weave
-    const px = -dy / dist
-    const py = dx / dist
-    e.x += (e.vx + px * wobble) * dt
-    e.y += (e.vy + py * wobble) * dt
+    e.x += e.vx * dt
+    e.y += e.vy * dt
     e.angle += e.spin * dt
   }
 }

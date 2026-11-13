@@ -37,7 +37,7 @@ const coarse = window.matchMedia('(pointer: coarse)').matches
 
 hintEl.textContent = coarse
   ? 'Drag the left side to drift · touch the right side to aim'
-  : 'WASD drifts · cursor aims the stream'
+  : 'WASD drifts · cursor aims each shot'
 
 for (let i = 0; i < TUNING.hullMax; i++) {
   const pip = document.createElement('span')

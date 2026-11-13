@@ -19,7 +19,7 @@ export interface View {
 }
 
 interface GlowSet {
-  cyan: HTMLCanvasElement
+  white: HTMLCanvasElement
   magenta: HTMLCanvasElement
   amber: HTMLCanvasElement
   lime: HTMLCanvasElement
@@ -48,7 +48,6 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
   const Y = (y: number) => y - state.playerY
 
   drawGrid(ctx, state, width, height)
-  drawOrigin(ctx, state, width, height)
   drawBeacons(ctx, state, width, height)
   drawShocks(ctx, state, X, Y)
   drawParticles(ctx, state, X, Y)
@@ -106,27 +105,6 @@ function drawGrid(ctx: CanvasRenderingContext2D, state: GameState, width: number
       ctx.fillRect(x - state.playerX - 1.6, y - state.playerY - 1.6, 3.2, 3.2)
     }
   }
-}
-
-function drawOrigin(ctx: CanvasRenderingContext2D, state: GameState, width: number, height: number): void {
-  const ox = -state.playerX
-  const oy = -state.playerY
-  if (Math.abs(ox) > width && Math.abs(oy) > height) return
-  const glow = ctx.createRadialGradient(ox, oy, 20, ox, oy, 280)
-  glow.addColorStop(0, 'rgba(94, 242, 255, 0.07)')
-  glow.addColorStop(1, 'rgba(0, 0, 0, 0)')
-  ctx.fillStyle = glow
-  ctx.beginPath()
-  ctx.arc(ox, oy, 280, 0, Math.PI * 2)
-  ctx.fill()
-
-  strokePoly(ctx, ox, oy, 230, 6, 'rgba(255, 61, 242, 0.32)', 1.6, Math.PI / 6)
-  strokePoly(ctx, ox, oy, 112, 6, 'rgba(94, 242, 255, 0.4)', 1.5, state.time * 0.15)
-  ctx.fillStyle = 'rgba(94, 242, 255, 0.55)'
-  ctx.font = '600 12px Oxanium, sans-serif'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText('ORIGIN', ox, oy + 150)
 }
 
 function drawBeacons(ctx: CanvasRenderingContext2D, state: GameState, width: number, height: number): void {
@@ -220,17 +198,6 @@ function drawEnemies(
     else ctx.arc(0, 0, e.radius, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
-    if (e.kind === 1 && e.hp === 1) {
-      ctx.beginPath()
-      ctx.moveTo(-e.radius * 0.4, -e.radius * 0.4)
-      ctx.lineTo(e.radius * 0.4, e.radius * 0.4)
-      ctx.stroke()
-    }
-    if (e.kind === 2) {
-      ctx.beginPath()
-      ctx.arc(0, 0, e.radius * 0.42, 0, Math.PI * 2)
-      ctx.stroke()
-    }
     ctx.restore()
   }
 }
@@ -241,11 +208,11 @@ function drawBullets(
   X: (x: number) => number,
   Y: (y: number) => number,
 ): void {
-  const glow = glowSprites().cyan
+  const glow = glowSprites().white
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   for (const b of state.bullets) {
-    ctx.drawImage(glow, X(b.x) - 16, Y(b.y) - 16, 32, 32)
+    ctx.drawImage(glow, X(b.x) - 14, Y(b.y) - 14, 28, 28)
   }
   ctx.restore()
 
@@ -255,8 +222,8 @@ function drawBullets(
     ctx.save()
     ctx.translate(X(b.x), Y(b.y))
     ctx.rotate(Math.atan2(ry, rx))
-    ctx.fillStyle = '#f7feff'
-    ctx.strokeStyle = '#5ef2ff'
+    ctx.fillStyle = '#ffffff'
+    ctx.strokeStyle = '#ffffff'
     ctx.lineWidth = 1.25
     ctx.beginPath()
     ctx.moveTo(12, 0)
@@ -293,27 +260,6 @@ function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.save()
   if (blink) ctx.globalAlpha = 0.32
 
-  const glow = glowSprites().cyan
-  ctx.save()
-  ctx.globalCompositeOperation = 'lighter'
-  ctx.drawImage(glow, -52, -52, 104, 104)
-  ctx.restore()
-
-  ctx.save()
-  ctx.rotate(state.time * 0.65)
-  strokePoly(ctx, 0, 0, 30, 6, 'rgba(94, 242, 255, 0.9)', 1.5, 0)
-  ctx.restore()
-
-  ctx.save()
-  ctx.rotate(-state.time * 0.4)
-  ctx.setLineDash([6, 8])
-  ctx.strokeStyle = 'rgba(255, 61, 242, 0.9)'
-  ctx.lineWidth = 1.5
-  ctx.beginPath()
-  ctx.arc(0, 0, 40, 0, Math.PI * 2)
-  ctx.stroke()
-  ctx.restore()
-
   const speed = Math.hypot(state.playerVx, state.playerVy)
   if (speed > 40) {
     ctx.save()
@@ -332,38 +278,16 @@ function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
 
   ctx.save()
   ctx.rotate(state.aim)
-  ctx.fillStyle = '#05080c'
+  ctx.fillStyle = '#071016'
   ctx.strokeStyle = '#f4feff'
-  ctx.lineWidth = 2
+  ctx.lineWidth = 2.5
   ctx.beginPath()
-  ctx.moveTo(20, 0)
-  ctx.lineTo(-13, 11)
-  ctx.lineTo(-7, 0)
-  ctx.lineTo(-13, -11)
+  ctx.moveTo(16, 0)
+  ctx.lineTo(-14, 15)
+  ctx.lineTo(-14, -15)
   ctx.closePath()
   ctx.fill()
   ctx.stroke()
-  ctx.strokeStyle = '#5ef2ff'
-  ctx.lineWidth = 1.5
-  ctx.beginPath()
-  ctx.moveTo(9, 0)
-  ctx.lineTo(-3, 0)
-  ctx.stroke()
-  ctx.fillStyle = '#ff3df2'
-  ctx.beginPath()
-  ctx.arc(-1, 0, 2.3, 0, Math.PI * 2)
-  ctx.fill()
-  if (state.muzzle > 0) {
-    ctx.globalCompositeOperation = 'lighter'
-    ctx.strokeStyle = 'rgba(244, 254, 255, 0.95)'
-    ctx.lineWidth = 2
-    const tip = 16 + 22 * (state.muzzle / 0.05)
-    ctx.beginPath()
-    ctx.moveTo(16, -3.5)
-    ctx.lineTo(tip, 0)
-    ctx.lineTo(16, 3.5)
-    ctx.stroke()
-  }
   ctx.restore()
   ctx.restore()
 }
@@ -453,7 +377,7 @@ function polyPath(
 function glowSprites(): GlowSet {
   if (glows) return glows
   glows = {
-    cyan: makeGlow('#5ef2ff'),
+    white: makeGlow('#ffffff'),
     magenta: makeGlow('#ff3df2'),
     amber: makeGlow('#ffd23a'),
     lime: makeGlow('#8dff6a'),

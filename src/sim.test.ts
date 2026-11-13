@@ -101,8 +101,8 @@ describe('cursor stream', () => {
   it('fires toward the cursor without a click', () => {
     const state = createGame(0, 7)
     const events = step(state, input({ aimX: 0, aimY: 300 }), 1 / 60)
-    assert.ok(events.shots >= 1)
-    assert.ok(state.bullets.length >= 2)
+    assert.equal(events.shots, 1)
+    assert.equal(state.bullets.length, 1)
     for (const bullet of state.bullets) {
       assert.ok(bullet.vy > 700)
       assert.ok(Math.abs(bullet.vx) < 40)
@@ -151,7 +151,7 @@ describe('hostiles', () => {
     assert.equal(state.score, 0)
     assert.equal(state.enemies.length, 1)
     assert.equal(state.enemies[0]?.hp, 1)
-    for (let i = 0; i < 20 && state.enemies.length; i++) step(state, input(), 1 / 60)
+    for (let i = 0; i < 40 && state.enemies.length; i++) step(state, input(), 1 / 60)
     assert.equal(state.enemies.length, 0)
     assert.equal(state.score, 20)
   })
@@ -162,7 +162,7 @@ describe('hostiles', () => {
     state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, radius: 24 }))
     step(state, input(), 1 / 60)
     state.enemies.push(enemy({ x: state.playerX + TUNING.muzzle, y: state.playerY, radius: 24 }))
-    for (let i = 0; i < 20 && state.score < 30; i++) {
+    for (let i = 0; i < 40 && state.score < 30; i++) {
       step(state, input({ aimX: state.playerX + 200, aimY: state.playerY }), 1 / 60)
     }
     assert.equal(state.combo, 2)
@@ -178,6 +178,19 @@ describe('hostiles', () => {
       const dist = Math.hypot(hostile.x - state.playerX, hostile.y - state.playerY)
       assert.ok(dist >= 400)
     }
+  })
+
+  it('lets hostiles sit on top of each other', () => {
+    const state = createGame(0, 21)
+    state.spawnCd = 999
+    state.enemies.push(enemy({ x: 240, y: 30, speed: 120, hp: 8 }))
+    state.enemies.push(enemy({ x: 240, y: 30, speed: 120, hp: 8, phase: 2 }))
+    run(state, input({ aimX: 0, aimY: -500, viewRadius: 200 }), 0.5)
+    const a = state.enemies[0]
+    const b = state.enemies[1]
+    assert.ok(a)
+    assert.ok(b)
+    assert.ok(Math.hypot(a.x - b.x, a.y - b.y) < 1)
   })
 
   it('closes distance on the core', () => {
