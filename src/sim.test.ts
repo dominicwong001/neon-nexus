@@ -233,7 +233,7 @@ describe('hostiles', () => {
     }
   })
 
-  it('lets hostiles sit on top of each other', () => {
+  it('keeps hostiles from sitting on each other', () => {
     const state = createGame(0, 21)
     state.spawnCd = 999
     state.enemies.push(enemy({ x: 240, y: 30, speed: 120, hp: 8 }))
@@ -243,7 +243,7 @@ describe('hostiles', () => {
     const b = state.enemies[1]
     assert.ok(a)
     assert.ok(b)
-    assert.ok(Math.hypot(a.x - b.x, a.y - b.y) < 1)
+    assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= a.radius + b.radius - 0.5)
   })
 
   it('closes distance on the core', () => {

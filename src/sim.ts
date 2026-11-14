@@ -531,6 +531,39 @@ function moveEnemies(state: GameState, input: Input, dt: number): void {
     e.y += e.vy * dt
     e.angle += e.spin * dt
   }
+  separateEnemies(state)
+}
+
+function separateEnemies(state: GameState): void {
+  const list = state.enemies
+  for (let pass = 0; pass < 2; pass++) {
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i]
+      if (!a) continue
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j]
+        if (!b) continue
+        let dx = b.x - a.x
+        let dy = b.y - a.y
+        let dist = Math.hypot(dx, dy)
+        const min = a.radius + b.radius + 6
+        if (dist >= min) continue
+        if (dist < 0.01) {
+          const ang = a.phase + b.phase + pass
+          dx = Math.cos(ang)
+          dy = Math.sin(ang)
+          dist = 1
+        }
+        const push = (min - dist) * 0.5
+        const nx = dx / dist
+        const ny = dy / dist
+        a.x -= nx * push
+        a.y -= ny * push
+        b.x += nx * push
+        b.y += ny * push
+      }
+    }
+  }
 }
 
 function touchPlayer(state: GameState, events: StepEvents): void {
@@ -604,10 +637,9 @@ function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents
     }
     if (dist < magnet) orb.homing = true
     if (orb.homing) {
-      const pull = 1 - Math.exp(-9 * dt)
-      const speed = 150 + (1 - Math.min(1, dist / magnet)) * 280
-      orb.vx += ((dx / dist) * speed - orb.vx) * pull
-      orb.vy += ((dy / dist) * speed - orb.vy) * pull
+      const speed = 1100 + (1 - Math.min(1, dist / magnet)) * 700
+      orb.vx = (dx / dist) * speed
+      orb.vy = (dy / dist) * speed
     } else {
       const damp = Math.exp(-2.8 * dt)
       orb.vx *= damp
@@ -616,7 +648,8 @@ function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents
     orb.x += orb.vx * dt
     orb.y += orb.vy * dt
     orb.pulse += dt
-    if (dist > TUNING.playerRadius + orb.radius + 6) continue
+    const landed = Math.hypot(state.playerX - orb.x, state.playerY - orb.y)
+    if (landed > TUNING.playerRadius + orb.radius + 6) continue
     const gain = Math.max(1, Math.round(orb.value * greed))
     state.xp += gain
     events.pickups += 1
