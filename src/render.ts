@@ -173,36 +173,29 @@ function drawOrbs(
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   for (const orb of state.orbs) {
-    const bob = Math.sin(state.time * 4 + orb.pulse) * 2
+    const bob = Math.sin(state.time * 4 + orb.pulse) * 1.4
     const x = X(orb.x)
     const y = Y(orb.y) + bob
     const glow = glowFor(orb.color)
-    const s = orb.radius * (orb.rare ? 5.2 : 4.2)
+    const s = orb.radius * (orb.rare ? 18 : 16)
     ctx.drawImage(glow, x - s / 2, y - s / 2, s, s)
+    const hot = glowFor('#ffffff')
+    const h = s * 0.55
+    ctx.drawImage(hot, x - h / 2, y - h / 2, h, h)
   }
   ctx.restore()
 
   for (const orb of state.orbs) {
-    const bob = Math.sin(state.time * 4 + orb.pulse) * 2
+    const bob = Math.sin(state.time * 4 + orb.pulse) * 1.4
     const x = X(orb.x)
     const y = Y(orb.y) + bob
-    const pulse = 1 + Math.sin(state.time * 6 + orb.pulse) * 0.08
+    const pulse = 1 + Math.sin(state.time * 7 + orb.pulse) * 0.12
     const r = orb.radius * pulse
-    ctx.beginPath()
     ctx.fillStyle = orb.color
-    ctx.arc(x, y, r, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.beginPath()
+    ctx.fillRect(x - r, y - r, r * 2, r * 2)
     ctx.fillStyle = '#ffffff'
-    ctx.arc(x, y, Math.max(2, r * 0.42), 0, Math.PI * 2)
-    ctx.fill()
-    if (orb.rare) {
-      ctx.strokeStyle = orb.color
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      ctx.arc(x, y, r + 4, 0, Math.PI * 2)
-      ctx.stroke()
-    }
+    const core = Math.max(1.2, r * 0.55)
+    ctx.fillRect(x - core, y - core, core * 2, core * 2)
   }
 }
 
@@ -352,10 +345,10 @@ function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
     const len = Math.min(28, 8 + speed * 0.035)
     ctx.fillStyle = '#ffffff'
     ctx.beginPath()
-    ctx.moveTo(-10, 0)
-    ctx.lineTo(-10 - len, 5)
-    ctx.lineTo(-16 - len, 0)
-    ctx.lineTo(-10 - len, -5)
+    ctx.moveTo(-6, 0)
+    ctx.lineTo(-6 - len, 4.5)
+    ctx.lineTo(-12 - len, 0)
+    ctx.lineTo(-6 - len, -4.5)
     ctx.closePath()
     ctx.fill()
     ctx.restore()
@@ -366,9 +359,12 @@ function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.fillStyle = '#071016'
   ctx.strokeStyle = '#ffffff'
   ctx.lineWidth = 2.5
+  ctx.lineJoin = 'miter'
+  ctx.miterLimit = 3
   ctx.beginPath()
   ctx.moveTo(16, 0)
   ctx.lineTo(-14, 15)
+  ctx.lineTo(-6, 0)
   ctx.lineTo(-14, -15)
   ctx.closePath()
   ctx.fill()
