@@ -41,7 +41,6 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
   const Y = (y: number) => y - state.playerY
 
   drawGrid(ctx, state, width, height)
-  drawBeacons(ctx, state, width, height)
   drawShocks(ctx, state, X, Y)
   drawOrbs(ctx, state, X, Y)
   drawParticles(ctx, state, X, Y)
@@ -94,35 +93,10 @@ function drawGrid(ctx: CanvasRenderingContext2D, state: GameState, width: number
   }
   ctx.stroke()
 
-  ctx.fillStyle = 'rgba(255, 61, 242, 0.55)'
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)'
   for (let x = mx0; x <= right; x += major) {
     for (let y = my0; y <= bottom; y += major) {
       ctx.fillRect(x - state.playerX - 1.6, y - state.playerY - 1.6, 3.2, 3.2)
-    }
-  }
-}
-
-function drawBeacons(ctx: CanvasRenderingContext2D, state: GameState, width: number, height: number): void {
-  const cell = 640
-  const x0 = Math.floor((state.playerX - width) / cell) - 1
-  const x1 = Math.floor((state.playerX + width) / cell) + 1
-  const y0 = Math.floor((state.playerY - height) / cell) - 1
-  const y1 = Math.floor((state.playerY + height) / cell) + 1
-  const palette = ['rgba(255, 255, 255, 0.22)', 'rgba(255, 61, 242, 0.2)', 'rgba(255, 210, 58, 0.2)']
-  for (let iy = y0; iy <= y1; iy++) {
-    for (let ix = x0; ix <= x1; ix++) {
-      if (ix === 0 && iy === 0) continue
-      const h = hashCell(ix, iy)
-      if (h % 4 !== 0) continue
-      const x = ix * cell + cell / 2 + ((h >>> 8) % 180) - 90 - state.playerX
-      const y = iy * cell + cell / 2 + ((h >>> 16) % 180) - 90 - state.playerY
-      const r = 28 + (h % 36)
-      ctx.strokeStyle = palette[h % 3]
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      ctx.arc(x, y, r, 0, Math.PI * 2)
-      ctx.stroke()
-      strokePoly(ctx, x, y, r * 0.45, 4, palette[h % 3], 1.25, ((h % 90) * Math.PI) / 180)
     }
   }
 }
@@ -485,10 +459,4 @@ function hexAlpha(hex: string, alpha: number): string {
   const g = (n >> 8) & 255
   const b = n & 255
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
-
-function hashCell(ix: number, iy: number): number {
-  let n = Math.imul(ix, 374761393) + Math.imul(iy, 668265263)
-  n = Math.imul(n ^ (n >>> 13), 1274126177)
-  return (n ^ (n >>> 16)) >>> 0
 }
