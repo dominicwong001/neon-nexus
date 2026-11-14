@@ -2,9 +2,9 @@
 
 A black infinite arena. The core stays in the middle of the screen. WASD drifts the lattice, and white rounds fire toward the cursor.
 
-Hostile shapes wander in from the dark. Triangles are fast and break in one hit. Squares take two. Circles split into smaller circles. Every shape drops a small glowing square. Circles drop a larger lilac square worth more. Orbs fill the bar at the top of the screen. When it fills, the pit holds still and you pick one of three upgrades.
+Hostile shapes wander in from the dark. Triangles are fast and break in one hit. Squares take two. Circles split into smaller circles. Every shape drops a small glowing square. Circles drop a larger lilac square worth more. Orbs fill the bar at the top of the screen. Each level asks for more than the last. When the bar fills, the pit holds still and you pick one of three upgrades.
 
-Contact cracks the hull. Five cracks and the core is lost. Reform keeps your best score on this browser.
+Contact cracks the hull. The bar on the left shows what is left. Five cracks and the core is lost.
 
 ## Run
 

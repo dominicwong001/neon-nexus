@@ -188,7 +188,7 @@ const ORB_COMMON = '#ffffff'
 const ORB_RARE = '#d9a6ff'
 
 export function xpNeedFor(level: number): number {
-  return Math.round(8 * 1.42 ** Math.max(0, level - 1))
+  return 18 * 2 ** Math.max(0, level - 1)
 }
 
 function freshMods(): Mods {
@@ -590,7 +590,7 @@ function dropOrb(state: GameState, enemy: Enemy): void {
 }
 
 function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents): void {
-  const magnet = 240 + state.mods.magnet * 90
+  const magnet = 86 + state.mods.magnet * 46
   const greed = 1 + state.mods.greed * 0.3
   const limit = Math.max(900, input.viewRadius * 2.8)
   for (let i = state.orbs.length - 1; i >= 0; i--) {
@@ -605,7 +605,7 @@ function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents
     if (dist < magnet) orb.homing = true
     if (orb.homing) {
       const pull = 1 - Math.exp(-9 * dt)
-      const speed = 240 + (1 - Math.min(1, dist / magnet)) * 640
+      const speed = 150 + (1 - Math.min(1, dist / magnet)) * 280
       orb.vx += ((dx / dist) * speed - orb.vx) * pull
       orb.vy += ((dy / dist) * speed - orb.vy) * pull
     } else {

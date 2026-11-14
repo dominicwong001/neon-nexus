@@ -311,6 +311,15 @@ describe('orbs', () => {
     assert.equal(state.orbs[0]?.homing, false)
   })
 
+  it('asks for more experience on every level', () => {
+    const first = xpNeedFor(1)
+    const second = xpNeedFor(2)
+    const third = xpNeedFor(3)
+    assert.ok(second > first)
+    assert.ok(third > second)
+    assert.ok(third >= first * 2)
+  })
+
   it('opens three upgrades when the bar fills and freezes the pit', () => {
     const state = createGame(0, 42)
     state.spawnCd = 999
@@ -339,7 +348,7 @@ describe('orbs', () => {
   it('queues another choice when one orb covers two levels', () => {
     const state = createGame(0, 43)
     state.spawnCd = 999
-    state.orbs.push(orb({ value: 30 }))
+    state.orbs.push(orb({ value: 70 }))
     step(state, input({ aimActive: false }), 1 / 60)
     assert.equal(state.phase, 'level')
     assert.equal(state.level, 2)

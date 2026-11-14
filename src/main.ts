@@ -13,11 +13,8 @@ import {
 } from './sim.ts'
 
 const canvas = must<HTMLCanvasElement>('#view')
-const scoreEl = must<HTMLElement>('#score')
-const bestEl = must<HTMLElement>('#best')
-const comboEl = must<HTMLElement>('#combo')
 const hullEl = must<HTMLElement>('#hull')
-const heatEl = must<HTMLElement>('#heat')
+const hullFill = must<HTMLElement>('#hull-fill')
 const hintEl = must<HTMLElement>('#hint')
 const liveEl = must<HTMLElement>('#live')
 const flashEl = must<HTMLElement>('#flash')
@@ -29,7 +26,6 @@ const xpFill = must<HTMLElement>('#xp-fill')
 const xpLabel = must<HTMLElement>('#xp-label')
 const levelEl = must<HTMLElement>('#level')
 const levelKicker = must<HTMLElement>('#level-kicker')
-const levelHint = must<HTMLElement>('#level-hint')
 const offersEl = must<HTMLElement>('#offers')
 const muteBtn = must<HTMLButtonElement>('#mute')
 const fullBtn = must<HTMLButtonElement>('#full')
@@ -45,9 +41,6 @@ const coarse = window.matchMedia('(pointer: coarse)').matches
 hintEl.textContent = coarse
   ? 'Drag the left side to drift · touch the right side to aim · orbs fill the bar'
   : 'WASD drifts · cursor aims · orbs fill the bar'
-levelHint.textContent = coarse
-  ? 'The pit holds still until you tap a card.'
-  : 'The pit holds still until you pick. Press 1, 2, or 3.'
 
 let state = createGame(loadBest(), seed())
 let width = 1
@@ -58,11 +51,9 @@ let pointerY = 0
 let pointerOn = false
 let stick: { id: number; originX: number; originY: number; x: number; y: number } | null = null
 let aimTouch: number | null = null
-let shownScore = 0
 let shownBest = -1
-let shownCombo = ''
-let shownHeat = -1
 let shownHull = -1
+let shownHullMax = -1
 let deathShown = false
 let liveAt = 0
 let liveHull = -1
@@ -173,26 +164,9 @@ function stickVector(active: NonNullable<typeof stick>): { x: number; y: number;
 }
 
 function syncHud(game: GameState, now: number): void {
-  if (game.score !== shownScore) {
-    scoreEl.textContent = game.score.toLocaleString('en-US')
-    scoreEl.classList.remove('pop')
-    void scoreEl.offsetWidth
-    scoreEl.classList.add('pop')
-    shownScore = game.score
-  }
   if (game.best !== shownBest) {
-    bestEl.textContent = `Best ${game.best.toLocaleString('en-US')}`
     shownBest = game.best
     saveBest(game.best)
-  }
-  const combo = game.combo >= 2 && game.comboTime > 0 ? `x${game.combo}` : ''
-  if (combo !== shownCombo) {
-    comboEl.textContent = combo
-    shownCombo = combo
-  }
-  if (game.heat !== shownHeat) {
-    heatEl.textContent = `Heat ${String(game.heat).padStart(2, '0')}`
-    shownHeat = game.heat
   }
   const xpPct = game.xpNeed > 0 ? Math.max(0, Math.min(100, (game.xp / game.xpNeed) * 100)) : 0
   if (xpPct !== shownXp || game.level !== shownLevel) {
@@ -205,28 +179,22 @@ function syncHud(game: GameState, now: number): void {
     shownLevel = game.level
   }
   syncLevel(game)
-  if (game.hull !== shownHull || hullEl.children.length !== game.hullMax) {
-    while (hullEl.children.length > game.hullMax) hullEl.lastElementChild?.remove()
-    while (hullEl.children.length < game.hullMax) {
-      const pip = document.createElement('span')
-      pip.className = 'pip'
-      hullEl.append(pip)
-    }
-    const pips = hullEl.children
-    for (let i = 0; i < pips.length; i++) {
-      const pip = pips[i]
-      if (!(pip instanceof HTMLElement)) continue
-      pip.classList.toggle('spent', i >= game.hull)
-      pip.classList.toggle('warn', game.hull > 0 && game.hull <= 2 && i < game.hull)
-    }
+  if (game.hull !== shownHull || game.hullMax !== shownHullMax) {
+    const hullPct = game.hullMax > 0 ? Math.max(0, Math.min(100, (game.hull / game.hullMax) * 100)) : 0
+    hullFill.style.width = `${hullPct}%`
+    hullEl.setAttribute('aria-valuenow', String(game.hull))
+    hullEl.setAttribute('aria-valuemax', String(game.hullMax))
+    hullEl.setAttribute('aria-valuetext', `${game.hull} of ${game.hullMax}`)
+    hullEl.classList.toggle('warn', game.hull > 0 && game.hull * 2 <= game.hullMax)
     shownHull = game.hull
+    shownHullMax = game.hullMax
   }
   document.body.classList.toggle('critical', game.phase === 'play' && game.hull <= 2)
   flashEl.style.opacity = String(Math.min(0.45, game.flash * 0.45))
 
   if (game.phase === 'dead' && !deathShown) {
     deathShown = true
-    finalEl.textContent = `Score ${game.score.toLocaleString('en-US')} · Best ${game.best.toLocaleString('en-US')} · ${game.kills.toLocaleString('en-US')} shattered`
+    finalEl.textContent = `Reached level ${game.level}`
     overlay.hidden = false
     againBtn.focus()
   }
@@ -237,10 +205,10 @@ function syncHud(game: GameState, now: number): void {
     livePhase = game.phase
     liveEl.textContent =
       game.phase === 'dead'
-        ? `Core lost. Score ${game.score}. Best ${game.best}.`
+        ? `Core lost. Reached level ${game.level}.`
         : game.phase === 'level'
           ? `Level ${game.level}. Choose an upgrade.`
-          : `Score ${game.score}. Level ${game.level}. Hull ${game.hull} of ${game.hullMax}.`
+          : `Level ${game.level}. Hull ${game.hull} of ${game.hullMax}.`
   }
 }
 
@@ -299,9 +267,9 @@ function reform(): void {
   overlay.hidden = true
   levelEl.hidden = true
   deathShown = false
-  shownScore = -1
   shownBest = -1
   shownHull = -1
+  shownHullMax = -1
   shownXp = -1
   shownLevel = -1
   shownOffers = ''

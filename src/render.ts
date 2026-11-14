@@ -177,11 +177,10 @@ function drawOrbs(
     const x = X(orb.x)
     const y = Y(orb.y) + bob
     const glow = glowFor(orb.color)
-    const s = orb.radius * (orb.rare ? 18 : 16)
+    const s = orb.radius * (orb.rare ? 12 : 10)
+    ctx.globalAlpha = 0.72
     ctx.drawImage(glow, x - s / 2, y - s / 2, s, s)
-    const hot = glowFor('#ffffff')
-    const h = s * 0.55
-    ctx.drawImage(hot, x - h / 2, y - h / 2, h, h)
+    ctx.globalAlpha = 1
   }
   ctx.restore()
 
