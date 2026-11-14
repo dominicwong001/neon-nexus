@@ -51,8 +51,8 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
   drawPlayer(ctx, state)
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  drawAim(ctx, view, sx, sy)
-  if (view.stick) drawStick(ctx, view.stick)
+  if (state.phase === 'play') drawAim(ctx, view, sx, sy)
+  if (view.stick && state.phase === 'play') drawStick(ctx, view.stick)
 }
 
 function drawGrid(ctx: CanvasRenderingContext2D, state: GameState, width: number, height: number): void {

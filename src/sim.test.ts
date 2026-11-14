@@ -374,6 +374,22 @@ describe('orbs', () => {
     assert.equal(state.phase, 'play')
   })
 
+  it('never offers Reach', () => {
+    const state = createGame(0, 9)
+    state.spawnCd = 999
+    state.fireCd = 10
+    const titles = new Set<string>()
+    for (let n = 0; n < 16; n++) {
+      state.xp = state.xpNeed
+      step(state, input({ aimActive: false }), 1 / 60)
+      assert.equal(state.phase, 'level')
+      for (const offer of state.offers) titles.add(offer.title)
+      chooseUpgrade(state, 0)
+    }
+    assert.equal(titles.has('Reach'), false)
+    assert.ok(titles.size >= 3)
+  })
+
   it('queues another choice when one orb covers two levels', () => {
     const state = createGame(0, 43)
     state.spawnCd = 999

@@ -18,7 +18,7 @@ export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a'] as const
 
 export type EnemyKind = 0 | 1 | 2
 export type Phase = 'play' | 'dead' | 'level'
-export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'range' | 'greed' | 'plate' | 'cache'
+export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'plate' | 'cache'
 
 export interface Bullet {
   x: number
@@ -90,7 +90,6 @@ export interface Mods {
   drift: number
   magnet: number
   fork: number
-  range: number
   greed: number
   plate: number
 }
@@ -181,7 +180,6 @@ const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
   drift: 4,
   magnet: 4,
   fork: 2,
-  range: 3,
   greed: 3,
   plate: 3,
 }
@@ -194,7 +192,7 @@ export function xpNeedFor(level: number): number {
 }
 
 function freshMods(): Mods {
-  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, range: 0, greed: 0, plate: 0 }
+  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, plate: 0 }
 }
 
 export function createGame(best = 0, seed = 1): GameState {
@@ -351,8 +349,8 @@ function aimAt(state: GameState, input: Input): void {
 function fire(state: GameState, dt: number, events: StepEvents): void {
   state.fireCd -= dt
   const interval = Math.max(0.08, TUNING.fireInterval / (1 + state.mods.pulse * 0.22))
-  const shotSpeed = TUNING.bulletSpeed * (1 + state.mods.range * 0.12)
-  const life = 1.35 * (1 + state.mods.range * 0.55)
+  const shotSpeed = TUNING.bulletSpeed
+  const life = 1.35
   let guard = 0
   while (state.fireCd <= 0 && guard < 4) {
     guard += 1
@@ -384,7 +382,7 @@ function fire(state: GameState, dt: number, events: StepEvents): void {
 }
 
 function moveBullets(state: GameState, input: Input, dt: number, events: StepEvents): void {
-  const maxR = Math.max(320, input.viewRadius + 110) * (1 + state.mods.range * 0.55)
+  const maxR = Math.max(320, input.viewRadius + 110)
   const maxR2 = maxR * maxR
   for (let i = state.bullets.length - 1; i >= 0; i--) {
     const b = state.bullets[i]
@@ -733,7 +731,6 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     drift: { title: 'Drift', detail: 'Top speed climbs.' },
     magnet: { title: 'Magnet', detail: 'Orbs start homing from farther out.' },
     fork: { title: 'Fork', detail: 'Two extra rounds fan out beside the main shot.' },
-    range: { title: 'Reach', detail: 'Rounds fly farther past the edge of the screen.' },
     greed: { title: 'Greed', detail: 'Every orb is worth more.' },
     plate: { title: 'Plate', detail: 'Repair one hull segment and add a spare.' },
   }

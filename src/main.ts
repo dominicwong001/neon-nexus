@@ -190,6 +190,7 @@ function syncHud(game: GameState, now: number): void {
     shownHullMax = game.hullMax
   }
   document.body.classList.toggle('critical', game.phase === 'play' && game.hull <= 2)
+  document.body.classList.toggle('menu', game.phase !== 'play')
   flashEl.style.opacity = String(Math.min(0.45, game.flash * 0.45))
 
   if (game.phase === 'dead' && !deathShown) {

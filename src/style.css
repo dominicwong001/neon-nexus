@@ -75,7 +75,7 @@ body.critical #vignette {
   z-index: 5;
   top: auto;
   left: 50%;
-  bottom: max(0.85rem, env(safe-area-inset-bottom));
+  bottom: max(2.55rem, calc(env(safe-area-inset-bottom) + 1.85rem));
   transform: translateX(-50%);
   width: min(78vw, 260px);
   pointer-events: none;
@@ -186,7 +186,7 @@ button:focus-visible {
   position: fixed;
   z-index: 5;
   left: 50%;
-  bottom: max(3.55rem, calc(env(safe-area-inset-bottom) + 2.7rem));
+  bottom: max(0.7rem, env(safe-area-inset-bottom));
   transform: translateX(-50%);
   width: min(92vw, 680px);
   margin: 0;
@@ -231,7 +231,7 @@ button:focus-visible {
   overflow: auto;
   padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
   background: rgba(0, 0, 0, 0.62);
-  cursor: pointer;
+  cursor: auto;
 }
 
 .level[hidden] {
@@ -245,7 +245,7 @@ button:focus-visible {
   background: rgba(0, 0, 0, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow: 0 0 36px rgba(255, 255, 255, 0.14);
-  cursor: pointer;
+  cursor: auto;
 }
 
 .level-card h2 {
@@ -347,11 +347,20 @@ h1 {
 @media (max-height: 520px) {
   #hud {
     width: min(56vw, 200px);
+    bottom: max(2.2rem, calc(env(safe-area-inset-bottom) + 1.5rem));
   }
+}
 
-  .hint {
-    bottom: max(3.15rem, calc(env(safe-area-inset-bottom) + 2.3rem));
-  }
+body.menu,
+body.menu #view,
+body.menu #overlay,
+body.menu .card {
+  cursor: auto;
+}
+
+body.menu button,
+body.menu .offer {
+  cursor: pointer;
 }
 
 @media (max-width: 720px) {
