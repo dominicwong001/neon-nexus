@@ -5,7 +5,7 @@ import './style.css'
 import { AudioBus } from './audio.ts'
 import { render, type StickView } from './render.ts'
 import {
-  TUNING,
+  chooseUpgrade,
   createGame,
   screenToWorld,
   step,
@@ -24,6 +24,13 @@ const flashEl = must<HTMLElement>('#flash')
 const overlay = must<HTMLElement>('#overlay')
 const finalEl = must<HTMLElement>('#final')
 const againBtn = must<HTMLButtonElement>('#again')
+const xpEl = must<HTMLElement>('#xp')
+const xpFill = must<HTMLElement>('#xp-fill')
+const xpLabel = must<HTMLElement>('#xp-label')
+const levelEl = must<HTMLElement>('#level')
+const levelKicker = must<HTMLElement>('#level-kicker')
+const levelHint = must<HTMLElement>('#level-hint')
+const offersEl = must<HTMLElement>('#offers')
 const muteBtn = must<HTMLButtonElement>('#mute')
 const fullBtn = must<HTMLButtonElement>('#full')
 
@@ -36,14 +43,11 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 const coarse = window.matchMedia('(pointer: coarse)').matches
 
 hintEl.textContent = coarse
-  ? 'Drag the left side to drift · touch the right side to aim'
-  : 'WASD drifts · cursor aims each shot'
-
-for (let i = 0; i < TUNING.hullMax; i++) {
-  const pip = document.createElement('span')
-  pip.className = 'pip'
-  hullEl.append(pip)
-}
+  ? 'Drag the left side to drift · touch the right side to aim · orbs fill the bar'
+  : 'WASD drifts · cursor aims · orbs fill the bar'
+levelHint.textContent = coarse
+  ? 'The pit holds still until you tap a card.'
+  : 'The pit holds still until you pick. Press 1, 2, or 3.'
 
 let state = createGame(loadBest(), seed())
 let width = 1
@@ -63,6 +67,9 @@ let deathShown = false
 let liveAt = 0
 let liveHull = -1
 let livePhase = ''
+let shownXp = -1
+let shownLevel = -1
+let shownOffers = ''
 let last = performance.now()
 
 syncAudioButton()
@@ -113,6 +120,8 @@ function frame(now: number): void {
     )
     if (events.shots) audio.shot()
     if (events.kills) audio.kill()
+    if (events.pickups) audio.pickup()
+    if (events.leveled) audio.level()
     if (events.hurt) audio.hurt()
     if (events.died) audio.die()
     render(ctx!, state, {
@@ -185,7 +194,24 @@ function syncHud(game: GameState, now: number): void {
     heatEl.textContent = `Heat ${String(game.heat).padStart(2, '0')}`
     shownHeat = game.heat
   }
-  if (game.hull !== shownHull) {
+  const xpPct = game.xpNeed > 0 ? Math.max(0, Math.min(100, (game.xp / game.xpNeed) * 100)) : 0
+  if (xpPct !== shownXp || game.level !== shownLevel) {
+    xpFill.style.width = `${xpPct}%`
+    xpLabel.textContent = `Lv ${game.level}`
+    xpEl.setAttribute('aria-valuenow', String(Math.round(xpPct)))
+    xpEl.setAttribute('aria-valuemax', '100')
+    xpEl.setAttribute('aria-valuetext', `Level ${game.level}, ${Math.round(xpPct)} percent`)
+    shownXp = xpPct
+    shownLevel = game.level
+  }
+  syncLevel(game)
+  if (game.hull !== shownHull || hullEl.children.length !== game.hullMax) {
+    while (hullEl.children.length > game.hullMax) hullEl.lastElementChild?.remove()
+    while (hullEl.children.length < game.hullMax) {
+      const pip = document.createElement('span')
+      pip.className = 'pip'
+      hullEl.append(pip)
+    }
     const pips = hullEl.children
     for (let i = 0; i < pips.length; i++) {
       const pip = pips[i]
@@ -212,17 +238,73 @@ function syncHud(game: GameState, now: number): void {
     liveEl.textContent =
       game.phase === 'dead'
         ? `Core lost. Score ${game.score}. Best ${game.best}.`
-        : `Score ${game.score}. Hull ${game.hull} of ${TUNING.hullMax}.`
+        : game.phase === 'level'
+          ? `Level ${game.level}. Choose an upgrade.`
+          : `Score ${game.score}. Level ${game.level}. Hull ${game.hull} of ${game.hullMax}.`
   }
+}
+
+function syncLevel(game: GameState): void {
+  const open = game.phase === 'level'
+  levelEl.hidden = !open
+  if (!open) {
+    if (shownOffers !== '') {
+      shownOffers = ''
+      offersEl.replaceChildren()
+    }
+    return
+  }
+  const key = `${game.level}:${game.offers.map((offer) => `${offer.id}${offer.rank}`).join('|')}`
+  if (key === shownOffers) return
+  shownOffers = key
+  levelKicker.textContent = `Level ${game.level}`
+  offersEl.replaceChildren()
+  game.offers.forEach((offer, index) => {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'offer'
+    const keyEl = document.createElement('span')
+    keyEl.className = 'offer-key'
+    keyEl.textContent = String(index + 1)
+    const title = document.createElement('span')
+    title.className = 'offer-title'
+    title.textContent = offer.title
+    const detail = document.createElement('span')
+    detail.className = 'offer-detail'
+    detail.textContent = offer.detail
+    const rank = document.createElement('span')
+    rank.className = 'offer-rank'
+    rank.textContent = offer.id === 'cache' ? 'Bonus' : `Rank ${offer.rank} of ${offer.max}`
+    button.append(keyEl, title, detail, rank)
+    button.addEventListener('click', () => pickUpgrade(index))
+    offersEl.append(button)
+  })
+  const first = offersEl.querySelector('button')
+  if (first instanceof HTMLButtonElement) first.focus()
+}
+
+function pickUpgrade(index: number): void {
+  if (state.phase !== 'level') return
+  chooseUpgrade(state, index)
+  audio.ensure()
+  if (state.phase === 'level') audio.level()
+  shownOffers = ''
+  shownXp = -1
+  shownLevel = -1
+  shownHull = -1
 }
 
 function reform(): void {
   state = createGame(Math.max(state.best, loadBest()), seed())
   overlay.hidden = true
+  levelEl.hidden = true
   deathShown = false
   shownScore = -1
   shownBest = -1
   shownHull = -1
+  shownXp = -1
+  shownLevel = -1
+  shownOffers = ''
   audio.ensure()
 }
 
@@ -232,6 +314,10 @@ function onKeyDown(event: KeyboardEvent): void {
   keys.add(key)
   audio.ensure()
   if (event.repeat) return
+  if (state.phase === 'level' && (key === '1' || key === '2' || key === '3')) {
+    pickUpgrade(Number(key) - 1)
+    return
+  }
   if (key === 'r' && state.phase === 'dead') reform()
   if (key === 'f') toggleFull()
 }

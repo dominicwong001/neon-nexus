@@ -34,6 +34,14 @@ export class AudioBus {
     this.blip(1460, 0.032, 'sine', 0.028, 420)
   }
 
+  pickup(): void {
+    this.blip(880, 0.05, 'sine', 0.03, 220)
+  }
+
+  level(): void {
+    this.blip(520, 0.16, 'triangle', 0.05, 280)
+  }
+
   kill(): void {
     this.blip(340, 0.09, 'triangle', 0.05, 240)
   }

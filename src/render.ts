@@ -18,14 +18,7 @@ export interface View {
   reduceMotion: boolean
 }
 
-interface GlowSet {
-  white: HTMLCanvasElement
-  magenta: HTMLCanvasElement
-  amber: HTMLCanvasElement
-  lime: HTMLCanvasElement
-}
-
-let glows: GlowSet | null = null
+const glowCache = new Map<string, HTMLCanvasElement>()
 
 export function render(ctx: CanvasRenderingContext2D, state: GameState, view: View): void {
   const { width, height, dpr } = view
@@ -50,9 +43,11 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
   drawGrid(ctx, state, width, height)
   drawBeacons(ctx, state, width, height)
   drawShocks(ctx, state, X, Y)
+  drawOrbs(ctx, state, X, Y)
   drawParticles(ctx, state, X, Y)
   drawEnemies(ctx, state, X, Y)
   drawBullets(ctx, state, X, Y)
+  drawImpacts(ctx, state, X, Y)
   drawFloaters(ctx, state, X, Y)
   drawPlayer(ctx, state)
 
@@ -72,7 +67,7 @@ function drawGrid(ctx: CanvasRenderingContext2D, state: GameState, width: number
   const y0 = Math.floor(top / gap) * gap
 
   ctx.beginPath()
-  ctx.strokeStyle = 'rgba(94, 242, 255, 0.075)'
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.075)'
   ctx.lineWidth = 1
   for (let x = x0; x <= right; x += gap) {
     ctx.moveTo(x - state.playerX, y0 - state.playerY)
@@ -88,7 +83,7 @@ function drawGrid(ctx: CanvasRenderingContext2D, state: GameState, width: number
   const mx0 = Math.floor(left / major) * major
   const my0 = Math.floor(top / major) * major
   ctx.beginPath()
-  ctx.strokeStyle = 'rgba(94, 242, 255, 0.16)'
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)'
   for (let x = mx0; x <= right; x += major) {
     ctx.moveTo(x - state.playerX, my0 - state.playerY)
     ctx.lineTo(x - state.playerX, bottom - state.playerY)
@@ -113,7 +108,7 @@ function drawBeacons(ctx: CanvasRenderingContext2D, state: GameState, width: num
   const x1 = Math.floor((state.playerX + width) / cell) + 1
   const y0 = Math.floor((state.playerY - height) / cell) - 1
   const y1 = Math.floor((state.playerY + height) / cell) + 1
-  const palette = ['rgba(94, 242, 255, 0.22)', 'rgba(255, 61, 242, 0.2)', 'rgba(255, 210, 58, 0.2)']
+  const palette = ['rgba(255, 255, 255, 0.22)', 'rgba(255, 61, 242, 0.2)', 'rgba(255, 210, 58, 0.2)']
   for (let iy = y0; iy <= y1; iy++) {
     for (let ix = x0; ix <= x1; ix++) {
       if (ix === 0 && iy === 0) continue
@@ -169,14 +164,93 @@ function drawParticles(
   ctx.restore()
 }
 
+function drawOrbs(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  X: (x: number) => number,
+  Y: (y: number) => number,
+): void {
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+  for (const orb of state.orbs) {
+    const bob = Math.sin(state.time * 4 + orb.pulse) * 2
+    const x = X(orb.x)
+    const y = Y(orb.y) + bob
+    const glow = glowFor(orb.color)
+    const s = orb.radius * (orb.rare ? 5.2 : 4.2)
+    ctx.drawImage(glow, x - s / 2, y - s / 2, s, s)
+  }
+  ctx.restore()
+
+  for (const orb of state.orbs) {
+    const bob = Math.sin(state.time * 4 + orb.pulse) * 2
+    const x = X(orb.x)
+    const y = Y(orb.y) + bob
+    const pulse = 1 + Math.sin(state.time * 6 + orb.pulse) * 0.08
+    const r = orb.radius * pulse
+    ctx.beginPath()
+    ctx.fillStyle = orb.color
+    ctx.arc(x, y, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.fillStyle = '#ffffff'
+    ctx.arc(x, y, Math.max(2, r * 0.42), 0, Math.PI * 2)
+    ctx.fill()
+    if (orb.rare) {
+      ctx.strokeStyle = orb.color
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.arc(x, y, r + 4, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+  }
+}
+
+function drawImpacts(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  X: (x: number) => number,
+  Y: (y: number) => number,
+): void {
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+  for (const hit of state.impacts) {
+    const t = 1 - hit.life / hit.max
+    const alpha = Math.max(0, hit.life / hit.max)
+    const x = X(hit.x)
+    const y = Y(hit.y)
+    ctx.globalAlpha = alpha
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.arc(x, y, 2 + (1 - t) * 6, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.globalAlpha = alpha * 0.9
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(x, y, 5 + t * 28, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.globalAlpha = alpha
+    ctx.lineWidth = 1.6
+    const len = 5 + t * 20
+    ctx.beginPath()
+    for (let i = 0; i < 6; i++) {
+      const a = hit.spin + (i * Math.PI) / 3
+      ctx.moveTo(x + Math.cos(a) * 2, y + Math.sin(a) * 2)
+      ctx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len)
+    }
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
 function drawEnemies(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   X: (x: number) => number,
   Y: (y: number) => number,
 ): void {
-  const set = glowSprites()
-  const sheets = [set.magenta, set.amber, set.lime]
+  const sheets = [glowFor('#ff3df2'), glowFor('#ffd23a'), glowFor('#8dff6a')]
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   for (const e of state.enemies) {
@@ -208,7 +282,7 @@ function drawBullets(
   X: (x: number) => number,
   Y: (y: number) => number,
 ): void {
-  const glow = glowSprites().white
+  const glow = glowFor('#ffffff')
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   for (const b of state.bullets) {
@@ -260,7 +334,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.save()
   if (blink) ctx.globalAlpha = 0.32
 
-  const glow = glowSprites().white
+  const glow = glowFor('#ffffff')
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   ctx.drawImage(glow, -52, -52, 104, 104)
@@ -290,7 +364,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.save()
   ctx.rotate(state.aim)
   ctx.fillStyle = '#071016'
-  ctx.strokeStyle = '#f4feff'
+  ctx.strokeStyle = '#ffffff'
   ctx.lineWidth = 2.5
   ctx.beginPath()
   ctx.moveTo(16, 0)
@@ -311,14 +385,14 @@ function drawAim(ctx: CanvasRenderingContext2D, view: View, sx: number, sy: numb
   const dx = x - ox
   const dy = y - oy
   if (dx * dx + dy * dy > 36 * 36) {
-    ctx.strokeStyle = 'rgba(94, 242, 255, 0.16)'
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)'
     ctx.lineWidth = 1
     ctx.beginPath()
     ctx.moveTo(ox, oy)
     ctx.lineTo(x, y)
     ctx.stroke()
   }
-  ctx.strokeStyle = 'rgba(94, 242, 255, 0.95)'
+  ctx.strokeStyle = '#ffffff'
   ctx.lineWidth = 1.5
   ctx.beginPath()
   ctx.arc(x, y, 12, 0, Math.PI * 2)
@@ -331,13 +405,13 @@ function drawAim(ctx: CanvasRenderingContext2D, view: View, sx: number, sy: numb
   ctx.moveTo(x, y + 6)
   ctx.lineTo(x, y + 20)
   ctx.stroke()
-  ctx.fillStyle = '#ff3df2'
+  ctx.fillStyle = '#ffffff'
   ctx.fillRect(x - 1.5, y - 1.5, 3, 3)
 }
 
 function drawStick(ctx: CanvasRenderingContext2D, stick: StickView): void {
   ctx.beginPath()
-  ctx.strokeStyle = 'rgba(94, 242, 255, 0.4)'
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)'
   ctx.lineWidth = 2
   ctx.arc(stick.ox, stick.oy, 56, 0, Math.PI * 2)
   ctx.stroke()
@@ -385,15 +459,12 @@ function polyPath(
   ctx.closePath()
 }
 
-function glowSprites(): GlowSet {
-  if (glows) return glows
-  glows = {
-    white: makeGlow('#ffffff'),
-    magenta: makeGlow('#ff3df2'),
-    amber: makeGlow('#ffd23a'),
-    lime: makeGlow('#8dff6a'),
-  }
-  return glows
+function glowFor(hex: string): HTMLCanvasElement {
+  const cached = glowCache.get(hex)
+  if (cached) return cached
+  const made = makeGlow(hex)
+  glowCache.set(hex, made)
+  return made
 }
 
 function makeGlow(hex: string): HTMLCanvasElement {

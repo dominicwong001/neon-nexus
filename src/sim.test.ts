@@ -2,12 +2,15 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   TUNING,
+  chooseUpgrade,
   createGame,
   screenToWorld,
   step,
   worldToScreen,
+  xpNeedFor,
   type Enemy,
   type Input,
+  type Orb,
 } from './sim.ts'
 
 function input(over: Partial<Input> = {}): Input {
@@ -37,6 +40,22 @@ function enemy(over: Partial<Enemy> = {}): Enemy {
     phase: 0,
     speed: 120,
     generation: 0,
+    ...over,
+  }
+}
+
+function orb(over: Partial<Orb> = {}): Orb {
+  return {
+    x: 0,
+    y: 0,
+    vx: 0,
+    vy: 0,
+    radius: 6,
+    value: 1,
+    color: '#ffffff',
+    rare: false,
+    homing: false,
+    pulse: 0,
     ...over,
   }
 }
@@ -159,6 +178,8 @@ describe('hostiles', () => {
     }
     const child = state.enemies[0]
     assert.ok(child)
+    state.enemies.splice(0, state.enemies.length, child)
+    state.xpNeed = 999
     child.x = state.playerX + TUNING.muzzle
     child.y = state.playerY
     child.vx = 0
@@ -256,6 +277,98 @@ describe('hostiles', () => {
     const x = state.playerX
     run(state, input({ moveX: 1 }), 1)
     assert.equal(state.playerX, x)
+  })
+})
+
+describe('orbs', () => {
+  it('drops a larger lilac orb from a circle than from a square', () => {
+    const state = createGame(0, 31)
+    state.spawnCd = 999
+    state.enemies.push(enemy({ x: 340, y: 0, kind: 1, hp: 1, speed: 0, radius: 18 }))
+    state.enemies.push(enemy({ x: 560, y: 0, kind: 2, hp: 1, speed: 0, radius: 18, generation: 0 }))
+    run(state, input({ aimX: 900, aimY: 0 }), 1.6)
+    const common = state.orbs.filter((item) => !item.rare)
+    const rare = state.orbs.filter((item) => item.rare)
+    assert.ok(common.length >= 1)
+    assert.ok(rare.length >= 1)
+    const plain = common[0]
+    const big = rare.reduce((best, item) => (item.radius > best.radius ? item : best))
+    assert.ok(plain)
+    assert.ok(big.radius > plain.radius)
+    assert.ok(big.value > plain.value)
+    assert.notEqual(big.color, plain.color)
+  })
+
+  it('pulls a nearby orb into the bar and ignores one out of range', () => {
+    const state = createGame(0, 32)
+    state.spawnCd = 999
+    state.orbs.push(orb({ x: 70, value: 1 }))
+    state.orbs.push(orb({ x: 420, value: 4 }))
+    run(state, input({ aimActive: false }), 1)
+    assert.equal(state.xp, 1)
+    assert.equal(state.orbs.length, 1)
+    assert.equal(state.orbs[0]?.x, 420)
+    assert.equal(state.orbs[0]?.homing, false)
+  })
+
+  it('opens three upgrades when the bar fills and freezes the pit', () => {
+    const state = createGame(0, 42)
+    state.spawnCd = 999
+    assert.equal(state.xpNeed, xpNeedFor(1))
+    state.fireCd = 10
+    state.orbs.push(orb({ value: state.xpNeed }))
+    const events = step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(events.pickups, 1)
+    assert.equal(events.leveled, true)
+    assert.equal(state.phase, 'level')
+    assert.equal(state.level, 2)
+    assert.equal(state.offers.length, 3)
+    assert.equal(new Set(state.offers.map((offer) => offer.id)).size, 3)
+    const chosen = state.offers[0]
+    assert.ok(chosen)
+    const x = state.playerX
+    step(state, input({ moveX: 1 }), 0.4)
+    assert.equal(state.playerX, x)
+    assert.equal(state.bullets.length, 0)
+    chooseUpgrade(state, 0)
+    if (chosen.id === 'cache') assert.equal(state.score, 40)
+    else assert.equal(state.mods[chosen.id], 1)
+    assert.equal(state.phase, 'play')
+  })
+
+  it('queues another choice when one orb covers two levels', () => {
+    const state = createGame(0, 43)
+    state.spawnCd = 999
+    state.orbs.push(orb({ value: 30 }))
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(state.phase, 'level')
+    assert.equal(state.level, 2)
+    chooseUpgrade(state, 0)
+    assert.equal(state.phase, 'level')
+    assert.equal(state.level, 3)
+    assert.equal(state.offers.length, 3)
+  })
+
+  it('paints a collision burst when a round hits', () => {
+    const state = createGame(0, 44)
+    state.spawnCd = 999
+    state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, kind: 1, hp: 2, radius: 22 }))
+    step(state, input(), 1 / 60)
+    assert.ok(state.impacts.length >= 1)
+    assert.equal(state.enemies.length, 1)
+    assert.equal(state.enemies[0]?.hp, 1)
+  })
+
+  it('repairs hull when Plate is chosen', () => {
+    const state = createGame(0, 45)
+    state.phase = 'level'
+    state.hull = 3
+    state.offers = [{ id: 'plate', title: 'Plate', detail: 'Repair one hull segment and add a spare.', rank: 1, max: 3 }]
+    chooseUpgrade(state, 0)
+    assert.equal(state.hullMax, TUNING.hullMax + 1)
+    assert.equal(state.hull, 4)
+    assert.equal(state.mods.plate, 1)
+    assert.equal(state.phase, 'play')
   })
 })
 

@@ -15,7 +15,8 @@ export const TUNING = {
 export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a'] as const
 
 export type EnemyKind = 0 | 1 | 2
-export type Phase = 'play' | 'dead'
+export type Phase = 'play' | 'dead' | 'level'
+export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'range' | 'greed' | 'plate' | 'cache'
 
 export interface Bullet {
   x: number
@@ -60,6 +61,46 @@ export interface Shock {
   color: string
 }
 
+export interface Impact {
+  x: number
+  y: number
+  life: number
+  max: number
+  spin: number
+}
+
+export interface Orb {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  radius: number
+  value: number
+  color: string
+  rare: boolean
+  homing: boolean
+  pulse: number
+}
+
+export interface Mods {
+  pulse: number
+  caliber: number
+  drift: number
+  magnet: number
+  fork: number
+  range: number
+  greed: number
+  plate: number
+}
+
+export interface Offer {
+  id: UpgradeId
+  title: string
+  detail: string
+  rank: number
+  max: number
+}
+
 export interface Floater {
   x: number
   y: number
@@ -92,10 +133,18 @@ export interface GameState {
   muzzle: number
   thrustCd: number
   kills: number
+  level: number
+  xp: number
+  xpNeed: number
+  hullMax: number
+  mods: Mods
+  offers: Offer[]
   bullets: Bullet[]
   enemies: Enemy[]
+  orbs: Orb[]
   particles: Particle[]
   shocks: Shock[]
+  impacts: Impact[]
   floaters: Floater[]
   rng: () => number
 }
@@ -114,6 +163,8 @@ export interface StepEvents {
   kills: number
   hurt: boolean
   died: boolean
+  pickups: number
+  leveled: boolean
 }
 
 const KIND = [
@@ -121,6 +172,28 @@ const KIND = [
   { radius: 22, hp: 2, speed: 100, spin: 1.15 },
   { radius: 20, hp: 1, speed: 108, spin: 0.8 },
 ] as const
+
+const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
+  pulse: 5,
+  caliber: 3,
+  drift: 4,
+  magnet: 4,
+  fork: 2,
+  range: 3,
+  greed: 3,
+  plate: 3,
+}
+
+const ORB_COMMON = '#ffffff'
+const ORB_RARE = '#d9a6ff'
+
+export function xpNeedFor(level: number): number {
+  return Math.round(8 * 1.42 ** Math.max(0, level - 1))
+}
+
+function freshMods(): Mods {
+  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, range: 0, greed: 0, plate: 0 }
+}
 
 export function createGame(best = 0, seed = 1): GameState {
   let s = seed >>> 0 || 1
@@ -150,10 +223,18 @@ export function createGame(best = 0, seed = 1): GameState {
     muzzle: 0,
     thrustCd: 0,
     kills: 0,
+    level: 1,
+    xp: 0,
+    xpNeed: xpNeedFor(1),
+    hullMax: TUNING.hullMax,
+    mods: freshMods(),
+    offers: [],
     bullets: [],
     enemies: [],
+    orbs: [],
     particles: [],
     shocks: [],
+    impacts: [],
     floaters: [],
     rng,
   }
@@ -190,12 +271,22 @@ export function screenToWorld(
 }
 
 export function step(state: GameState, input: Input, rawDt: number): StepEvents {
-  const events: StepEvents = { shots: 0, kills: 0, hurt: false, died: false }
+  const events: StepEvents = { shots: 0, kills: 0, hurt: false, died: false, pickups: 0, leveled: false }
   const dt = Math.min(Math.max(rawDt, 0), 1 / 30)
   if (dt === 0) return events
   if (state.phase === 'play') simulate(state, input, dt, events)
   decayFx(state, dt)
   return events
+}
+
+export function chooseUpgrade(state: GameState, index: number): void {
+  if (state.phase !== 'level') return
+  const offer = state.offers[index]
+  if (!offer) return
+  applyUpgrade(state, offer.id)
+  state.offers = []
+  state.phase = 'play'
+  if (openLevel(state)) state.offers = rollOffers(state)
 }
 
 function simulate(state: GameState, input: Input, dt: number, events: StepEvents): void {
@@ -211,13 +302,19 @@ function simulate(state: GameState, input: Input, dt: number, events: StepEvents
   moveBullets(state, input, dt, events)
   spawn(state, input, dt)
   moveEnemies(state, input, dt)
+  moveOrbs(state, input, dt, events)
   touchPlayer(state, events)
+  if (state.phase === 'play' && openLevel(state)) {
+    state.offers = rollOffers(state)
+    events.leveled = true
+  }
   thrustEmbers(state, dt)
 }
 
 function drift(state: GameState, input: Input, dt: number): void {
   let mx = input.moveX
   let my = input.moveY
+  const moveCap = TUNING.maxSpeed * (1 + state.mods.drift * 0.14)
   const mag = Math.hypot(mx, my)
   if (mag > 1) {
     mx /= mag
@@ -225,17 +322,17 @@ function drift(state: GameState, input: Input, dt: number): void {
   }
   if (mag > 0.001) {
     const k = 1 - Math.exp(-TUNING.thrust * dt)
-    state.playerVx += (mx * TUNING.maxSpeed - state.playerVx) * k
-    state.playerVy += (my * TUNING.maxSpeed - state.playerVy) * k
+    state.playerVx += (mx * moveCap - state.playerVx) * k
+    state.playerVy += (my * moveCap - state.playerVy) * k
   } else {
     const damp = Math.exp(-TUNING.drag * dt)
     state.playerVx *= damp
     state.playerVy *= damp
   }
   const speed = Math.hypot(state.playerVx, state.playerVy)
-  if (speed > TUNING.maxSpeed) {
-    state.playerVx = (state.playerVx / speed) * TUNING.maxSpeed
-    state.playerVy = (state.playerVy / speed) * TUNING.maxSpeed
+  if (speed > moveCap) {
+    state.playerVx = (state.playerVx / speed) * moveCap
+    state.playerVy = (state.playerVy / speed) * moveCap
   }
   state.playerX += state.playerVx * dt
   state.playerY += state.playerVy * dt
@@ -251,30 +348,41 @@ function aimAt(state: GameState, input: Input): void {
 
 function fire(state: GameState, dt: number, events: StepEvents): void {
   state.fireCd -= dt
+  const interval = Math.max(0.08, TUNING.fireInterval / (1 + state.mods.pulse * 0.22))
+  const shotSpeed = TUNING.bulletSpeed * (1 + state.mods.range * 0.12)
+  const life = 1.35 * (1 + state.mods.range * 0.55)
   let guard = 0
   while (state.fireCd <= 0 && guard < 4) {
     guard += 1
-    state.fireCd += TUNING.fireInterval
-    const cs = Math.cos(state.aim)
-    const sn = Math.sin(state.aim)
-    state.bullets.push({
-      x: state.playerX + cs * TUNING.muzzle,
-      y: state.playerY + sn * TUNING.muzzle,
-      // Carry the core's velocity so the shot stays on the cursor line
-      // while the camera keeps the core centered.
-      vx: cs * TUNING.bulletSpeed + state.playerVx,
-      vy: sn * TUNING.bulletSpeed + state.playerVy,
-      life: 1.35,
-    })
+    state.fireCd += interval
+    const angles = [state.aim]
+    for (let n = 1; n <= state.mods.fork; n++) {
+      angles.push(state.aim + n * 0.2, state.aim - n * 0.2)
+    }
+    for (const angle of angles) {
+      const cs = Math.cos(angle)
+      const sn = Math.sin(angle)
+      state.bullets.push({
+        x: state.playerX + cs * TUNING.muzzle,
+        y: state.playerY + sn * TUNING.muzzle,
+        // Carry the core's velocity so the shot stays on the cursor line
+        // while the camera keeps the core centered.
+        vx: cs * shotSpeed + state.playerVx,
+        vy: sn * shotSpeed + state.playerVy,
+        life,
+      })
+    }
     events.shots += 1
     state.muzzle = 0.05
-    burst(state, state.playerX + cs * TUNING.muzzle, state.playerY + sn * TUNING.muzzle, '#e9fdff', 2, 160)
+    const cs = Math.cos(state.aim)
+    const sn = Math.sin(state.aim)
+    burst(state, state.playerX + cs * TUNING.muzzle, state.playerY + sn * TUNING.muzzle, '#ffffff', 2, 160)
   }
-  if (state.bullets.length > 120) state.bullets.splice(0, state.bullets.length - 120)
+  if (state.bullets.length > 180) state.bullets.splice(0, state.bullets.length - 180)
 }
 
 function moveBullets(state: GameState, input: Input, dt: number, events: StepEvents): void {
-  const maxR = Math.max(320, input.viewRadius + 110)
+  const maxR = Math.max(320, input.viewRadius + 110) * (1 + state.mods.range * 0.55)
   const maxR2 = maxR * maxR
   for (let i = state.bullets.length - 1; i >= 0; i--) {
     const b = state.bullets[i]
@@ -294,7 +402,8 @@ function moveBullets(state: GameState, input: Input, dt: number, events: StepEve
       const reach = e.radius + 8
       if (dx * dx + dy * dy > reach * reach) continue
       state.bullets.splice(i, 1)
-      burst(state, b.x, b.y, '#e9fdff', 3, 150)
+      spawnImpact(state, b.x, b.y)
+      burst(state, b.x, b.y, '#ffffff', 9, 260)
       if (e.hitCd <= 0) damageEnemy(state, e, events)
       break
     }
@@ -303,7 +412,7 @@ function moveBullets(state: GameState, input: Input, dt: number, events: StepEve
 
 function damageEnemy(state: GameState, enemy: Enemy, events: StepEvents): void {
   enemy.hitCd = TUNING.hitCooldown
-  enemy.hp -= 1
+  enemy.hp -= 1 + state.mods.caliber
   burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 6, 140)
   if (enemy.hp > 0) return
   const mult = state.comboTime > 0 ? state.combo + 1 : 1
@@ -333,6 +442,7 @@ function damageEnemy(state: GameState, enemy: Enemy, events: StepEvents): void {
     color: ENEMY_COLOR[enemy.kind],
   })
   burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 14, 280)
+  dropOrb(state, enemy)
   if (enemy.kind === 2 && enemy.generation === 0) splitCircle(state, enemy)
   const idx = state.enemies.indexOf(enemy)
   if (idx >= 0) state.enemies.splice(idx, 1)
@@ -450,11 +560,134 @@ function touchPlayer(state: GameState, events: StepEvents): void {
       events.died = true
       state.flash = 1
       state.shake = 12
-      burst(state, state.playerX, state.playerY, '#5ef2ff', 24, 340)
+      burst(state, state.playerX, state.playerY, '#ffffff', 24, 340)
       burst(state, state.playerX, state.playerY, '#ff3df2', 16, 260)
     }
     return
   }
+}
+
+function dropOrb(state: GameState, enemy: Enemy): void {
+  const rare = enemy.kind === 2
+  const child = enemy.generation > 0
+  const radius = rare ? (child ? 9 : 15) : enemy.kind === 1 ? 9 : 7
+  const value = rare ? (child ? 3 : 6) : enemy.kind === 1 ? 2 : 1
+  const a = state.rng() * Math.PI * 2
+  const kick = 18 + state.rng() * 36
+  if (state.orbs.length > 90) state.orbs.shift()
+  state.orbs.push({
+    x: enemy.x,
+    y: enemy.y,
+    vx: Math.cos(a) * kick,
+    vy: Math.sin(a) * kick,
+    radius,
+    value,
+    color: rare ? ORB_RARE : ORB_COMMON,
+    rare,
+    homing: false,
+    pulse: state.rng() * Math.PI * 2,
+  })
+}
+
+function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents): void {
+  const magnet = 240 + state.mods.magnet * 90
+  const greed = 1 + state.mods.greed * 0.3
+  const limit = Math.max(900, input.viewRadius * 2.8)
+  for (let i = state.orbs.length - 1; i >= 0; i--) {
+    const orb = state.orbs[i]
+    const dx = state.playerX - orb.x
+    const dy = state.playerY - orb.y
+    const dist = Math.hypot(dx, dy) || 1
+    if (dist > limit) {
+      state.orbs.splice(i, 1)
+      continue
+    }
+    if (dist < magnet) orb.homing = true
+    if (orb.homing) {
+      const pull = 1 - Math.exp(-9 * dt)
+      const speed = 240 + (1 - Math.min(1, dist / magnet)) * 640
+      orb.vx += ((dx / dist) * speed - orb.vx) * pull
+      orb.vy += ((dy / dist) * speed - orb.vy) * pull
+    } else {
+      const damp = Math.exp(-2.8 * dt)
+      orb.vx *= damp
+      orb.vy *= damp
+    }
+    orb.x += orb.vx * dt
+    orb.y += orb.vy * dt
+    orb.pulse += dt
+    if (dist > TUNING.playerRadius + orb.radius + 6) continue
+    const gain = Math.max(1, Math.round(orb.value * greed))
+    state.xp += gain
+    events.pickups += 1
+    state.orbs.splice(i, 1)
+    burst(state, state.playerX, state.playerY, orb.color, orb.rare ? 8 : 4, 140)
+  }
+}
+
+function openLevel(state: GameState): boolean {
+  if (state.phase !== 'play' || state.xp < state.xpNeed) return false
+  state.xp -= state.xpNeed
+  state.level += 1
+  state.xpNeed = xpNeedFor(state.level)
+  state.phase = 'level'
+  return true
+}
+
+function rollOffers(state: GameState): Offer[] {
+  const pool = (Object.keys(UPGRADE_MAX) as Exclude<UpgradeId, 'cache'>[]).filter(
+    (id) => state.mods[id] < UPGRADE_MAX[id],
+  )
+  const picked: UpgradeId[] = []
+  while (picked.length < 3 && pool.length > 0) {
+    const index = Math.floor(state.rng() * pool.length)
+    const id = pool.splice(index, 1)[0]
+    if (id) picked.push(id)
+  }
+  while (picked.length < 3) picked.push('cache')
+  return picked.map((id) => describeOffer(state, id))
+}
+
+function describeOffer(state: GameState, id: UpgradeId): Offer {
+  if (id === 'cache') {
+    return { id, title: 'Cache', detail: 'Bank 40 score.', rank: 1, max: 1 }
+  }
+  const rank = state.mods[id] + 1
+  const max = UPGRADE_MAX[id]
+  const copy: Record<Exclude<UpgradeId, 'cache'>, { title: string; detail: string }> = {
+    pulse: { title: 'Pulse', detail: 'Shots leave the core sooner.' },
+    caliber: { title: 'Caliber', detail: 'Each round takes off one more hit.' },
+    drift: { title: 'Drift', detail: 'Top speed climbs.' },
+    magnet: { title: 'Magnet', detail: 'Orbs start homing from farther out.' },
+    fork: { title: 'Fork', detail: 'Two extra rounds fan out beside the main shot.' },
+    range: { title: 'Reach', detail: 'Rounds fly farther past the edge of the screen.' },
+    greed: { title: 'Greed', detail: 'Every orb is worth more.' },
+    plate: { title: 'Plate', detail: 'Repair one hull segment and add a spare.' },
+  }
+  return { id, title: copy[id].title, detail: copy[id].detail, rank, max }
+}
+
+function applyUpgrade(state: GameState, id: UpgradeId): void {
+  if (id === 'cache') {
+    state.score += 40
+    if (state.score > state.best) state.best = state.score
+    return
+  }
+  state.mods[id] += 1
+  if (id !== 'plate') return
+  state.hullMax = Math.min(8, state.hullMax + 1)
+  state.hull = Math.min(state.hullMax, state.hull + 1)
+}
+
+function spawnImpact(state: GameState, x: number, y: number): void {
+  if (state.impacts.length > 32) state.impacts.shift()
+  state.impacts.push({
+    x,
+    y,
+    life: 0.22,
+    max: 0.22,
+    spin: state.rng() * Math.PI,
+  })
 }
 
 function thrustEmbers(state: GameState, dt: number): void {
@@ -521,6 +754,10 @@ function decayFx(state: GameState, dt: number): void {
   for (let i = state.shocks.length - 1; i >= 0; i--) {
     state.shocks[i].life -= dt
     if (state.shocks[i].life <= 0) state.shocks.splice(i, 1)
+  }
+  for (let i = state.impacts.length - 1; i >= 0; i--) {
+    state.impacts[i].life -= dt
+    if (state.impacts[i].life <= 0) state.impacts.splice(i, 1)
   }
   for (let i = state.floaters.length - 1; i >= 0; i--) {
     const f = state.floaters[i]

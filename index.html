@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#000000" />
     <meta
       name="description"
-      content="Lumen Pit is a black infinite arena. Drift with WASD. The cursor aims each white round."
+      content="Lumen Pit is a black infinite arena. Drift with WASD, collect orbs, and pick an upgrade each time the bar fills."
     />
     <title>Lumen Pit</title>
     <style>
@@ -24,6 +24,10 @@
     <div id="vignette" aria-hidden="true"></div>
     <div id="frame" aria-hidden="true"></div>
     <div id="flash" aria-hidden="true"></div>
+    <div id="xp" class="xp" role="progressbar" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0" aria-label="Experience">
+      <div id="xp-fill" class="xp-fill"></div>
+      <span id="xp-label" class="xp-label">Lv 1</span>
+    </div>
     <header id="hud">
       <div class="title">
         <p class="brand">Lumen Pit</p>
@@ -47,8 +51,16 @@
       <button id="mute" type="button" aria-pressed="true">Audio on</button>
       <button id="full" type="button" aria-pressed="false">Full screen</button>
     </div>
-    <p id="hint" class="hint">WASD drifts · cursor aims each shot</p>
+    <p id="hint" class="hint">WASD drifts · cursor aims · orbs fill the bar</p>
     <p id="live" class="sr-only" aria-live="polite"></p>
+    <div id="level" class="level" hidden>
+      <div class="level-card" role="dialog" aria-modal="true" aria-labelledby="level-title">
+        <p id="level-kicker" class="label">Level 2</p>
+        <h2 id="level-title">Choose an upgrade</h2>
+        <p id="level-hint" class="sub">The pit holds still until you pick.</p>
+        <div id="offers" class="offers"></div>
+      </div>
+    </div>
     <div id="overlay" hidden>
       <div class="card">
         <p class="brand">Lumen Pit</p>
