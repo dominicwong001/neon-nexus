@@ -637,7 +637,7 @@ function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents
     }
     if (dist < magnet) orb.homing = true
     if (orb.homing) {
-      const speed = 770 + (1 - Math.min(1, dist / magnet)) * 490
+      const speed = 462 + (1 - Math.min(1, dist / magnet)) * 294
       orb.vx = (dx / dist) * speed
       orb.vy = (dy / dist) * speed
     } else {
