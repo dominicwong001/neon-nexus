@@ -4,6 +4,7 @@ import {
   TUNING,
   chooseUpgrade,
   createGame,
+  hexRingReach,
   screenToWorld,
   step,
   worldToScreen,
@@ -254,6 +255,34 @@ describe('hostiles', () => {
     const hostile = state.enemies[0]
     assert.ok(hostile)
     assert.ok(hostile.x < 340)
+  })
+
+  it('shoves every hostile inside the hex ring when the hull cracks', () => {
+    const state = createGame(0, 16)
+    state.spawnCd = 999
+    state.invuln = 0
+    state.enemies.push(enemy({ x: 0, y: 0, radius: 18, hp: 8, speed: 0, phase: 0.4 }))
+    state.enemies.push(enemy({ x: 22, y: 6, radius: 14, hp: 8, speed: 0, phase: 1.7 }))
+    state.enemies.push(enemy({ x: 34, y: 0, radius: 10, hp: 8, speed: 0, phase: 2.2 }))
+    state.enemies.push(enemy({ x: 420, y: 30, radius: 16, hp: 8, speed: 0, phase: 0.2 }))
+    const far = state.enemies[3]
+    assert.ok(far)
+    const beforeX = far.x
+    const beforeY = far.y
+    const hit = step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(hit.hurt, true)
+    assert.equal(state.hull, TUNING.hullMax - 1)
+    assert.equal(state.enemies.length, 4)
+    for (const hostile of state.enemies.slice(0, 3)) {
+      const dx = hostile.x - state.playerX
+      const dy = hostile.y - state.playerY
+      const dist = Math.hypot(dx, dy)
+      const edge = hexRingReach(Math.atan2(dy, dx), state.time)
+      assert.ok(dist > edge + hostile.radius)
+    }
+    const stayed = state.enemies[3]
+    assert.ok(stayed)
+    assert.ok(Math.hypot(stayed.x - beforeX, stayed.y - beforeY) < 1)
   })
 
   it('cracks the hull once, then goes dark at zero', () => {

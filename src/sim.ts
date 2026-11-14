@@ -6,6 +6,8 @@ export const TUNING = {
   fireInterval: 0.28,
   muzzle: 22,
   playerRadius: 14,
+  ringRadius: 34,
+  ringSpin: 0.65,
   hullMax: 5,
   invuln: 1.15,
   hitCooldown: 0.05,
@@ -566,6 +568,49 @@ function separateEnemies(state: GameState): void {
   }
 }
 
+export function hexRingReach(angle: number, time: number): number {
+  const sector = Math.PI / 3
+  let a = angle - time * TUNING.ringSpin
+  a -= Math.floor(a / sector) * sector
+  const fromFlat = Math.abs(a - sector / 2)
+  const apothem = TUNING.ringRadius * Math.cos(sector / 2)
+  return apothem / Math.cos(fromFlat)
+}
+
+function shoveOutsideRing(state: GameState): void {
+  const extra = 16
+  for (const e of state.enemies) {
+    const dx = e.x - state.playerX
+    const dy = e.y - state.playerY
+    const dist = Math.hypot(dx, dy)
+    let nx: number
+    let ny: number
+    let angle: number
+    if (dist < 0.01) {
+      angle = e.phase
+      nx = Math.cos(angle)
+      ny = Math.sin(angle)
+    } else {
+      nx = dx / dist
+      ny = dy / dist
+      angle = Math.atan2(dy, dx)
+    }
+    const limit = hexRingReach(angle, state.time) + e.radius
+    if (dist > limit) continue
+    const target = limit + extra
+    e.x = state.playerX + nx * target
+    e.y = state.playerY + ny * target
+    e.vx = nx * 420
+    e.vy = ny * 420
+  }
+}
+
+function repelFromRing(state: GameState): void {
+  shoveOutsideRing(state)
+  separateEnemies(state)
+  shoveOutsideRing(state)
+}
+
 function touchPlayer(state: GameState, events: StepEvents): void {
   if (state.invuln > 0) return
   for (let j = state.enemies.length - 1; j >= 0; j--) {
@@ -575,18 +620,13 @@ function touchPlayer(state: GameState, events: StepEvents): void {
     const dist = Math.hypot(dx, dy) || 1
     const reach = TUNING.playerRadius + e.radius - 4
     if (dist > reach) continue
-    const nx = dx / dist
-    const ny = dy / dist
-    e.x = state.playerX + nx * (reach + 18)
-    e.y = state.playerY + ny * (reach + 18)
-    e.vx = nx * 260
-    e.vy = ny * 260
     state.hull -= 1
     state.invuln = TUNING.invuln
     state.flash = 1
     state.shake = 9
     events.hurt = true
     burst(state, state.playerX, state.playerY, '#ff3df2', 12, 220)
+    repelFromRing(state)
     if (state.hull <= 0) {
       state.hull = 0
       state.phase = 'dead'

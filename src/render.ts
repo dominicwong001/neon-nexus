@@ -308,8 +308,8 @@ function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.restore()
 
   ctx.save()
-  ctx.rotate(state.time * 0.65)
-  strokePoly(ctx, 0, 0, 34, 6, 'rgba(255, 255, 255, 0.92)', 1.6, 0)
+  ctx.rotate(state.time * TUNING.ringSpin)
+  strokePoly(ctx, 0, 0, TUNING.ringRadius, 6, 'rgba(255, 255, 255, 0.92)', 1.6, 0)
   ctx.restore()
 
   const speed = Math.hypot(state.playerVx, state.playerVy)
