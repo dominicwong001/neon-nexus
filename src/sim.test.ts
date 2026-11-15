@@ -12,6 +12,10 @@ import {
   orbitDiscs,
   orbitRate,
   discTurn,
+  ballCount,
+  ballDamage,
+  ballInterval,
+  ballLife,
   orbiterCount,
   orbiterDamage,
   orbiterShove,
@@ -38,6 +42,8 @@ function input(over: Partial<Input> = {}): Input {
     aimY: 0,
     aimActive: true,
     viewRadius: 640,
+    viewW: 1280,
+    viewH: 720,
     ...over,
   }
 }
@@ -426,7 +432,7 @@ describe('orbs', () => {
       step(state, input({ aimActive: false }), 1 / 60)
       assert.equal(state.phase, 'level')
       assert.equal(state.offers[0]?.id, 'orbiter')
-      assert.equal(state.offers[0]?.title, n === 5 ? "Guardian's Halo" : 'Orbiter')
+      assert.equal(state.offers[0]?.title, n === 5 ? "Guardian's Halo" : 'Sentinel')
       assert.equal(state.offers[0]?.overdrive, n === 5)
       chooseUpgrade(state, 0)
       state.orbitTime = 0.8
@@ -444,6 +450,108 @@ describe('orbs', () => {
     step(state, input({ aimActive: false }), 1 / 60)
     assert.equal(state.offers.some((offer) => offer.id === 'orbiter'), false)
     assert.equal(state.offers.some((offer) => offer.id === 'field'), true)
+  })
+
+  it('always offers Bouncy Ball, then ricochets, pierces, and splits', () => {
+    const state = createGame(0, 5)
+    state.spawnCd = 999
+    state.fireCd = 10
+    for (let n = 0; n < 6; n++) {
+      state.xp = state.xpNeed
+      step(state, input({ aimActive: false }), 1 / 60)
+      const offer = state.offers.find((item) => item.id === 'ball')
+      assert.equal(offer?.title, n === 5 ? 'Quantum Core' : 'Bouncy Ball')
+      assert.equal(offer?.overdrive, n === 5)
+      chooseUpgrade(state, state.offers.indexOf(offer!))
+    }
+    assert.equal(state.mods.ball, 6)
+    assert.equal(ballCount(1), 1)
+    assert.equal(ballCount(4), 4)
+    assert.equal(ballCount(5), 4)
+    assert.equal(ballCount(6), 3)
+    assert.equal(ballLife(1), 3.5)
+    assert.equal(ballLife(6), 4.5)
+    assert.ok(ballInterval(6) < ballInterval(1))
+    state.xp = state.xpNeed
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(state.offers.some((offer) => offer.id === 'ball'), false)
+
+    const pierce = createGame(0, 6)
+    pierce.spawnCd = 999
+    pierce.fireCd = 10
+    pierce.invuln = 5
+    pierce.balls.push({
+      x: 0,
+      y: 0,
+      vx: 900,
+      vy: 0,
+      life: 3,
+      max: 3,
+      radius: 10,
+      damage: 20,
+      echo: false,
+      quantum: false,
+      knock: 2.2,
+      touched: [],
+    })
+    const first = enemy({ x: 40, y: 0, hp: 200, radius: 18, kind: 1 })
+    const second = enemy({ x: 110, y: 0, hp: 200, radius: 18, kind: 1 })
+    pierce.enemies.push(first, second)
+    run(pierce, input({ aimActive: false }), 0.3)
+    assert.ok(first.hp < 200)
+    assert.ok(second.hp < 200)
+    assert.equal(first.hp, second.hp)
+    assert.ok(pierce.balls.some((ball) => !ball.echo))
+
+    const stuck = createGame(0, 7)
+    stuck.spawnCd = 999
+    stuck.fireCd = 10
+    stuck.invuln = 5
+    const sitting = enemy({ x: 0, y: 0, hp: 200, radius: 20, kind: 1, speed: 0 })
+    stuck.enemies.push(sitting)
+    stuck.balls.push({
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      life: 2,
+      max: 2,
+      radius: 10,
+      damage: 20,
+      echo: false,
+      quantum: false,
+      knock: 2.2,
+      touched: [],
+    })
+    step(stuck, input({ aimActive: false }), 1 / 60)
+    step(stuck, input({ aimActive: false }), 1 / 60)
+    assert.equal(sitting.hp, 180)
+
+    const wall = createGame(0, 8)
+    wall.spawnCd = 999
+    wall.fireCd = 10
+    const shot = {
+      x: wall.playerX + 640 - 14,
+      y: wall.playerY,
+      vx: 900,
+      vy: 0,
+      life: 2,
+      max: 2,
+      radius: 10,
+      damage: 40,
+      echo: false,
+      quantum: true,
+      knock: 8,
+      touched: [],
+    }
+    wall.balls.push(shot)
+    step(wall, input({ aimActive: false, viewW: 1280, viewH: 720 }), 1 / 60)
+    assert.ok(shot.vx < 0)
+    const echoes = wall.balls.filter((ball) => ball.echo)
+    assert.equal(echoes.length, 2)
+    assert.equal(echoes[0]?.damage, Math.round(40 * 0.45))
+    assert.equal(echoes[0]?.max, 0.45)
+    assert.equal(ballDamage(6), 36)
   })
 
   it('always offers Force Field, then burns and slows inside a wider ring', () => {
@@ -518,7 +626,7 @@ describe('orbs', () => {
     const bitten = state.enemies[0]
     assert.ok(bitten)
     assert.equal(bitten.hp, HIT - orbiterDamage(1))
-    assert.equal(orbiterDamage(1) * 2, HIT)
+    assert.ok(orbiterDamage(1) < HIT / 3)
     assert.ok(state.floaters.some((floater) => floater.text === String(orbiterDamage(1))))
     assert.equal(state.floaters.some((floater) => floater.text.startsWith('+')), false)
     assert.ok(orbitActive(2) > orbitActive(1))

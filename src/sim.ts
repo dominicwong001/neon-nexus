@@ -23,7 +23,7 @@ export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a', '#ff2d3a'] as const
 
 export type EnemyKind = 0 | 1 | 2 | 3
 export type Phase = 'play' | 'dead' | 'level'
-export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'plate' | 'orbiter' | 'field' | 'cache'
+export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'plate' | 'orbiter' | 'field' | 'ball' | 'cache'
 
 export interface Bullet {
   x: number
@@ -100,6 +100,22 @@ export interface Mods {
   plate: number
   orbiter: number
   field: number
+  ball: number
+}
+
+export interface Ricochet {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  life: number
+  max: number
+  radius: number
+  damage: number
+  echo: boolean
+  quantum: boolean
+  knock: number
+  touched: { enemy: Enemy; cd: number }[]
 }
 
 export interface Offer {
@@ -149,9 +165,11 @@ export interface GameState {
   hullMax: number
   orbitTime: number
   fieldTick: number
+  ballCd: number
   mods: Mods
   offers: Offer[]
   bullets: Bullet[]
+  balls: Ricochet[]
   enemies: Enemy[]
   orbs: Orb[]
   particles: Particle[]
@@ -168,6 +186,8 @@ export interface Input {
   aimY: number
   aimActive: boolean
   viewRadius: number
+  viewW: number
+  viewH: number
 }
 
 export interface StepEvents {
@@ -198,6 +218,7 @@ const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
   plate: 3,
   orbiter: OVERDRIVE,
   field: OVERDRIVE,
+  ball: OVERDRIVE,
 }
 
 export const DISC = {
@@ -257,7 +278,7 @@ export function xpNeedFor(level: number): number {
 }
 
 function freshMods(): Mods {
-  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, plate: 0, orbiter: 0, field: 0 }
+  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, plate: 0, orbiter: 0, field: 0, ball: 0 }
 }
 
 export function createGame(best = 0, seed = 1): GameState {
@@ -294,9 +315,11 @@ export function createGame(best = 0, seed = 1): GameState {
     hullMax: TUNING.hullMax,
     orbitTime: 0,
     fieldTick: 0,
+    ballCd: 0.45,
     mods: freshMods(),
     offers: [],
     bullets: [],
+    balls: [],
     enemies: [],
     orbs: [],
     particles: [],
@@ -372,6 +395,8 @@ function simulate(state: GameState, input: Input, dt: number, events: StepEvents
   moveEnemies(state, input, dt)
   pulseField(state, events)
   strikeOrbits(state, events)
+  launchBalls(state, dt)
+  moveBalls(state, input, dt, events)
   moveOrbs(state, input, dt, events)
   touchPlayer(state, events)
   if (state.phase === 'play' && openLevel(state)) {
@@ -494,7 +519,33 @@ function pushFloater(state: GameState, x: number, y: number, text: string, color
 }
 
 export function orbiterDamage(rank: number): number {
-  return HIT / 2 + Math.max(0, rank - 1) * 10
+  return 22 + Math.max(0, rank - 1) * 4
+}
+
+export function ballCount(rank: number): number {
+  if (rank <= 0) return 0
+  if (rank >= OVERDRIVE) return 3
+  return Math.min(4, rank)
+}
+
+export function ballSpeed(rank: number): number {
+  if (rank >= OVERDRIVE) return 1180
+  return 640 + Math.max(0, rank - 1) * 90
+}
+
+export function ballDamage(rank: number): number {
+  if (rank >= OVERDRIVE) return 36
+  return 14 + Math.max(0, rank - 1) * 4
+}
+
+export function ballLife(rank: number): number {
+  if (rank >= OVERDRIVE) return 4.5
+  return 3.5 + Math.max(0, rank - 1) * 0.2
+}
+
+export function ballInterval(rank: number): number {
+  if (rank >= OVERDRIVE) return 0.72
+  return Math.max(1.15, 2.15 - Math.max(0, rank - 1) * 0.22)
 }
 
 export function orbiterCount(rank: number): number {
@@ -871,6 +922,131 @@ function pulseField(state: GameState, events: StepEvents): void {
   }
 }
 
+function launchBalls(state: GameState, dt: number): void {
+  const rank = state.mods.ball
+  if (rank <= 0) return
+  state.ballCd -= dt
+  if (state.ballCd > 0 || state.balls.length > 48) return
+  const count = ballCount(rank)
+  const speed = ballSpeed(rank)
+  const quantum = rank >= OVERDRIVE
+  const life = ballLife(rank)
+  const damage = ballDamage(rank)
+  for (let i = 0; i < count; i++) {
+    const angle = state.rng() * Math.PI * 2
+    state.balls.push({
+      x: state.playerX,
+      y: state.playerY,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life,
+      max: life,
+      radius: 16 * BODY,
+      damage,
+      echo: false,
+      quantum,
+      knock: quantum ? 8 : 2.2,
+      touched: [],
+    })
+  }
+  state.ballCd += ballInterval(rank)
+}
+
+function moveBalls(state: GameState, input: Input, dt: number, events: StepEvents): void {
+  const halfW = Math.max(80, input.viewW) / 2
+  const halfH = Math.max(80, input.viewH) / 2
+  const left = state.playerX - halfW
+  const right = state.playerX + halfW
+  const top = state.playerY - halfH
+  const bottom = state.playerY + halfH
+  for (let i = state.balls.length - 1; i >= 0; i--) {
+    const ball = state.balls[i]
+    if (!ball) continue
+    ball.life -= dt
+    if (ball.life <= 0) {
+      state.balls.splice(i, 1)
+      continue
+    }
+    ball.x += ball.vx * dt
+    ball.y += ball.vy * dt
+    let bounced = false
+    if (ball.x - ball.radius < left) {
+      ball.x = left + ball.radius
+      if (ball.vx < 0) ball.vx = -ball.vx
+      bounced = true
+    } else if (ball.x + ball.radius > right) {
+      ball.x = right - ball.radius
+      if (ball.vx > 0) ball.vx = -ball.vx
+      bounced = true
+    }
+    if (ball.y - ball.radius < top) {
+      ball.y = top + ball.radius
+      if (ball.vy < 0) ball.vy = -ball.vy
+      bounced = true
+    } else if (ball.y + ball.radius > bottom) {
+      ball.y = bottom - ball.radius
+      if (ball.vy > 0) ball.vy = -ball.vy
+      bounced = true
+    }
+    if (bounced) splitBall(state, ball)
+    for (let t = ball.touched.length - 1; t >= 0; t--) {
+      const touch = ball.touched[t]
+      if (!touch) continue
+      touch.cd -= dt
+      if (touch.cd <= 0) ball.touched.splice(t, 1)
+    }
+    for (let j = state.enemies.length - 1; j >= 0; j--) {
+      const enemy = state.enemies[j]
+      if (!enemy) continue
+      if (ball.touched.some((touch) => touch.enemy === enemy)) continue
+      const dx = ball.x - enemy.x
+      const dy = ball.y - enemy.y
+      const reach = ball.radius + enemy.radius
+      if (dx * dx + dy * dy > reach * reach) continue
+      ball.touched.push({ enemy, cd: 0.15 })
+      shoveFromBall(enemy, ball)
+      damageEnemy(state, enemy, events, ball.damage, ball.echo ? '#d9a6ff' : '#ff2d3a')
+      enemy.hitCd = 0.14
+      splitBall(state, ball)
+    }
+  }
+}
+
+function splitBall(state: GameState, ball: Ricochet): void {
+  if (!ball.quantum || ball.echo || state.balls.length > 40) return
+  const speed = Math.hypot(ball.vx, ball.vy) || ballSpeed(OVERDRIVE)
+  const angle = Math.atan2(ball.vy, ball.vx)
+  const echoSpeed = speed * 1.55
+  for (const turn of [-35, 35]) {
+    if (state.balls.length > 40) return
+    const a = angle + (turn * Math.PI) / 180
+    state.balls.push({
+      x: ball.x,
+      y: ball.y,
+      vx: Math.cos(a) * echoSpeed,
+      vy: Math.sin(a) * echoSpeed,
+      life: 0.45,
+      max: 0.45,
+      radius: Math.max(6 * BODY, ball.radius * 0.55),
+      damage: Math.max(1, Math.round(ball.damage * 0.45)),
+      echo: true,
+      quantum: true,
+      knock: 2.4,
+      touched: [],
+    })
+  }
+}
+
+function shoveFromBall(enemy: Enemy, ball: Ricochet): void {
+  const speed = Math.hypot(ball.vx, ball.vy) || 1
+  const nx = ball.vx / speed
+  const ny = ball.vy / speed
+  enemy.x += nx * ball.knock
+  enemy.y += ny * ball.knock
+  enemy.vx += nx * ball.knock * 1.6
+  enemy.vy += ny * ball.knock * 1.6
+}
+
 function strikeOrbits(state: GameState, events: StepEvents): void {
   const discs = orbitDiscs(state)
   if (discs.length === 0) return
@@ -905,7 +1081,7 @@ function rollOffers(state: GameState): Offer[] {
     (id) => state.mods[id] < UPGRADE_MAX[id],
   )
   const picked: UpgradeId[] = []
-  for (const pinned of ['orbiter', 'field'] as const) {
+  for (const pinned of ['orbiter', 'field', 'ball'] as const) {
     const index = pool.indexOf(pinned)
     if (index >= 0) picked.push(pool.splice(index, 1)[0] ?? pinned)
   }
@@ -924,12 +1100,22 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
   }
   const rank = state.mods[id] + 1
   const max = UPGRADE_MAX[id]
-  const overdrive = rank >= OVERDRIVE && (id === 'orbiter' || id === 'field')
+  const overdrive = rank >= OVERDRIVE && (id === 'orbiter' || id === 'field' || id === 'ball')
   if (id === 'orbiter' && overdrive) {
     return {
       id,
       title: "Guardian's Halo",
       detail: 'Six red discs stay out. They spin faster and throw hostiles back harder.',
+      rank,
+      max,
+      overdrive: true,
+    }
+  }
+  if (id === 'ball' && overdrive) {
+    return {
+      id,
+      title: 'Quantum Core',
+      detail: 'Three hyper-fast balls. Every hit and bounce splits into short-lived echoes.',
       rank,
       max,
       overdrive: true,
@@ -953,15 +1139,18 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     fork: { title: 'Fork', detail: 'Two extra rounds fan out beside the main shot.' },
     greed: { title: 'Greed', detail: 'Every orb is worth more.' },
     plate: { title: 'Plate', detail: 'Repair one hull segment and add a spare.' },
-    orbiter: { title: 'Orbiter', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
+    orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
     field: { title: 'Force Field', detail: 'A cyan field burns and slows anything inside.' },
+    ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen and pierces through hostiles.' },
   }
   const detail =
     id === 'orbiter' && rank > 1
       ? 'One more disc. They last longer, hit harder, spin faster, and nudge harder.'
       : id === 'field' && rank > 1
         ? 'The field widens, burns harder, slows more, and pulses faster.'
-        : copy[id].detail
+        : id === 'ball' && rank > 1
+          ? 'More balls, faster and harder, and they stay out longer.'
+          : copy[id].detail
   return { id, title: copy[id].title, detail, rank, max, overdrive: false }
 }
 
@@ -974,6 +1163,7 @@ function applyUpgrade(state: GameState, id: UpgradeId): void {
   state.mods[id] += 1
   if (id === 'orbiter' && state.mods.orbiter === 1) state.orbitTime = 0.35
   if (id === 'field') state.fieldTick = Math.floor(state.time / FIELD.tick)
+  if (id === 'ball') state.ballCd = 0.2
   if (id !== 'plate') return
   state.hullMax = Math.min(8, state.hullMax + 1)
   state.hull = Math.min(state.hullMax, state.hull + 1)

@@ -47,6 +47,7 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
   drawParticles(ctx, state, X, Y)
   drawEnemies(ctx, state, X, Y)
   drawBullets(ctx, state, X, Y)
+  drawBalls(ctx, state, X, Y)
   drawImpacts(ctx, state, X, Y)
   drawOrbiters(ctx, state, X, Y)
   drawPlayer(ctx, state)
@@ -281,6 +282,11 @@ function drawEnemies(
     else ctx.arc(0, 0, e.radius, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
+    if (e.hitCd > 0) {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
+      ctx.lineWidth = 2.6 * BODY
+      ctx.stroke()
+    }
     ctx.restore()
   }
 }
@@ -319,6 +325,80 @@ function drawBullets(
     ctx.stroke()
     ctx.restore()
   }
+}
+
+function drawBalls(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  X: (x: number) => number,
+  Y: (y: number) => number,
+): void {
+  if (state.balls.length === 0) return
+  const glow = glowFor('#ff2d3a')
+  const echoGlow = glowFor('#d9a6ff')
+  for (const ball of state.balls) {
+    const x = X(ball.x)
+    const y = Y(ball.y)
+    const sheet = ball.echo ? echoGlow : glow
+    const glowSize = ball.radius * (ball.echo ? 3.4 : 3.8)
+    ctx.save()
+    ctx.globalCompositeOperation = 'lighter'
+    ctx.globalAlpha = ball.echo ? 0.85 : 1
+    ctx.drawImage(sheet, x - glowSize / 2, y - glowSize / 2, glowSize, glowSize)
+    ctx.restore()
+    ctx.save()
+    ctx.translate(x, y)
+    drawEnergyBall(ctx, ball.radius, ball.echo)
+    ctx.restore()
+  }
+}
+
+function drawEnergyBall(ctx: CanvasRenderingContext2D, r: number, echo: boolean): void {
+  ctx.beginPath()
+  ctx.arc(0, 0, r, 0, Math.PI * 2)
+  if (echo) {
+    const fill = ctx.createRadialGradient(-r * 0.28, -r * 0.32, r * 0.08, 0, 0, r)
+    fill.addColorStop(0, '#ffffff')
+    fill.addColorStop(0.42, '#e7d4ff')
+    fill.addColorStop(1, '#8a4dff')
+    ctx.fillStyle = fill
+    ctx.fill()
+    ctx.lineWidth = Math.max(1.4, r * 0.18)
+    ctx.strokeStyle = '#f4e9ff'
+    ctx.shadowColor = '#d9a6ff'
+    ctx.shadowBlur = 10
+    ctx.stroke()
+    return
+  }
+  const body = ctx.createRadialGradient(-r * 0.38, -r * 0.42, r * 0.12, r * 0.12, r * 0.16, r)
+  body.addColorStop(0, '#f7f9fc')
+  body.addColorStop(0.38, '#c5d2e0')
+  body.addColorStop(0.74, '#7f93a8')
+  body.addColorStop(1, '#516478')
+  ctx.fillStyle = body
+  ctx.fill()
+  ctx.lineWidth = Math.max(1.7, r * 0.14)
+  ctx.strokeStyle = '#ff2d3a'
+  ctx.shadowColor = '#ff2d3a'
+  ctx.shadowBlur = 12
+  ctx.stroke()
+  ctx.shadowBlur = 0
+  ctx.beginPath()
+  ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2)
+  ctx.fillStyle = '#4a1218'
+  ctx.fill()
+  const eye = ctx.createRadialGradient(-r * 0.06, -r * 0.06, r * 0.02, 0, 0, r * 0.28)
+  eye.addColorStop(0, '#ffe4e6')
+  eye.addColorStop(0.42, '#ff2d3a')
+  eye.addColorStop(1, '#8d1020')
+  ctx.beginPath()
+  ctx.arc(0, 0, r * 0.26, 0, Math.PI * 2)
+  ctx.fillStyle = eye
+  ctx.fill()
+  ctx.beginPath()
+  ctx.ellipse(-r * 0.28, -r * 0.34, r * 0.22, r * 0.11, -0.7, 0, Math.PI * 2)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.78)'
+  ctx.fill()
 }
 
 function drawFloaters(

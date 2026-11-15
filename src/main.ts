@@ -106,6 +106,8 @@ function frame(now: number): void {
         aimY: aim.y,
         aimActive: true,
         viewRadius: Math.max(220, Math.hypot(width, height) / 2),
+        viewW: width,
+        viewH: height,
       },
       dt,
     )
