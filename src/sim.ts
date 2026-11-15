@@ -581,7 +581,7 @@ function damageEnemy(
   color = '#ffffff',
 ): void {
   enemy.hitCd = TUNING.hitCooldown
-  enemy.flash = 0.28
+  enemy.flash = 0.08
   enemy.hp -= dealt
   pushFloater(state, enemy.x, enemy.y - enemy.radius * 0.35, String(dealt), color, -68)
   burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 6, 140)
@@ -947,7 +947,7 @@ function launchBalls(state: GameState, dt: number): void {
       vy: Math.sin(angle) * speed,
       life,
       max: life,
-      radius: 22 * BODY,
+      radius: 27 * BODY,
       damage,
       echo: false,
       quantum,
@@ -1031,9 +1031,9 @@ function splitBall(state: GameState, ball: Ricochet): boolean {
       y: ball.y,
       vx: Math.cos(a) * echoSpeed,
       vy: Math.sin(a) * echoSpeed,
-      life: 0.45,
-      max: 0.45,
-      radius: Math.max(8 * BODY, ball.radius * 0.55),
+      life: ball.max,
+      max: ball.max,
+      radius: Math.max(10 * BODY, ball.radius * 0.55),
       damage: Math.max(1, Math.round(ball.damage * 0.45)),
       echo: true,
       quantum: true,

@@ -267,7 +267,7 @@ function drawEnemies(
     const s = e.radius * 3.4
     ctx.drawImage(sheets[e.kind], X(e.x) - s / 2, Y(e.y) - s / 2, s, s)
     if (e.flash > 0) {
-      const punch = Math.min(1, e.flash / 0.12)
+      const punch = Math.min(1, e.flash / 0.08)
       const hs = e.radius * (4.2 + punch)
       ctx.globalAlpha = 0.45 + punch * 0.55
       ctx.drawImage(hurtGlow, X(e.x) - hs / 2, Y(e.y) - hs / 2, hs, hs)
@@ -291,7 +291,7 @@ function drawEnemies(
     ctx.fill()
     ctx.stroke()
     if (e.flash > 0) {
-      const punch = Math.min(1, e.flash / 0.12)
+      const punch = Math.min(1, e.flash / 0.08)
       ctx.fillStyle = `rgba(255, 255, 255, ${0.55 + punch * 0.45})`
       ctx.fill()
       ctx.strokeStyle = '#ffffff'
@@ -364,6 +364,7 @@ function drawBalls(
 
 function drawEnergyBall(ctx: CanvasRenderingContext2D, r: number, red: boolean): void {
   const ink = red ? '#ff2d3a' : '#8dff4a'
+  const rim = red ? '#ff2d3a' : '#3c4450'
   const deep = red ? '#8d1020' : '#1f7a28'
   const hot = red ? '#ffe4e6' : '#f4ffd2'
   ctx.beginPath()
@@ -376,8 +377,8 @@ function drawEnergyBall(ctx: CanvasRenderingContext2D, r: number, red: boolean):
   ctx.fillStyle = body
   ctx.fill()
   ctx.lineWidth = Math.max(1.7, r * 0.14)
-  ctx.strokeStyle = ink
-  ctx.shadowColor = ink
+  ctx.strokeStyle = rim
+  ctx.shadowColor = red ? ink : '#3c4450'
   ctx.shadowBlur = 12
   ctx.stroke()
   ctx.shadowBlur = 0
