@@ -179,9 +179,9 @@ export interface StepEvents {
 }
 
 const KIND = [
-  { radius: 14 * BODY, hp: HIT, speed: 230, spin: 2.8 },
-  { radius: 22 * BODY, hp: HIT * 2, speed: 100, spin: 1.15 },
-  { radius: 20 * BODY, hp: HIT, speed: 108, spin: 0.8 },
+  { radius: 14 * BODY, hp: HIT / 2, speed: 150, spin: 2.8 },
+  { radius: 22 * BODY, hp: HIT * 2, speed: 66, spin: 1.15 },
+  { radius: 20 * BODY, hp: HIT, speed: 72, spin: 0.8 },
 ] as const
 
 const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
@@ -231,7 +231,7 @@ const ORB_COMMON = '#ffffff'
 const ORB_RARE = '#d9a6ff'
 
 export function xpNeedFor(level: number): number {
-  return 18 * 2 ** Math.max(0, level - 1)
+  return Math.round(8 * 1.4 ** Math.max(0, level - 1))
 }
 
 function freshMods(): Mods {
@@ -535,7 +535,7 @@ function splitCircle(state: GameState, enemy: Enemy): void {
       vy: Math.sin(a) * speed * 0.55,
       radius,
       kind: 2,
-      hp: HIT,
+      hp: HIT / 2,
       hitCd: TUNING.hitCooldown,
       orbitCd: 0.2,
       spin: enemy.spin,
@@ -550,11 +550,11 @@ function splitCircle(state: GameState, enemy: Enemy): void {
 function spawn(state: GameState, input: Input, dt: number): void {
   state.spawnCd -= dt
   if (state.spawnCd > 0) return
-  const interval = Math.max(0.38, 1.4 - state.time * 0.016)
+  const interval = Math.max(0.22, 0.82 - state.time * 0.014)
   state.spawnCd += interval
-  if (state.enemies.length >= 26) return
+  if (state.enemies.length >= 42) return
   spawnOne(state, input.viewRadius)
-  if (state.heat >= 8 && state.rng() < 0.4 && state.enemies.length < 26) {
+  if (state.heat >= 3 && state.rng() < 0.62 && state.enemies.length < 42) {
     spawnOne(state, input.viewRadius)
   }
 }

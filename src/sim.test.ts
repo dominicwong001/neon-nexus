@@ -187,7 +187,7 @@ describe('hostiles', () => {
     assert.equal(state.enemies.length, 2)
     for (const child of state.enemies) {
       assert.equal(child.kind, 2)
-      assert.equal(child.hp, HIT)
+      assert.equal(child.hp, HIT / 2)
       assert.equal(child.generation, 1)
       assert.ok(child.radius < 20)
     }
@@ -359,9 +359,10 @@ describe('orbs', () => {
     const first = xpNeedFor(1)
     const second = xpNeedFor(2)
     const third = xpNeedFor(3)
+    assert.ok(first <= 10)
     assert.ok(second > first)
     assert.ok(third > second)
-    assert.ok(third >= first * 2)
+    assert.ok(third < first * 3)
   })
 
   it('opens three upgrades when the bar fills and freezes the pit', () => {
