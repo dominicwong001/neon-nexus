@@ -720,7 +720,7 @@ function dropOrb(state: GameState, enemy: Enemy): void {
   const rare = enemy.kind === 2
   const child = enemy.generation > 0
   const radius = rare ? (child ? 4.5 : 7) : enemy.kind === 1 ? 4.5 : 3.5
-  const value = rare ? (child ? 3 : 6) : enemy.kind === 1 ? 2 : 1
+  const value = rare ? (child ? 3 : 4) : enemy.kind === 1 ? 2 : 1
   const a = state.rng() * Math.PI * 2
   const kick = 18 + state.rng() * 36
   if (state.orbs.length > 90) state.orbs.shift()

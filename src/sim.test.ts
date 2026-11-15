@@ -339,6 +339,7 @@ describe('orbs', () => {
     const big = rare.reduce((best, item) => (item.radius > best.radius ? item : best))
     assert.ok(plain)
     assert.ok(big.radius > plain.radius)
+    assert.equal(big.value, 4)
     assert.ok(big.value > plain.value)
     assert.notEqual(big.color, plain.color)
   })
