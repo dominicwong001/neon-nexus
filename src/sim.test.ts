@@ -59,6 +59,7 @@ function enemy(over: Partial<Enemy> = {}): Enemy {
     kind: 0,
     hp: 1,
     hitCd: 0,
+    flash: 0,
     orbitCd: 0,
     spin: 0,
     angle: 0,
@@ -235,6 +236,7 @@ describe('hostiles', () => {
     assert.equal(state.score, 0)
     assert.equal(state.enemies.length, 1)
     assert.equal(state.enemies[0]?.hp, HIT)
+    assert.ok((state.enemies[0]?.flash ?? 0) > 0.1)
     for (let i = 0; i < 40 && state.enemies.length; i++) step(state, input(), 1 / 60)
     assert.equal(state.enemies.length, 0)
     assert.equal(state.score, 20)

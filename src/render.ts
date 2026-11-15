@@ -260,11 +260,19 @@ function drawEnemies(
   Y: (y: number) => number,
 ): void {
   const sheets = [glowFor('#ff3df2'), glowFor('#ffd23a'), glowFor('#8dff6a'), glowFor('#ff2d3a')]
+  const hurtGlow = glowFor('#ffffff')
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   for (const e of state.enemies) {
     const s = e.radius * 3.4
     ctx.drawImage(sheets[e.kind], X(e.x) - s / 2, Y(e.y) - s / 2, s, s)
+    if (e.flash > 0) {
+      const punch = Math.min(1, e.flash / 0.12)
+      const hs = e.radius * (4.2 + punch)
+      ctx.globalAlpha = 0.45 + punch * 0.55
+      ctx.drawImage(hurtGlow, X(e.x) - hs / 2, Y(e.y) - hs / 2, hs, hs)
+      ctx.globalAlpha = 1
+    }
   }
   ctx.restore()
 
@@ -282,9 +290,12 @@ function drawEnemies(
     else ctx.arc(0, 0, e.radius, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
-    if (e.hitCd > 0) {
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
-      ctx.lineWidth = 2.6 * BODY
+    if (e.flash > 0) {
+      const punch = Math.min(1, e.flash / 0.12)
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.55 + punch * 0.45})`
+      ctx.fill()
+      ctx.strokeStyle = '#ffffff'
+      ctx.lineWidth = (e.kind === 3 ? 4.2 : 3.2) * BODY
       ctx.stroke()
     }
     ctx.restore()

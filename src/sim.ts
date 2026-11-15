@@ -42,6 +42,7 @@ export interface Enemy {
   kind: EnemyKind
   hp: number
   hitCd: number
+  flash: number
   orbitCd: number
   spin: number
   angle: number
@@ -580,6 +581,7 @@ function damageEnemy(
   color = '#ffffff',
 ): void {
   enemy.hitCd = TUNING.hitCooldown
+  enemy.flash = 0.18
   enemy.hp -= dealt
   pushFloater(state, enemy.x, enemy.y - enemy.radius * 0.35, String(dealt), color, -68)
   burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 6, 140)
@@ -622,6 +624,7 @@ function splitCircle(state: GameState, enemy: Enemy): void {
       kind: 2,
       hp: 100,
       hitCd: TUNING.hitCooldown,
+      flash: 0,
       orbitCd: 0.2,
       spin: enemy.spin,
       angle: enemy.angle + side,
@@ -663,6 +666,7 @@ function spawnOne(state: GameState, viewRadius: number): void {
     kind,
     hp: spec.hp,
     hitCd: 0,
+    flash: 0,
     orbitCd: 0,
     spin: spec.spin * (state.rng() < 0.5 ? -1 : 1),
     angle: state.rng() * Math.PI * 2,
@@ -678,6 +682,7 @@ function moveEnemies(state: GameState, input: Input, dt: number): void {
   for (let j = state.enemies.length - 1; j >= 0; j--) {
     const e = state.enemies[j]
     e.hitCd = Math.max(0, e.hitCd - dt)
+    e.flash = Math.max(0, e.flash - dt)
     e.orbitCd = Math.max(0, e.orbitCd - dt)
     const dx = state.playerX - e.x
     const dy = state.playerY - e.y
