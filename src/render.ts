@@ -364,7 +364,6 @@ function drawBalls(
 
 function drawEnergyBall(ctx: CanvasRenderingContext2D, r: number, red: boolean): void {
   const ink = red ? '#ff2d3a' : '#8dff4a'
-  const rim = red ? '#ff2d3a' : '#3c4450'
   const deep = red ? '#8d1020' : '#1f7a28'
   const hot = red ? '#ffe4e6' : '#f4ffd2'
   ctx.beginPath()
@@ -377,8 +376,8 @@ function drawEnergyBall(ctx: CanvasRenderingContext2D, r: number, red: boolean):
   ctx.fillStyle = body
   ctx.fill()
   ctx.lineWidth = Math.max(1.7, r * 0.14)
-  ctx.strokeStyle = rim
-  ctx.shadowColor = red ? ink : '#3c4450'
+  ctx.strokeStyle = ink
+  ctx.shadowColor = ink
   ctx.shadowBlur = 12
   ctx.stroke()
   ctx.shadowBlur = 0
@@ -386,7 +385,7 @@ function drawEnergyBall(ctx: CanvasRenderingContext2D, r: number, red: boolean):
   const ey = -r * 0.16
   ctx.beginPath()
   ctx.arc(ex, ey, r * 0.4, 0, Math.PI * 2)
-  ctx.fillStyle = red ? '#3a1218' : '#16301c'
+  ctx.fillStyle = red ? '#3a1218' : '#3c4450'
   ctx.fill()
   const eye = ctx.createRadialGradient(ex - r * 0.05, ey - r * 0.05, r * 0.02, ex, ey, r * 0.26)
   eye.addColorStop(0, hot)
