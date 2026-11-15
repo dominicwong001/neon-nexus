@@ -512,21 +512,21 @@ function drawAim(ctx: CanvasRenderingContext2D, view: View, sx: number, sy: numb
     ctx.lineTo(x, y)
     ctx.stroke()
   }
-  ctx.strokeStyle = '#ffffff'
-  ctx.lineWidth = 1.5
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.34)'
+  ctx.lineWidth = 1.25
   ctx.beginPath()
-  ctx.arc(x, y, 12, 0, Math.PI * 2)
-  ctx.moveTo(x - 20, y)
-  ctx.lineTo(x - 6, y)
-  ctx.moveTo(x + 6, y)
-  ctx.lineTo(x + 20, y)
-  ctx.moveTo(x, y - 20)
-  ctx.lineTo(x, y - 6)
-  ctx.moveTo(x, y + 6)
-  ctx.lineTo(x, y + 20)
+  ctx.arc(x, y, 9, 0, Math.PI * 2)
+  ctx.moveTo(x - 15, y)
+  ctx.lineTo(x - 4.5, y)
+  ctx.moveTo(x + 4.5, y)
+  ctx.lineTo(x + 15, y)
+  ctx.moveTo(x, y - 15)
+  ctx.lineTo(x, y - 4.5)
+  ctx.moveTo(x, y + 4.5)
+  ctx.lineTo(x, y + 15)
   ctx.stroke()
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(x - 1.5, y - 1.5, 3, 3)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.34)'
+  ctx.fillRect(x - 1.1, y - 1.1, 2.2, 2.2)
 }
 
 function drawStick(ctx: CanvasRenderingContext2D, stick: StickView): void {
