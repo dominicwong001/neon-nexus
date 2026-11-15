@@ -115,6 +115,7 @@ export interface Ricochet {
   echo: boolean
   quantum: boolean
   knock: number
+  spin: number
   touched: { enemy: Enemy; cd: number }[]
 }
 
@@ -941,11 +942,12 @@ function launchBalls(state: GameState, dt: number): void {
       vy: Math.sin(angle) * speed,
       life,
       max: life,
-      radius: 16 * BODY,
+      radius: 22 * BODY,
       damage,
       echo: false,
       quantum,
       knock: quantum ? 8 : 2.2,
+      spin: state.rng() * Math.PI * 2,
       touched: [],
     })
   }
@@ -969,6 +971,7 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
     }
     ball.x += ball.vx * dt
     ball.y += ball.vy * dt
+    ball.spin += ((ball.vx - ball.vy) * dt) / Math.max(6, ball.radius)
     if (ball.x - ball.radius < left) {
       ball.x = left + ball.radius
       if (ball.vx < 0) ball.vx = -ball.vx
@@ -1021,11 +1024,12 @@ function splitBall(state: GameState, ball: Ricochet): void {
       vy: Math.sin(a) * echoSpeed,
       life: 0.45,
       max: 0.45,
-      radius: Math.max(6 * BODY, ball.radius * 0.55),
+      radius: Math.max(8 * BODY, ball.radius * 0.55),
       damage: Math.max(1, Math.round(ball.damage * 0.45)),
       echo: true,
       quantum: true,
       knock: 2.4,
+      spin: ball.spin,
       touched: [],
     })
   }

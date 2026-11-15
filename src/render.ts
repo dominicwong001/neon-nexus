@@ -347,6 +347,7 @@ function drawBalls(
     ctx.restore()
     ctx.save()
     ctx.translate(x, y)
+    ctx.rotate(ball.spin)
     drawEnergyBall(ctx, ball.radius, ball.quantum)
     ctx.restore()
   }
