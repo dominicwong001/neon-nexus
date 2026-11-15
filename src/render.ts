@@ -1,8 +1,4 @@
-import discUrl from './assets/disc.png'
 import { BODY, DISC, ENEMY_COLOR, TUNING, orbitDiscs, type GameState } from './sim.ts'
-
-const discSprite = new Image()
-discSprite.src = discUrl
 
 export interface StickView {
   x: number
@@ -329,12 +325,83 @@ function drawOrbiters(
     ctx.drawImage(glow, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
     ctx.globalCompositeOperation = 'source-over'
     ctx.rotate(disc.spin)
-    if (discSprite.complete && discSprite.naturalWidth > 0) {
-      const size = DISC.radius * 2
-      ctx.drawImage(discSprite, -size / 2, -size / 2, size, size)
-    }
+    drawSaw(ctx, DISC.radius)
     ctx.restore()
   }
+}
+
+function drawSaw(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.lineWidth = Math.max(1.2, r * 0.07)
+  ctx.strokeStyle = '#07080a'
+  for (let i = 0; i < 3; i++) {
+    ctx.save()
+    ctx.rotate((i * Math.PI * 2) / 3)
+    ctx.fillStyle = '#8e949b'
+    traceBlade(ctx, r)
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = '#ffffff'
+    traceRim(ctx, r)
+    ctx.fill()
+    ctx.stroke()
+    traceAccent(ctx, r)
+    ctx.fill()
+    ctx.stroke()
+    ctx.restore()
+  }
+  ctx.beginPath()
+  ctx.arc(0, 0, r * 0.34, 0, Math.PI * 2)
+  ctx.fillStyle = '#667078'
+  ctx.fill()
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(0, 0, r * 0.15, 0, Math.PI * 2)
+  ctx.fillStyle = '#ffffff'
+  ctx.fill()
+  ctx.stroke()
+}
+
+function traceBlade(ctx: CanvasRenderingContext2D, r: number): void {
+  const outer = r * 0.72
+  const inner = r * 0.4
+  const a0 = -0.08
+  const a1 = 1.02
+  ctx.beginPath()
+  ctx.arc(0, 0, outer, a0, a1)
+  ctx.arc(0, 0, inner, a1 - 0.04, a0 + 0.16, true)
+  ctx.closePath()
+}
+
+function traceRim(ctx: CanvasRenderingContext2D, r: number): void {
+  const a0 = -0.34
+  const a1 = 1.18
+  ctx.beginPath()
+  ctx.arc(0, 0, r * 0.98, a0, a1)
+  ctx.quadraticCurveTo(
+    Math.cos(a1 + 0.12) * r * 0.78,
+    Math.sin(a1 + 0.12) * r * 0.78,
+    Math.cos(a1 - 0.08) * r * 0.7,
+    Math.sin(a1 - 0.08) * r * 0.7,
+  )
+  ctx.arc(0, 0, r * 0.7, a1 - 0.08, a0 + 0.12, true)
+  ctx.quadraticCurveTo(
+    Math.cos(a0 - 0.06) * r * 0.8,
+    Math.sin(a0 - 0.06) * r * 0.8,
+    Math.cos(a0) * r * 0.98,
+    Math.sin(a0) * r * 0.98,
+  )
+  ctx.closePath()
+}
+
+function traceAccent(ctx: CanvasRenderingContext2D, r: number): void {
+  const a0 = 0.28
+  const a1 = 0.82
+  ctx.beginPath()
+  ctx.arc(0, 0, r * 0.56, a0, a1)
+  ctx.arc(0, 0, r * 0.44, a1 - 0.05, a0 + 0.05, true)
+  ctx.closePath()
 }
 
 function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {

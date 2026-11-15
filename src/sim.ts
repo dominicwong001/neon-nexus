@@ -447,6 +447,10 @@ export function orbiterDamage(rank: number): number {
   return HIT / 2 + Math.max(0, rank - 1) * 10
 }
 
+export function orbiterShove(rank: number): number {
+  return 4 + Math.max(0, rank - 1) * 2.5
+}
+
 export function orbitActive(rank: number): number {
   return DISC.active + Math.max(0, rank - 1) * 0.45
 }
@@ -757,6 +761,23 @@ export function orbitDiscs(state: GameState): { x: number; y: number; spin: numb
   return discs
 }
 
+function shoveFromDisc(state: GameState, enemy: Enemy, x: number, y: number, shove: number): void {
+  let dx = enemy.x - x
+  let dy = enemy.y - y
+  let dist = Math.hypot(dx, dy)
+  if (dist < 0.01) {
+    dx = x - state.playerX
+    dy = y - state.playerY
+    dist = Math.hypot(dx, dy) || 1
+  }
+  const nx = dx / dist
+  const ny = dy / dist
+  enemy.x += nx * shove
+  enemy.y += ny * shove
+  enemy.vx += nx * shove * 6
+  enemy.vy += ny * shove * 6
+}
+
 function strikeOrbits(state: GameState, events: StepEvents): void {
   const discs = orbitDiscs(state)
   if (discs.length === 0) return
@@ -770,6 +791,7 @@ function strikeOrbits(state: GameState, events: StepEvents): void {
       const reach = DISC.radius + enemy.radius
       if (dx * dx + dy * dy > reach * reach) continue
       enemy.orbitCd = 0.42
+      shoveFromDisc(state, enemy, disc.x, disc.y, orbiterShove(state.mods.orbiter))
       spawnImpact(state, disc.x, disc.y)
       damageEnemy(state, enemy, events, orbiterDamage(state.mods.orbiter))
     }
@@ -815,11 +837,11 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     fork: { title: 'Fork', detail: 'Two extra rounds fan out beside the main shot.' },
     greed: { title: 'Greed', detail: 'Every orb is worth more.' },
     plate: { title: 'Plate', detail: 'Repair one hull segment and add a spare.' },
-    orbiter: { title: 'Orbiter', detail: 'Two discs orbit the core, then fade out and recharge.' },
+    orbiter: { title: 'Orbiter', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
   }
   const detail =
     id === 'orbiter' && rank > 1
-      ? 'One more disc. They last longer, hit harder, and spin faster.'
+      ? 'One more disc. They last longer, hit harder, spin faster, and nudge harder.'
       : copy[id].detail
   return { id, title: copy[id].title, detail, rank, max }
 }

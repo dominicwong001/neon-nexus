@@ -11,6 +11,7 @@ import {
   orbitDiscs,
   orbitRate,
   orbiterDamage,
+  orbiterShove,
   screenToWorld,
   step,
   worldToScreen,
@@ -443,6 +444,29 @@ describe('orbs', () => {
     quiet.enemies.push(enemy({ x: 0, y: 0, radius: 240, hp: 8, speed: 0 }))
     step(quiet, input({ aimActive: false }), 1 / 60)
     assert.equal(quiet.enemies[0]?.hp, 8)
+  })
+
+  it('nudges a hostile off a disc, a little harder at each rank', () => {
+    const bump = (rank: number) => {
+      const state = createGame(0, 4)
+      state.spawnCd = 999
+      state.fireCd = 10
+      state.invuln = 5
+      state.mods.orbiter = rank
+      state.orbitTime = 0.8
+      const disc = orbitDiscs(state)[0]
+      assert.ok(disc)
+      const hostile = enemy({ x: disc.x, y: disc.y, radius: 10, hp: HIT * 3, speed: 0, kind: 1 })
+      state.enemies.push(hostile)
+      step(state, input({ aimActive: false }), 1 / 60)
+      return Math.hypot(hostile.x - disc.x, hostile.y - disc.y)
+    }
+    const low = bump(1)
+    const high = bump(6)
+    assert.ok(Math.abs(low - orbiterShove(1)) < 0.05)
+    assert.ok(high > low)
+    assert.ok(orbiterShove(6) > orbiterShove(1))
+    assert.ok(orbiterShove(6) < 20)
   })
 
   it('never offers Reach', () => {
