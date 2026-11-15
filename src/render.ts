@@ -1,4 +1,4 @@
-import { BODY, DISC, ENEMY_COLOR, FIELD, TUNING, fieldRadius, orbitDiscs, type GameState } from './sim.ts'
+import { BODY, DISC, ENEMY_COLOR, TUNING, fieldRadius, orbitDiscs, type GameState } from './sim.ts'
 
 export interface StickView {
   x: number
@@ -71,16 +71,14 @@ function drawField(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.beginPath()
   polyPath(ctx, 0, 0, radius, 6, spin)
   ctx.fill()
-  ctx.strokeStyle = 'rgba(61, 240, 255, 0.22)'
-  ctx.lineWidth = 10
-  ctx.stroke()
   ctx.restore()
 
-  const life = 0.5
-  const newest = Math.floor(state.time / FIELD.tick)
-  for (let i = newest; i >= newest - 3; i--) {
+  const life = 1.35
+  const every = 0.72
+  const newest = Math.floor(state.time / every)
+  for (let i = newest; i >= newest - 2; i--) {
     if (i < 0) continue
-    const age = state.time - i * FIELD.tick
+    const age = state.time - i * every
     if (age < 0 || age > life) continue
     const phase = age / life
     ctx.save()
