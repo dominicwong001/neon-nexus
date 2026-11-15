@@ -525,13 +525,15 @@ export function orbiterDamage(rank: number): number {
 
 export function ballCount(rank: number): number {
   if (rank <= 0) return 0
-  if (rank >= OVERDRIVE) return 3
-  return Math.min(4, rank)
+  if (rank >= OVERDRIVE) return 2
+  if (rank <= 2) return 1
+  if (rank <= 4) return 2
+  return 3
 }
 
 export function ballSpeed(rank: number): number {
-  if (rank >= OVERDRIVE) return 1180
-  return 640 + Math.max(0, rank - 1) * 90
+  if (rank >= OVERDRIVE) return 620
+  return 420 + Math.max(0, rank - 1) * 35
 }
 
 export function ballDamage(rank: number): number {
@@ -545,8 +547,8 @@ export function ballLife(rank: number): number {
 }
 
 export function ballInterval(rank: number): number {
-  if (rank >= OVERDRIVE) return 0.72
-  return Math.max(1.15, 2.15 - Math.max(0, rank - 1) * 0.22)
+  if (rank >= OVERDRIVE) return 1.15
+  return Math.max(1.6, 2.3 - Math.max(0, rank - 1) * 0.14)
 }
 
 export function orbiterCount(rank: number): number {
@@ -971,7 +973,7 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
     }
     ball.x += ball.vx * dt
     ball.y += ball.vy * dt
-    ball.spin += ((ball.vx - ball.vy) * dt) / Math.max(6, ball.radius)
+    if (Math.hypot(ball.vx, ball.vy) > 30) ball.spin += dt * 2.4
     if (ball.x - ball.radius < left) {
       ball.x = left + ball.radius
       if (ball.vx < 0) ball.vx = -ball.vx
@@ -1001,6 +1003,7 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
       const reach = ball.radius + enemy.radius
       if (dx * dx + dy * dy > reach * reach) continue
       ball.touched.push({ enemy, cd: 0.15 })
+      if (enemy.kind === 3 || enemy.hp >= 1000) deflectOffEnemy(ball, enemy)
       shoveFromBall(enemy, ball)
       damageEnemy(state, enemy, events, ball.damage, ball.quantum ? '#ff2d3a' : '#8dff4a')
       enemy.hitCd = 0.14
@@ -1010,12 +1013,12 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
 }
 
 function splitBall(state: GameState, ball: Ricochet): void {
-  if (!ball.quantum || ball.echo || state.balls.length > 40) return
+  if (!ball.quantum || ball.echo || state.balls.length > 24) return
   const speed = Math.hypot(ball.vx, ball.vy) || ballSpeed(OVERDRIVE)
   const angle = Math.atan2(ball.vy, ball.vx)
-  const echoSpeed = speed * 1.55
+  const echoSpeed = speed * 1.15
   for (const turn of [-35, 35]) {
-    if (state.balls.length > 40) return
+    if (state.balls.length > 24) return
     const a = angle + (turn * Math.PI) / 180
     state.balls.push({
       x: ball.x,
@@ -1032,6 +1035,27 @@ function splitBall(state: GameState, ball: Ricochet): void {
       spin: ball.spin,
       touched: [],
     })
+  }
+}
+
+function deflectOffEnemy(ball: Ricochet, enemy: Enemy): void {
+  let dx = ball.x - enemy.x
+  let dy = ball.y - enemy.y
+  let dist = Math.hypot(dx, dy)
+  if (dist < 0.01) {
+    dx = ball.vx || 1
+    dy = ball.vy
+    dist = Math.hypot(dx, dy) || 1
+  }
+  const nx = dx / dist
+  const ny = dy / dist
+  const reach = ball.radius + enemy.radius
+  ball.x = enemy.x + nx * reach
+  ball.y = enemy.y + ny * reach
+  const toward = ball.vx * nx + ball.vy * ny
+  if (toward < 0) {
+    ball.vx -= 2 * toward * nx
+    ball.vy -= 2 * toward * ny
   }
 }
 

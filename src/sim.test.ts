@@ -14,6 +14,7 @@ import {
   discTurn,
   ballCount,
   ballDamage,
+  ballSpeed,
   ballInterval,
   ballLife,
   orbiterCount,
@@ -466,9 +467,11 @@ describe('orbs', () => {
     }
     assert.equal(state.mods.ball, 6)
     assert.equal(ballCount(1), 1)
-    assert.equal(ballCount(4), 4)
-    assert.equal(ballCount(5), 4)
-    assert.equal(ballCount(6), 3)
+    assert.equal(ballCount(4), 2)
+    assert.equal(ballCount(5), 3)
+    assert.equal(ballCount(6), 2)
+    assert.ok(ballSpeed(5) < 700)
+    assert.ok(ballSpeed(6) < 750)
     assert.equal(ballLife(1), 3.5)
     assert.equal(ballLife(6), 4.5)
     assert.ok(ballInterval(6) < ballInterval(1))
@@ -580,6 +583,33 @@ describe('orbs', () => {
     assert.equal(echoes[0]?.max, 0.45)
     assert.ok((echoes[0]?.radius ?? 99) < 10)
     assert.equal(ballDamage(6), 36)
+
+    const tank = createGame(0, 10)
+    tank.spawnCd = 999
+    tank.fireCd = 10
+    tank.invuln = 5
+    const brute = enemy({ x: 30, y: 0, hp: 1000, radius: 22, kind: 3, speed: 0 })
+    tank.enemies.push(brute)
+    const incoming = {
+      x: 0,
+      y: 0,
+      vx: 240,
+      vy: 0,
+      life: 2,
+      max: 2,
+      radius: 12,
+      damage: 20,
+      echo: false,
+      quantum: false,
+      knock: 2.2,
+      spin: 0,
+      touched: [],
+    }
+    tank.balls.push(incoming)
+    step(tank, input({ aimActive: false }), 1 / 60)
+    assert.ok(incoming.vx < 0)
+    assert.ok(brute.hp < 1000)
+    assert.ok(incoming.x < brute.x)
   })
 
   it('always offers Force Field, then burns and slows inside a wider ring', () => {

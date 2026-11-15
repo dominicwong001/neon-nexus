@@ -360,10 +360,10 @@ function drawEnergyBall(ctx: CanvasRenderingContext2D, r: number, red: boolean):
   ctx.beginPath()
   ctx.arc(0, 0, r, 0, Math.PI * 2)
   const body = ctx.createRadialGradient(-r * 0.38, -r * 0.42, r * 0.12, r * 0.12, r * 0.16, r)
-  body.addColorStop(0, '#f7f9fc')
-  body.addColorStop(0.38, '#c5d2e0')
-  body.addColorStop(0.74, '#7f93a8')
-  body.addColorStop(1, '#516478')
+  body.addColorStop(0, red ? '#8d98a3' : '#f7f9fc')
+  body.addColorStop(0.38, red ? '#5c6772' : '#c5d2e0')
+  body.addColorStop(0.74, red ? '#343c46' : '#7f93a8')
+  body.addColorStop(1, red ? '#1c2228' : '#516478')
   ctx.fillStyle = body
   ctx.fill()
   ctx.lineWidth = Math.max(1.7, r * 0.14)
@@ -385,10 +385,6 @@ function drawEnergyBall(ctx: CanvasRenderingContext2D, r: number, red: boolean):
   ctx.beginPath()
   ctx.arc(ex, ey, r * 0.26, 0, Math.PI * 2)
   ctx.fillStyle = eye
-  ctx.fill()
-  ctx.beginPath()
-  ctx.ellipse(-r * 0.22, -r * 0.4, r * 0.24, r * 0.1, -0.8, 0, Math.PI * 2)
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.78)'
   ctx.fill()
 }
 
