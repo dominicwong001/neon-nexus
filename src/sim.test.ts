@@ -2,9 +2,11 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   TUNING,
+  DISC,
   chooseUpgrade,
   createGame,
   hexRingReach,
+  orbitDiscs,
   screenToWorld,
   step,
   worldToScreen,
@@ -36,6 +38,7 @@ function enemy(over: Partial<Enemy> = {}): Enemy {
     kind: 0,
     hp: 1,
     hitCd: 0,
+    orbitCd: 0,
     spin: 0,
     angle: 0,
     phase: 0,
@@ -372,6 +375,53 @@ describe('orbs', () => {
     if (chosen.id === 'cache') assert.equal(state.score, 40)
     else assert.equal(state.mods[chosen.id], 1)
     assert.equal(state.phase, 'play')
+  })
+
+  it('always offers Orbiter and adds a disc on every rank', () => {
+    const state = createGame(0, 11)
+    state.spawnCd = 999
+    state.fireCd = 10
+    for (let n = 0; n < 6; n++) {
+      state.xp = state.xpNeed
+      step(state, input({ aimActive: false }), 1 / 60)
+      assert.equal(state.phase, 'level')
+      assert.equal(state.offers[0]?.id, 'orbiter')
+      assert.equal(state.offers[0]?.title, 'Orbiter')
+      chooseUpgrade(state, 0)
+      state.orbitTime = 0.8
+      assert.equal(orbitDiscs(state).length, n + 2)
+    }
+    assert.equal(state.mods.orbiter, 6)
+    state.xp = state.xpNeed
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(state.offers.some((offer) => offer.id === 'orbiter'), false)
+  })
+
+  it('lets the discs bite, then hides them while they recharge', () => {
+    const state = createGame(0, 12)
+    state.spawnCd = 999
+    state.fireCd = 10
+    state.invuln = 5
+    state.mods.orbiter = 1
+    state.orbitTime = 0.8
+    const live = orbitDiscs(state)
+    assert.equal(live.length, 2)
+    state.enemies.push(enemy({ x: 0, y: 0, radius: 130, hp: 8, speed: 0 }))
+    step(state, input({ aimActive: false }), 1 / 60)
+    const bitten = state.enemies[0]
+    assert.ok(bitten)
+    assert.ok(bitten.hp < 8)
+
+    const quiet = createGame(0, 13)
+    quiet.spawnCd = 999
+    quiet.fireCd = 10
+    quiet.invuln = 5
+    quiet.mods.orbiter = 1
+    quiet.orbitTime = DISC.active + 0.4
+    assert.equal(orbitDiscs(quiet).length, 0)
+    quiet.enemies.push(enemy({ x: 0, y: 0, radius: 130, hp: 8, speed: 0 }))
+    step(quiet, input({ aimActive: false }), 1 / 60)
+    assert.equal(quiet.enemies[0]?.hp, 8)
   })
 
   it('never offers Reach', () => {

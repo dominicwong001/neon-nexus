@@ -18,7 +18,7 @@ export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a'] as const
 
 export type EnemyKind = 0 | 1 | 2
 export type Phase = 'play' | 'dead' | 'level'
-export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'plate' | 'cache'
+export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'plate' | 'orbiter' | 'cache'
 
 export interface Bullet {
   x: number
@@ -37,6 +37,7 @@ export interface Enemy {
   kind: EnemyKind
   hp: number
   hitCd: number
+  orbitCd: number
   spin: number
   angle: number
   phase: number
@@ -92,6 +93,7 @@ export interface Mods {
   fork: number
   greed: number
   plate: number
+  orbiter: number
 }
 
 export interface Offer {
@@ -138,6 +140,7 @@ export interface GameState {
   xp: number
   xpNeed: number
   hullMax: number
+  orbitTime: number
   mods: Mods
   offers: Offer[]
   bullets: Bullet[]
@@ -182,7 +185,16 @@ const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
   fork: 2,
   greed: 3,
   plate: 3,
+  orbiter: 6,
 }
+
+export const DISC = {
+  radius: 20,
+  orbit: 116,
+  active: 1.9,
+  recharge: 3.3,
+  spin: 1.7,
+} as const
 
 const ORB_COMMON = '#ffffff'
 const ORB_RARE = '#d9a6ff'
@@ -192,7 +204,7 @@ export function xpNeedFor(level: number): number {
 }
 
 function freshMods(): Mods {
-  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, plate: 0 }
+  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, plate: 0, orbiter: 0 }
 }
 
 export function createGame(best = 0, seed = 1): GameState {
@@ -227,6 +239,7 @@ export function createGame(best = 0, seed = 1): GameState {
     xp: 0,
     xpNeed: xpNeedFor(1),
     hullMax: TUNING.hullMax,
+    orbitTime: 0,
     mods: freshMods(),
     offers: [],
     bullets: [],
@@ -291,6 +304,7 @@ export function chooseUpgrade(state: GameState, index: number): void {
 
 function simulate(state: GameState, input: Input, dt: number, events: StepEvents): void {
   state.time += dt
+  if (state.mods.orbiter > 0) state.orbitTime += dt
   state.heat = Math.min(99, Math.floor(state.time / 7))
   state.invuln = Math.max(0, state.invuln - dt)
   state.comboTime = Math.max(0, state.comboTime - dt)
@@ -302,6 +316,7 @@ function simulate(state: GameState, input: Input, dt: number, events: StepEvents
   moveBullets(state, input, dt, events)
   spawn(state, input, dt)
   moveEnemies(state, input, dt)
+  strikeOrbits(state, events)
   moveOrbs(state, input, dt, events)
   touchPlayer(state, events)
   if (state.phase === 'play' && openLevel(state)) {
@@ -463,6 +478,7 @@ function splitCircle(state: GameState, enemy: Enemy): void {
       kind: 2,
       hp: 1,
       hitCd: TUNING.hitCooldown,
+      orbitCd: 0.2,
       spin: enemy.spin,
       angle: enemy.angle + side,
       phase: enemy.phase + side,
@@ -502,6 +518,7 @@ function spawnOne(state: GameState, viewRadius: number): void {
     kind,
     hp: spec.hp,
     hitCd: 0,
+    orbitCd: 0,
     spin: spec.spin * (state.rng() < 0.5 ? -1 : 1),
     angle: state.rng() * Math.PI * 2,
     phase: state.rng() * Math.PI * 2,
@@ -516,6 +533,7 @@ function moveEnemies(state: GameState, input: Input, dt: number): void {
   for (let j = state.enemies.length - 1; j >= 0; j--) {
     const e = state.enemies[j]
     e.hitCd = Math.max(0, e.hitCd - dt)
+    e.orbitCd = Math.max(0, e.orbitCd - dt)
     const dx = state.playerX - e.x
     const dy = state.playerY - e.y
     const dist = Math.hypot(dx, dy) || 1
@@ -696,6 +714,46 @@ function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents
   }
 }
 
+export function orbitDiscs(state: GameState): { x: number; y: number; spin: number; fade: number }[] {
+  const count = state.mods.orbiter > 0 ? state.mods.orbiter + 1 : 0
+  if (count === 0) return []
+  const period = DISC.active + DISC.recharge
+  const t = state.orbitTime % period
+  if (t >= DISC.active) return []
+  const fade = Math.min(1, t / 0.2, (DISC.active - t) / 0.32)
+  const turn = state.time * DISC.spin
+  const discs = []
+  for (let i = 0; i < count; i++) {
+    const angle = turn + (i * Math.PI * 2) / count
+    discs.push({
+      x: state.playerX + Math.cos(angle) * DISC.orbit,
+      y: state.playerY + Math.sin(angle) * DISC.orbit,
+      spin: state.time * 6.5 + i,
+      fade,
+    })
+  }
+  return discs
+}
+
+function strikeOrbits(state: GameState, events: StepEvents): void {
+  const discs = orbitDiscs(state)
+  if (discs.length === 0) return
+  for (const disc of discs) {
+    if (disc.fade < 0.45) continue
+    for (let j = state.enemies.length - 1; j >= 0; j--) {
+      const enemy = state.enemies[j]
+      if (!enemy || enemy.orbitCd > 0) continue
+      const dx = disc.x - enemy.x
+      const dy = disc.y - enemy.y
+      const reach = DISC.radius + enemy.radius
+      if (dx * dx + dy * dy > reach * reach) continue
+      enemy.orbitCd = 0.42
+      spawnImpact(state, disc.x, disc.y)
+      damageEnemy(state, enemy, events)
+    }
+  }
+}
+
 function openLevel(state: GameState): boolean {
   if (state.phase !== 'play' || state.xp < state.xpNeed) return false
   state.xp -= state.xpNeed
@@ -710,6 +768,8 @@ function rollOffers(state: GameState): Offer[] {
     (id) => state.mods[id] < UPGRADE_MAX[id],
   )
   const picked: UpgradeId[] = []
+  const orbiter = pool.indexOf('orbiter')
+  if (orbiter >= 0) picked.push(pool.splice(orbiter, 1)[0] ?? 'orbiter')
   while (picked.length < 3 && pool.length > 0) {
     const index = Math.floor(state.rng() * pool.length)
     const id = pool.splice(index, 1)[0]
@@ -733,8 +793,10 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     fork: { title: 'Fork', detail: 'Two extra rounds fan out beside the main shot.' },
     greed: { title: 'Greed', detail: 'Every orb is worth more.' },
     plate: { title: 'Plate', detail: 'Repair one hull segment and add a spare.' },
+    orbiter: { title: 'Orbiter', detail: 'Two discs orbit the core, then fade out and recharge.' },
   }
-  return { id, title: copy[id].title, detail: copy[id].detail, rank, max }
+  const detail = id === 'orbiter' && rank > 1 ? 'One more disc joins the orbit.' : copy[id].detail
+  return { id, title: copy[id].title, detail, rank, max }
 }
 
 function applyUpgrade(state: GameState, id: UpgradeId): void {
@@ -744,6 +806,7 @@ function applyUpgrade(state: GameState, id: UpgradeId): void {
     return
   }
   state.mods[id] += 1
+  if (id === 'orbiter' && state.mods.orbiter === 1) state.orbitTime = 0.35
   if (id !== 'plate') return
   state.hullMax = Math.min(8, state.hullMax + 1)
   state.hull = Math.min(state.hullMax, state.hull + 1)

@@ -1,4 +1,4 @@
-import { ENEMY_COLOR, TUNING, type GameState } from './sim.ts'
+import { DISC, ENEMY_COLOR, TUNING, orbitDiscs, type GameState } from './sim.ts'
 
 export interface StickView {
   x: number
@@ -48,6 +48,7 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
   drawBullets(ctx, state, X, Y)
   drawImpacts(ctx, state, X, Y)
   drawFloaters(ctx, state, X, Y)
+  drawOrbiters(ctx, state, X, Y)
   drawPlayer(ctx, state)
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -294,6 +295,69 @@ function drawFloaters(
     ctx.fillText(f.text, X(f.x), Y(f.y))
   }
   ctx.restore()
+}
+
+function drawOrbiters(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  X: (x: number) => number,
+  Y: (y: number) => number,
+): void {
+  const discs = orbitDiscs(state)
+  if (discs.length === 0) return
+  const glow = glowFor('#ffffff')
+  for (const disc of discs) {
+    if (disc.fade < 0.04) continue
+    const x = X(disc.x)
+    const y = Y(disc.y)
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.globalAlpha = disc.fade
+    ctx.globalCompositeOperation = 'lighter'
+    ctx.drawImage(glow, -34, -34, 68, 68)
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.rotate(disc.spin)
+    drawSaw(ctx, DISC.radius)
+    ctx.restore()
+  }
+}
+
+function drawSaw(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.beginPath()
+  ctx.arc(0, 0, r, 0, Math.PI * 2)
+  ctx.fillStyle = '#4b525b'
+  ctx.fill()
+  ctx.lineWidth = Math.max(1.25, r * 0.08)
+  ctx.strokeStyle = '#101114'
+  ctx.stroke()
+
+  ctx.fillStyle = '#ffffff'
+  ctx.strokeStyle = '#141414'
+  ctx.lineWidth = Math.max(1, r * 0.065)
+  ctx.lineJoin = 'round'
+  for (let i = 0; i < 3; i++) {
+    const a = (i * Math.PI * 2) / 3
+    const span = 1.22
+    ctx.beginPath()
+    ctx.arc(0, 0, r * 0.96, a + 0.08, a + span)
+    ctx.arc(0, 0, r * 0.46, a + span - 0.22, a + 0.28, true)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+  }
+
+  ctx.beginPath()
+  ctx.arc(0, 0, r * 0.38, 0, Math.PI * 2)
+  ctx.fillStyle = '#3a4048'
+  ctx.fill()
+  ctx.strokeStyle = '#101114'
+  ctx.lineWidth = Math.max(1, r * 0.07)
+  ctx.stroke()
+
+  ctx.beginPath()
+  ctx.arc(0, 0, r * 0.15, 0, Math.PI * 2)
+  ctx.fillStyle = '#ffffff'
+  ctx.fill()
 }
 
 function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
