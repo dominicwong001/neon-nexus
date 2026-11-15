@@ -1,4 +1,4 @@
-import { BODY, DISC, ENEMY_COLOR, TUNING, orbitDiscs, type GameState } from './sim.ts'
+import { BODY, DISC, ENEMY_COLOR, FIELD, TUNING, fieldRadius, orbitDiscs, type GameState } from './sim.ts'
 
 export interface StickView {
   x: number
@@ -41,6 +41,7 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
   const Y = (y: number) => y - state.playerY
 
   drawGrid(ctx, state, width, height)
+  drawField(ctx, state)
   drawShocks(ctx, state, X, Y)
   drawOrbs(ctx, state, X, Y)
   drawParticles(ctx, state, X, Y)
@@ -54,6 +55,35 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   if (state.phase === 'play') drawAim(ctx, view, sx, sy)
   if (view.stick && state.phase === 'play') drawStick(ctx, view.stick)
+}
+
+function drawField(ctx: CanvasRenderingContext2D, state: GameState): void {
+  const radius = fieldRadius(state.mods.field)
+  if (radius <= 0) return
+  ctx.save()
+  const fill = ctx.createRadialGradient(0, 0, 0, 0, 0, radius)
+  fill.addColorStop(0, 'rgba(61, 240, 255, 0.02)')
+  fill.addColorStop(1, 'rgba(61, 240, 255, 0.25)')
+  ctx.fillStyle = fill
+  ctx.beginPath()
+  ctx.arc(0, 0, radius, 0, Math.PI * 2)
+  ctx.fill()
+
+  const phase = (state.time % FIELD.tick) / FIELD.tick
+  ctx.strokeStyle = `rgba(61, 240, 255, ${(1 - phase) * 0.7})`
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.arc(0, 0, Math.max(1, phase * radius), 0, Math.PI * 2)
+  ctx.stroke()
+
+  ctx.setLineDash([12, 8])
+  ctx.lineDashOffset = -state.time * 40
+  ctx.strokeStyle = FIELD.color
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.arc(0, 0, radius, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.restore()
 }
 
 function drawGrid(ctx: CanvasRenderingContext2D, state: GameState, width: number, height: number): void {

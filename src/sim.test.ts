@@ -12,6 +12,9 @@ import {
   orbitRate,
   orbiterDamage,
   orbiterShove,
+  fieldDamage,
+  fieldRadius,
+  fieldSlow,
   screenToWorld,
   step,
   worldToScreen,
@@ -402,6 +405,41 @@ describe('orbs', () => {
     state.xp = state.xpNeed
     step(state, input({ aimActive: false }), 1 / 60)
     assert.equal(state.offers.some((offer) => offer.id === 'orbiter'), false)
+    assert.equal(state.offers.some((offer) => offer.id === 'field'), true)
+  })
+
+  it('always offers Force Field, then burns and slows inside a wider ring', () => {
+    const state = createGame(0, 3)
+    state.spawnCd = 999
+    state.fireCd = 10
+    for (let n = 0; n < 5; n++) {
+      state.xp = state.xpNeed
+      step(state, input({ aimActive: false }), 1 / 60)
+      const offer = state.offers.find((item) => item.id === 'field')
+      assert.equal(offer?.title, 'Force Field')
+      chooseUpgrade(state, state.offers.indexOf(offer!))
+    }
+    assert.equal(state.mods.field, 5)
+    state.xp = state.xpNeed
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(state.offers.some((offer) => offer.id === 'field'), false)
+    assert.ok(fieldRadius(2) > fieldRadius(1))
+    assert.ok(fieldDamage(5) > fieldDamage(1))
+    assert.ok(fieldSlow(5) < fieldSlow(1))
+
+    const burn = createGame(0, 4)
+    burn.spawnCd = 999
+    burn.fireCd = 10
+    burn.invuln = 5
+    burn.mods.field = 1
+    const inside = enemy({ x: 20, y: 0, hp: 400, speed: 180, vx: -180, radius: 10 })
+    const far = enemy({ x: 700, y: 40, hp: 400, speed: 180, vx: -180, radius: 10 })
+    burn.enemies.push(inside, far)
+    run(burn, input({ aimActive: false }), 0.7)
+    assert.equal(inside.hp, 400 - fieldDamage(1))
+    assert.equal(far.hp, 400)
+    assert.ok(Math.hypot(inside.vx, inside.vy) < Math.hypot(far.vx, far.vy) * 0.9)
+    assert.ok(burn.floaters.some((floater) => floater.text === String(fieldDamage(1)) && floater.color === '#3df0ff'))
   })
 
   it('lets the discs bite, then hides them while they recharge', () => {

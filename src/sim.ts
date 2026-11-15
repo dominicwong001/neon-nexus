@@ -23,7 +23,7 @@ export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a'] as const
 
 export type EnemyKind = 0 | 1 | 2
 export type Phase = 'play' | 'dead' | 'level'
-export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'plate' | 'orbiter' | 'cache'
+export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'plate' | 'orbiter' | 'field' | 'cache'
 
 export interface Bullet {
   x: number
@@ -99,6 +99,7 @@ export interface Mods {
   greed: number
   plate: number
   orbiter: number
+  field: number
 }
 
 export interface Offer {
@@ -146,6 +147,7 @@ export interface GameState {
   xpNeed: number
   hullMax: number
   orbitTime: number
+  fieldTick: number
   mods: Mods
   offers: Offer[]
   bullets: Bullet[]
@@ -191,6 +193,7 @@ const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
   greed: 3,
   plate: 3,
   orbiter: 6,
+  field: 5,
 }
 
 export const DISC = {
@@ -202,6 +205,24 @@ export const DISC = {
   turn: 2.5,
 } as const
 
+export const FIELD = {
+  tick: 0.6,
+  color: '#3df0ff',
+} as const
+
+export function fieldRadius(rank: number): number {
+  if (rank <= 0) return 0
+  return (128 + Math.max(0, rank - 1) * 26) * BODY
+}
+
+export function fieldDamage(rank: number): number {
+  return 14 + Math.max(0, rank - 1) * 8
+}
+
+export function fieldSlow(rank: number): number {
+  return Math.max(0.34, 0.76 - Math.max(0, rank - 1) * 0.08)
+}
+
 const ORB_COMMON = '#ffffff'
 const ORB_RARE = '#d9a6ff'
 
@@ -210,7 +231,7 @@ export function xpNeedFor(level: number): number {
 }
 
 function freshMods(): Mods {
-  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, plate: 0, orbiter: 0 }
+  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, plate: 0, orbiter: 0, field: 0 }
 }
 
 export function createGame(best = 0, seed = 1): GameState {
@@ -246,6 +267,7 @@ export function createGame(best = 0, seed = 1): GameState {
     xpNeed: xpNeedFor(1),
     hullMax: TUNING.hullMax,
     orbitTime: 0,
+    fieldTick: 0,
     mods: freshMods(),
     offers: [],
     bullets: [],
@@ -322,6 +344,7 @@ function simulate(state: GameState, input: Input, dt: number, events: StepEvents
   moveBullets(state, input, dt, events)
   spawn(state, input, dt)
   moveEnemies(state, input, dt)
+  pulseField(state, events)
   strikeOrbits(state, events)
   moveOrbs(state, input, dt, events)
   touchPlayer(state, events)
@@ -460,10 +483,16 @@ export function orbitRate(rank: number): number {
   return DISC.spin + Math.max(0, rank - 1) * 0.2
 }
 
-function damageEnemy(state: GameState, enemy: Enemy, events: StepEvents, dealt = HIT * (1 + state.mods.caliber)): void {
+function damageEnemy(
+  state: GameState,
+  enemy: Enemy,
+  events: StepEvents,
+  dealt = HIT * (1 + state.mods.caliber),
+  color = '#ffffff',
+): void {
   enemy.hitCd = TUNING.hitCooldown
   enemy.hp -= dealt
-  pushFloater(state, enemy.x, enemy.y - enemy.radius * 0.35, String(dealt), '#ffffff', -68)
+  pushFloater(state, enemy.x, enemy.y - enemy.radius * 0.35, String(dealt), color, -68)
   burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 6, 140)
   if (enemy.hp > 0) return
   const mult = state.comboTime > 0 ? state.combo + 1 : 1
@@ -567,7 +596,8 @@ function moveEnemies(state: GameState, input: Input, dt: number): void {
       state.enemies.splice(j, 1)
       continue
     }
-    const speed = e.speed
+    const inside = state.mods.field > 0 && dist < fieldRadius(state.mods.field) + e.radius
+    const speed = e.speed * (inside ? fieldSlow(state.mods.field) : 1)
     const steer = 1 - Math.exp(-3.1 * dt)
     e.vx += ((dx / dist) * speed - e.vx) * steer
     e.vy += ((dy / dist) * speed - e.vy) * steer
@@ -779,6 +809,24 @@ function shoveFromDisc(state: GameState, enemy: Enemy, x: number, y: number, sho
   enemy.vy += ny * shove * 6
 }
 
+function pulseField(state: GameState, events: StepEvents): void {
+  const rank = state.mods.field
+  if (rank <= 0) return
+  const tick = Math.floor(state.time / FIELD.tick)
+  if (tick === state.fieldTick) return
+  state.fieldTick = tick
+  const radius = fieldRadius(rank)
+  const dealt = fieldDamage(rank)
+  for (let j = state.enemies.length - 1; j >= 0; j--) {
+    const enemy = state.enemies[j]
+    if (!enemy) continue
+    const dx = enemy.x - state.playerX
+    const dy = enemy.y - state.playerY
+    if (dx * dx + dy * dy > (radius + enemy.radius) ** 2) continue
+    damageEnemy(state, enemy, events, dealt, FIELD.color)
+  }
+}
+
 function strikeOrbits(state: GameState, events: StepEvents): void {
   const discs = orbitDiscs(state)
   if (discs.length === 0) return
@@ -813,8 +861,10 @@ function rollOffers(state: GameState): Offer[] {
     (id) => state.mods[id] < UPGRADE_MAX[id],
   )
   const picked: UpgradeId[] = []
-  const orbiter = pool.indexOf('orbiter')
-  if (orbiter >= 0) picked.push(pool.splice(orbiter, 1)[0] ?? 'orbiter')
+  for (const pinned of ['orbiter', 'field'] as const) {
+    const index = pool.indexOf(pinned)
+    if (index >= 0) picked.push(pool.splice(index, 1)[0] ?? pinned)
+  }
   while (picked.length < 3 && pool.length > 0) {
     const index = Math.floor(state.rng() * pool.length)
     const id = pool.splice(index, 1)[0]
@@ -839,11 +889,14 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     greed: { title: 'Greed', detail: 'Every orb is worth more.' },
     plate: { title: 'Plate', detail: 'Repair one hull segment and add a spare.' },
     orbiter: { title: 'Orbiter', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
+    field: { title: 'Force Field', detail: 'A cyan field burns and slows anything inside.' },
   }
   const detail =
     id === 'orbiter' && rank > 1
       ? 'One more disc. They last longer, hit harder, spin faster, and nudge harder.'
-      : copy[id].detail
+      : id === 'field' && rank > 1
+        ? 'The field widens, burns harder, and slows more.'
+        : copy[id].detail
   return { id, title: copy[id].title, detail, rank, max }
 }
 
@@ -855,6 +908,7 @@ function applyUpgrade(state: GameState, id: UpgradeId): void {
   }
   state.mods[id] += 1
   if (id === 'orbiter' && state.mods.orbiter === 1) state.orbitTime = 0.35
+  if (id === 'field') state.fieldTick = Math.floor(state.time / FIELD.tick)
   if (id !== 'plate') return
   state.hullMax = Math.min(8, state.hullMax + 1)
   state.hull = Math.min(state.hullMax, state.hull + 1)
