@@ -334,42 +334,30 @@ function drawBalls(
   Y: (y: number) => number,
 ): void {
   if (state.balls.length === 0) return
-  const glow = glowFor('#ff2d3a')
-  const echoGlow = glowFor('#d9a6ff')
+  const green = glowFor('#8dff4a')
+  const red = glowFor('#ff2d3a')
   for (const ball of state.balls) {
     const x = X(ball.x)
     const y = Y(ball.y)
-    const sheet = ball.echo ? echoGlow : glow
-    const glowSize = ball.radius * (ball.echo ? 3.4 : 3.8)
+    const sheet = ball.quantum ? red : green
+    const glowSize = ball.radius * 3.8
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
-    ctx.globalAlpha = ball.echo ? 0.85 : 1
     ctx.drawImage(sheet, x - glowSize / 2, y - glowSize / 2, glowSize, glowSize)
     ctx.restore()
     ctx.save()
     ctx.translate(x, y)
-    drawEnergyBall(ctx, ball.radius, ball.echo)
+    drawEnergyBall(ctx, ball.radius, ball.quantum)
     ctx.restore()
   }
 }
 
-function drawEnergyBall(ctx: CanvasRenderingContext2D, r: number, echo: boolean): void {
+function drawEnergyBall(ctx: CanvasRenderingContext2D, r: number, red: boolean): void {
+  const ink = red ? '#ff2d3a' : '#8dff4a'
+  const deep = red ? '#8d1020' : '#1f7a28'
+  const hot = red ? '#ffe4e6' : '#f4ffd2'
   ctx.beginPath()
   ctx.arc(0, 0, r, 0, Math.PI * 2)
-  if (echo) {
-    const fill = ctx.createRadialGradient(-r * 0.28, -r * 0.32, r * 0.08, 0, 0, r)
-    fill.addColorStop(0, '#ffffff')
-    fill.addColorStop(0.42, '#e7d4ff')
-    fill.addColorStop(1, '#8a4dff')
-    ctx.fillStyle = fill
-    ctx.fill()
-    ctx.lineWidth = Math.max(1.4, r * 0.18)
-    ctx.strokeStyle = '#f4e9ff'
-    ctx.shadowColor = '#d9a6ff'
-    ctx.shadowBlur = 10
-    ctx.stroke()
-    return
-  }
   const body = ctx.createRadialGradient(-r * 0.38, -r * 0.42, r * 0.12, r * 0.12, r * 0.16, r)
   body.addColorStop(0, '#f7f9fc')
   body.addColorStop(0.38, '#c5d2e0')
@@ -378,25 +366,27 @@ function drawEnergyBall(ctx: CanvasRenderingContext2D, r: number, echo: boolean)
   ctx.fillStyle = body
   ctx.fill()
   ctx.lineWidth = Math.max(1.7, r * 0.14)
-  ctx.strokeStyle = '#ff2d3a'
-  ctx.shadowColor = '#ff2d3a'
+  ctx.strokeStyle = ink
+  ctx.shadowColor = ink
   ctx.shadowBlur = 12
   ctx.stroke()
   ctx.shadowBlur = 0
+  const ex = -r * 0.3
+  const ey = -r * 0.16
   ctx.beginPath()
-  ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2)
-  ctx.fillStyle = '#4a1218'
+  ctx.arc(ex, ey, r * 0.4, 0, Math.PI * 2)
+  ctx.fillStyle = red ? '#3a1218' : '#16301c'
   ctx.fill()
-  const eye = ctx.createRadialGradient(-r * 0.06, -r * 0.06, r * 0.02, 0, 0, r * 0.28)
-  eye.addColorStop(0, '#ffe4e6')
-  eye.addColorStop(0.42, '#ff2d3a')
-  eye.addColorStop(1, '#8d1020')
+  const eye = ctx.createRadialGradient(ex - r * 0.05, ey - r * 0.05, r * 0.02, ex, ey, r * 0.26)
+  eye.addColorStop(0, hot)
+  eye.addColorStop(0.45, ink)
+  eye.addColorStop(1, deep)
   ctx.beginPath()
-  ctx.arc(0, 0, r * 0.26, 0, Math.PI * 2)
+  ctx.arc(ex, ey, r * 0.26, 0, Math.PI * 2)
   ctx.fillStyle = eye
   ctx.fill()
   ctx.beginPath()
-  ctx.ellipse(-r * 0.28, -r * 0.34, r * 0.22, r * 0.11, -0.7, 0, Math.PI * 2)
+  ctx.ellipse(-r * 0.22, -r * 0.4, r * 0.24, r * 0.1, -0.8, 0, Math.PI * 2)
   ctx.fillStyle = 'rgba(255, 255, 255, 0.78)'
   ctx.fill()
 }

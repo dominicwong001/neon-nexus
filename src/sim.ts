@@ -969,26 +969,20 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
     }
     ball.x += ball.vx * dt
     ball.y += ball.vy * dt
-    let bounced = false
     if (ball.x - ball.radius < left) {
       ball.x = left + ball.radius
       if (ball.vx < 0) ball.vx = -ball.vx
-      bounced = true
     } else if (ball.x + ball.radius > right) {
       ball.x = right - ball.radius
       if (ball.vx > 0) ball.vx = -ball.vx
-      bounced = true
     }
     if (ball.y - ball.radius < top) {
       ball.y = top + ball.radius
       if (ball.vy < 0) ball.vy = -ball.vy
-      bounced = true
     } else if (ball.y + ball.radius > bottom) {
       ball.y = bottom - ball.radius
       if (ball.vy > 0) ball.vy = -ball.vy
-      bounced = true
     }
-    if (bounced) splitBall(state, ball)
     for (let t = ball.touched.length - 1; t >= 0; t--) {
       const touch = ball.touched[t]
       if (!touch) continue
@@ -1005,7 +999,7 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
       if (dx * dx + dy * dy > reach * reach) continue
       ball.touched.push({ enemy, cd: 0.15 })
       shoveFromBall(enemy, ball)
-      damageEnemy(state, enemy, events, ball.damage, ball.echo ? '#d9a6ff' : '#ff2d3a')
+      damageEnemy(state, enemy, events, ball.damage, ball.quantum ? '#ff2d3a' : '#8dff4a')
       enemy.hitCd = 0.14
       splitBall(state, ball)
     }
@@ -1115,7 +1109,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     return {
       id,
       title: 'Quantum Core',
-      detail: 'Three hyper-fast balls. Every hit and bounce splits into short-lived echoes.',
+      detail: 'Three hyper-fast red balls. A hit splits each one into two smaller balls.',
       rank,
       max,
       overdrive: true,

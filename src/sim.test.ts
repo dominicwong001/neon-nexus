@@ -547,10 +547,33 @@ describe('orbs', () => {
     wall.balls.push(shot)
     step(wall, input({ aimActive: false, viewW: 1280, viewH: 720 }), 1 / 60)
     assert.ok(shot.vx < 0)
-    const echoes = wall.balls.filter((ball) => ball.echo)
+    assert.equal(wall.balls.filter((ball) => ball.echo).length, 0)
+
+    const split = createGame(0, 9)
+    split.spawnCd = 999
+    split.fireCd = 10
+    split.invuln = 5
+    split.enemies.push(enemy({ x: 0, y: 0, hp: 500, radius: 20, kind: 1, speed: 0 }))
+    split.balls.push({
+      x: 0,
+      y: 0,
+      vx: 40,
+      vy: 0,
+      life: 2,
+      max: 2,
+      radius: 10,
+      damage: 40,
+      echo: false,
+      quantum: true,
+      knock: 8,
+      touched: [],
+    })
+    step(split, input({ aimActive: false }), 1 / 60)
+    const echoes = split.balls.filter((ball) => ball.echo)
     assert.equal(echoes.length, 2)
     assert.equal(echoes[0]?.damage, Math.round(40 * 0.45))
     assert.equal(echoes[0]?.max, 0.45)
+    assert.ok((echoes[0]?.radius ?? 99) < 10)
     assert.equal(ballDamage(6), 36)
   })
 
