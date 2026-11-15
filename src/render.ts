@@ -372,81 +372,61 @@ function drawOrbiters(
 }
 
 function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void {
+  const blades = halo ? 6 : 3
+  const rim = halo ? '#ff2d3a' : '#ffffff'
+  const body = halo ? '#5a3034' : '#8e949b'
+  const hub = halo ? '#ff5a66' : '#ffffff'
+  const steel = halo ? '#3a2428' : '#667078'
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
   ctx.lineWidth = Math.max(1.2, r * 0.07)
   ctx.strokeStyle = '#07080a'
-  if (halo) {
-    ctx.fillStyle = '#ff2d3a'
-    for (let i = 0; i < 3; i++) {
-      ctx.save()
-      ctx.rotate((i * Math.PI * 2) / 3)
-      traceHaloBlade(ctx, r)
+  for (let i = 0; i < blades; i++) {
+    ctx.save()
+    ctx.rotate((i * Math.PI * 2) / blades)
+    ctx.fillStyle = body
+    if (halo) traceAngledBlade(ctx, r)
+    else traceBlade(ctx, r)
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = rim
+    if (halo) traceAngledRim(ctx, r)
+    else traceRim(ctx, r)
+    ctx.fill()
+    ctx.stroke()
+    if (!halo) {
+      traceAccent(ctx, r)
       ctx.fill()
       ctx.stroke()
-      ctx.restore()
     }
-    ctx.beginPath()
-    ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2)
-    ctx.fillStyle = '#b7c0c8'
-    ctx.fill()
-    ctx.stroke()
-    ctx.beginPath()
-    ctx.arc(0, 0, r * 0.16, 0, Math.PI * 2)
-    ctx.fillStyle = '#ff2d3a'
-    ctx.fill()
-    ctx.stroke()
-    return
-  }
-  for (let i = 0; i < 3; i++) {
-    ctx.save()
-    ctx.rotate((i * Math.PI * 2) / 3)
-    ctx.fillStyle = '#8e949b'
-    traceBlade(ctx, r)
-    ctx.fill()
-    ctx.stroke()
-    ctx.fillStyle = '#ffffff'
-    traceRim(ctx, r)
-    ctx.fill()
-    ctx.stroke()
-    traceAccent(ctx, r)
-    ctx.fill()
-    ctx.stroke()
     ctx.restore()
   }
   ctx.beginPath()
   ctx.arc(0, 0, r * 0.34, 0, Math.PI * 2)
-  ctx.fillStyle = '#667078'
+  ctx.fillStyle = steel
   ctx.fill()
   ctx.stroke()
   ctx.beginPath()
   ctx.arc(0, 0, r * 0.15, 0, Math.PI * 2)
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = hub
   ctx.fill()
   ctx.stroke()
 }
 
-function traceHaloBlade(ctx: CanvasRenderingContext2D, r: number): void {
-  const outer = r * 0.98
-  const inner = r * 0.56
-  const a0 = 0.22
-  const a1 = 1.92
-  const tip = a1 + 0.16
+function traceAngledBlade(ctx: CanvasRenderingContext2D, r: number): void {
   ctx.beginPath()
-  ctx.arc(0, 0, outer, a0, a1)
-  ctx.quadraticCurveTo(
-    Math.cos(tip) * outer * 1.04,
-    Math.sin(tip) * outer * 1.04,
-    Math.cos(a1 - 0.02) * inner,
-    Math.sin(a1 - 0.02) * inner,
-  )
-  ctx.arc(0, 0, inner, a1 - 0.04, a0 + 0.16, true)
-  ctx.quadraticCurveTo(
-    Math.cos(a0 - 0.05) * ((outer + inner) / 2),
-    Math.sin(a0 - 0.05) * ((outer + inner) / 2),
-    Math.cos(a0) * outer,
-    Math.sin(a0) * outer,
-  )
+  ctx.moveTo(r * 0.32, -r * 0.14)
+  ctx.lineTo(r * 1.04, -r * 0.38)
+  ctx.lineTo(r * 0.72, r * 0.08)
+  ctx.lineTo(r * 0.26, r * 0.2)
+  ctx.closePath()
+}
+
+function traceAngledRim(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.beginPath()
+  ctx.moveTo(r * 0.5, -r * 0.2)
+  ctx.lineTo(r * 1.04, -r * 0.38)
+  ctx.lineTo(r * 0.84, -r * 0.06)
   ctx.closePath()
 }
 
