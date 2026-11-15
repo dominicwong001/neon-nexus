@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
+  BODY,
   HIT,
   TUNING,
   DISC,
@@ -10,9 +11,12 @@ import {
   orbitActive,
   orbitDiscs,
   orbitRate,
+  discTurn,
+  orbiterCount,
   orbiterDamage,
   orbiterShove,
   FIELD,
+  fieldColor,
   fieldDamage,
   fieldRadius,
   fieldRipple,
@@ -400,12 +404,20 @@ describe('orbs', () => {
       step(state, input({ aimActive: false }), 1 / 60)
       assert.equal(state.phase, 'level')
       assert.equal(state.offers[0]?.id, 'orbiter')
-      assert.equal(state.offers[0]?.title, 'Orbiter')
+      assert.equal(state.offers[0]?.title, n === 5 ? "Guardian's Halo" : 'Orbiter')
+      assert.equal(state.offers[0]?.overdrive, n === 5)
       chooseUpgrade(state, 0)
       state.orbitTime = 0.8
-      assert.equal(orbitDiscs(state).length, n + 2)
+      assert.equal(orbitDiscs(state).length, orbiterCount(n + 1))
+      assert.ok(orbitDiscs(state).length <= 6)
     }
     assert.equal(state.mods.orbiter, 6)
+    assert.equal(orbitDiscs(state).length, 6)
+    assert.equal(orbitDiscs(state).every((disc) => disc.halo), true)
+    state.orbitTime = DISC.active + DISC.recharge + 3
+    assert.equal(orbitDiscs(state).length, 6)
+    assert.ok(discTurn(6) > discTurn(5))
+    assert.ok(orbiterShove(6) > orbiterShove(5))
     state.xp = state.xpNeed
     step(state, input({ aimActive: false }), 1 / 60)
     assert.equal(state.offers.some((offer) => offer.id === 'orbiter'), false)
@@ -416,21 +428,31 @@ describe('orbs', () => {
     const state = createGame(0, 3)
     state.spawnCd = 999
     state.fireCd = 10
-    for (let n = 0; n < 5; n++) {
+    for (let n = 0; n < 6; n++) {
       state.xp = state.xpNeed
       step(state, input({ aimActive: false }), 1 / 60)
       const offer = state.offers.find((item) => item.id === 'field')
-      assert.equal(offer?.title, 'Force Field')
+      assert.equal(offer?.title, n === 5 ? 'Null Zone' : 'Force Field')
+      assert.equal(offer?.overdrive, n === 5)
       chooseUpgrade(state, state.offers.indexOf(offer!))
     }
-    assert.equal(state.mods.field, 5)
+    assert.equal(state.mods.field, 6)
     state.xp = state.xpNeed
     step(state, input({ aimActive: false }), 1 / 60)
     assert.equal(state.offers.some((offer) => offer.id === 'field'), false)
     assert.ok(fieldRadius(2) > fieldRadius(1) * 1.3)
     assert.ok(fieldRadius(5) > fieldRadius(1) * 2.5)
+    assert.ok(Math.abs(fieldRadius(5) / ((128 + 4 * 64) * BODY * 0.8) - 1) < 0.001)
+    assert.ok(fieldRadius(6) > fieldRadius(5))
+    assert.equal(fieldDamage(1), 6)
     assert.ok(fieldDamage(5) > fieldDamage(1))
+    assert.ok(fieldDamage(5) < 6 + 4 * 3)
+    assert.ok(fieldDamage(6) > fieldDamage(5))
     assert.ok(fieldSlow(5) < fieldSlow(1))
+    assert.ok(fieldSlow(1) > 0.76)
+    assert.ok(fieldSlow(6) < fieldSlow(5))
+    assert.equal(fieldColor(5), '#3df0ff')
+    assert.equal(fieldColor(6), '#ff2d3a')
     assert.ok(fieldRipple(5) < fieldRipple(1))
     assert.ok(fieldRipple(1) < 0.5)
 
@@ -466,7 +488,7 @@ describe('orbs', () => {
     const disc = live[0]
     assert.ok(disc)
     const facing = Math.atan2(disc.y - state.playerY, disc.x - state.playerX)
-    const drift = Math.atan2(Math.sin(disc.spin - facing * DISC.turn), Math.cos(disc.spin - facing * DISC.turn))
+    const drift = Math.atan2(Math.sin(disc.spin - facing * discTurn(1)), Math.cos(disc.spin - facing * discTurn(1)))
     assert.ok(Math.abs(drift) < 1e-6)
     assert.ok(DISC.turn > 1)
     state.enemies.push(enemy({ x: 0, y: 0, radius: 240, hp: HIT, speed: 0, kind: 0 }))
@@ -516,8 +538,8 @@ describe('orbs', () => {
     const high = bump(6)
     assert.ok(Math.abs(low - orbiterShove(1)) < 0.05)
     assert.ok(high > low)
-    assert.ok(orbiterShove(6) > orbiterShove(1))
-    assert.ok(orbiterShove(6) < 20)
+    assert.ok(orbiterShove(6) > orbiterShove(5))
+    assert.ok(orbiterShove(6) < 22)
   })
 
   it('never offers Reach', () => {
@@ -563,7 +585,7 @@ describe('orbs', () => {
     const state = createGame(0, 45)
     state.phase = 'level'
     state.hull = 3
-    state.offers = [{ id: 'plate', title: 'Plate', detail: 'Repair one hull segment and add a spare.', rank: 1, max: 3 }]
+    state.offers = [{ id: 'plate', title: 'Plate', detail: 'Repair one hull segment and add a spare.', rank: 1, max: 3, overdrive: false }]
     chooseUpgrade(state, 0)
     assert.equal(state.hullMax, TUNING.hullMax + 1)
     assert.equal(state.hull, 4)

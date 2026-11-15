@@ -1,4 +1,4 @@
-import { BODY, DISC, ENEMY_COLOR, TUNING, fieldRadius, fieldRipple, orbitDiscs, type GameState } from './sim.ts'
+import { BODY, DISC, ENEMY_COLOR, TUNING, fieldColor, fieldRadius, fieldRipple, orbitDiscs, type GameState } from './sim.ts'
 
 export interface StickView {
   x: number
@@ -60,13 +60,15 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
 function drawField(ctx: CanvasRenderingContext2D, state: GameState): void {
   const radius = fieldRadius(state.mods.field)
   if (radius <= 0) return
+  const red = fieldColor(state.mods.field) !== '#3df0ff'
+  const ink = red ? '255, 45, 58' : '61, 240, 255'
   const spin = -Math.PI / 2
   ctx.save()
   ctx.filter = 'blur(7px)'
   const fill = ctx.createRadialGradient(0, 0, radius * 0.08, 0, 0, radius)
-  fill.addColorStop(0, 'rgba(61, 240, 255, 0.34)')
-  fill.addColorStop(0.5, 'rgba(61, 240, 255, 0.18)')
-  fill.addColorStop(1, 'rgba(61, 240, 255, 0)')
+  fill.addColorStop(0, `rgba(${ink}, 0.34)`)
+  fill.addColorStop(0.5, `rgba(${ink}, 0.18)`)
+  fill.addColorStop(1, `rgba(${ink}, 0)`)
   ctx.fillStyle = fill
   ctx.beginPath()
   polyPath(ctx, 0, 0, radius, 6, spin)
@@ -85,7 +87,7 @@ function drawField(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.save()
     ctx.filter = `blur(${1 + phase * 11}px)`
     ctx.globalAlpha = (1 - phase) * (1 - phase * 0.55)
-    ctx.strokeStyle = 'rgba(61, 240, 255, 0.9)'
+    ctx.strokeStyle = `rgba(${ink}, 0.9)`
     ctx.lineWidth = 2.5
     ctx.beginPath()
     polyPath(ctx, 0, 0, Math.max(2, phase * radius), 6, spin + i * (Math.PI / 5))
@@ -350,7 +352,7 @@ function drawOrbiters(
 ): void {
   const discs = orbitDiscs(state)
   if (discs.length === 0) return
-  const glow = glowFor('#ffffff')
+  const glow = glowFor(discs[0]?.halo ? '#ff2d3a' : '#ffffff')
   for (const disc of discs) {
     if (disc.fade < 0.04) continue
     const x = X(disc.x)
@@ -363,12 +365,16 @@ function drawOrbiters(
     ctx.drawImage(glow, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
     ctx.globalCompositeOperation = 'source-over'
     ctx.rotate(disc.spin)
-    drawSaw(ctx, DISC.radius)
+    drawSaw(ctx, DISC.radius, disc.halo)
     ctx.restore()
   }
 }
 
-function drawSaw(ctx: CanvasRenderingContext2D, r: number): void {
+function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void {
+  const rim = halo ? '#ff2d3a' : '#ffffff'
+  const body = halo ? '#5a3034' : '#8e949b'
+  const hub = halo ? '#ff5a66' : '#ffffff'
+  const steel = halo ? '#3a2428' : '#667078'
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
   ctx.lineWidth = Math.max(1.2, r * 0.07)
@@ -376,29 +382,50 @@ function drawSaw(ctx: CanvasRenderingContext2D, r: number): void {
   for (let i = 0; i < 3; i++) {
     ctx.save()
     ctx.rotate((i * Math.PI * 2) / 3)
-    ctx.fillStyle = '#8e949b'
-    traceBlade(ctx, r)
+    ctx.fillStyle = body
+    if (halo) traceAngledBlade(ctx, r)
+    else traceBlade(ctx, r)
     ctx.fill()
     ctx.stroke()
-    ctx.fillStyle = '#ffffff'
-    traceRim(ctx, r)
+    ctx.fillStyle = rim
+    if (halo) traceAngledRim(ctx, r)
+    else traceRim(ctx, r)
     ctx.fill()
     ctx.stroke()
-    traceAccent(ctx, r)
-    ctx.fill()
-    ctx.stroke()
+    if (!halo) {
+      traceAccent(ctx, r)
+      ctx.fill()
+      ctx.stroke()
+    }
     ctx.restore()
   }
   ctx.beginPath()
   ctx.arc(0, 0, r * 0.34, 0, Math.PI * 2)
-  ctx.fillStyle = '#667078'
+  ctx.fillStyle = steel
   ctx.fill()
   ctx.stroke()
   ctx.beginPath()
   ctx.arc(0, 0, r * 0.15, 0, Math.PI * 2)
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = hub
   ctx.fill()
   ctx.stroke()
+}
+
+function traceAngledBlade(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.beginPath()
+  ctx.moveTo(r * 0.32, -r * 0.14)
+  ctx.lineTo(r * 1.04, -r * 0.38)
+  ctx.lineTo(r * 0.72, r * 0.08)
+  ctx.lineTo(r * 0.26, r * 0.2)
+  ctx.closePath()
+}
+
+function traceAngledRim(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.beginPath()
+  ctx.moveTo(r * 0.5, -r * 0.2)
+  ctx.lineTo(r * 1.04, -r * 0.38)
+  ctx.lineTo(r * 0.84, -r * 0.06)
+  ctx.closePath()
 }
 
 function traceBlade(ctx: CanvasRenderingContext2D, r: number): void {

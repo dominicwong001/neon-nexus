@@ -231,7 +231,7 @@ function syncLevel(game: GameState): void {
   game.offers.forEach((offer, index) => {
     const button = document.createElement('button')
     button.type = 'button'
-    button.className = 'offer'
+    button.className = offer.overdrive ? 'offer overdrive' : 'offer'
     const keyEl = document.createElement('span')
     keyEl.className = 'offer-key'
     keyEl.textContent = String(index + 1)
@@ -243,7 +243,7 @@ function syncLevel(game: GameState): void {
     detail.textContent = offer.detail
     const rank = document.createElement('span')
     rank.className = 'offer-rank'
-    rank.textContent = offer.id === 'cache' ? 'Bonus' : `Rank ${offer.rank} of ${offer.max}`
+    rank.textContent = offer.overdrive ? 'Overdrive' : offer.id === 'cache' ? 'Bonus' : `Rank ${offer.rank} of ${offer.max}`
     button.append(keyEl, title, detail, rank)
     button.addEventListener('click', () => pickUpgrade(index))
     offersEl.append(button)

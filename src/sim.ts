@@ -108,6 +108,7 @@ export interface Offer {
   detail: string
   rank: number
   max: number
+  overdrive: boolean
 }
 
 export interface Floater {
@@ -184,6 +185,8 @@ const KIND = [
   { radius: 20 * BODY, hp: HIT, speed: 72, spin: 0.8 },
 ] as const
 
+export const OVERDRIVE = 6
+
 const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
   pulse: 5,
   caliber: 3,
@@ -192,8 +195,8 @@ const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
   fork: 2,
   greed: 3,
   plate: 3,
-  orbiter: 6,
-  field: 5,
+  orbiter: OVERDRIVE,
+  field: OVERDRIVE,
 }
 
 export const DISC = {
@@ -208,23 +211,41 @@ export const DISC = {
 export const FIELD = {
   tick: 0.22,
   color: '#3df0ff',
+  nullColor: '#ff2d3a',
 } as const
+
+export function fieldOverdrive(rank: number): boolean {
+  return rank >= OVERDRIVE
+}
 
 export function fieldRadius(rank: number): number {
   if (rank <= 0) return 0
-  return (128 + Math.max(0, rank - 1) * 64) * BODY
+  const step = Math.min(rank, OVERDRIVE - 1)
+  const radius = (128 + Math.max(0, step - 1) * 64) * BODY * 0.8
+  if (fieldOverdrive(rank)) return radius + 96 * BODY
+  return radius
 }
 
 export function fieldDamage(rank: number): number {
-  return 6 + Math.max(0, rank - 1) * 3
+  if (fieldOverdrive(rank)) return 15
+  return 6 + Math.floor(Math.max(0, rank - 1) * 1.5)
 }
 
 export function fieldSlow(rank: number): number {
-  return Math.max(0.34, 0.76 - Math.max(0, rank - 1) * 0.08)
+  const step = Math.min(Math.max(rank, 1), OVERDRIVE - 1)
+  const raw = Math.max(0.34, 0.76 - Math.max(0, step - 1) * 0.08)
+  const eased = 1 - (1 - raw) * 0.8
+  if (fieldOverdrive(rank)) return Math.max(0.3, eased - 0.16)
+  return eased
+}
+
+export function fieldColor(rank: number): string {
+  return fieldOverdrive(rank) ? FIELD.nullColor : FIELD.color
 }
 
 export function fieldRipple(rank: number): number {
-  return Math.max(0.18, 0.42 - Math.max(0, rank - 1) * 0.06)
+  const step = Math.min(Math.max(rank, 1), OVERDRIVE - 1)
+  return Math.max(0.18, 0.42 - Math.max(0, step - 1) * 0.06)
 }
 
 const ORB_COMMON = '#ffffff'
@@ -475,16 +496,27 @@ export function orbiterDamage(rank: number): number {
   return HIT / 2 + Math.max(0, rank - 1) * 10
 }
 
+export function orbiterCount(rank: number): number {
+  if (rank <= 0) return 0
+  return Math.min(OVERDRIVE, rank + 1)
+}
+
 export function orbiterShove(rank: number): number {
-  return 4 + Math.max(0, rank - 1) * 2.5
+  const step = Math.min(Math.max(rank, 1), OVERDRIVE - 1)
+  const base = 4 + Math.max(0, step - 1) * 2.5
+  return rank >= OVERDRIVE ? base + 5.5 : base
 }
 
 export function orbitActive(rank: number): number {
-  return DISC.active + Math.max(0, rank - 1) * 0.45
+  return DISC.active + Math.max(0, Math.min(rank, OVERDRIVE - 1) - 1) * 0.45
 }
 
 export function orbitRate(rank: number): number {
-  return DISC.spin + Math.max(0, rank - 1) * 0.2
+  return DISC.spin + Math.max(0, Math.min(rank, OVERDRIVE - 1) - 1) * 0.2
+}
+
+export function discTurn(rank: number): number {
+  return rank >= OVERDRIVE ? DISC.turn * 1.8 : DISC.turn
 }
 
 function damageEnemy(
@@ -774,14 +806,18 @@ function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents
   }
 }
 
-export function orbitDiscs(state: GameState): { x: number; y: number; spin: number; fade: number }[] {
-  const count = state.mods.orbiter > 0 ? state.mods.orbiter + 1 : 0
+export function orbitDiscs(state: GameState): { x: number; y: number; spin: number; fade: number; halo: boolean }[] {
+  const count = orbiterCount(state.mods.orbiter)
   if (count === 0) return []
-  const active = orbitActive(state.mods.orbiter)
-  const period = active + DISC.recharge
-  const t = state.orbitTime % period
-  if (t >= active) return []
-  const fade = Math.min(1, t / 0.22, (active - t) / 0.5)
+  const halo = state.mods.orbiter >= OVERDRIVE
+  let fade = 1
+  if (!halo) {
+    const active = orbitActive(state.mods.orbiter)
+    const period = active + DISC.recharge
+    const t = state.orbitTime % period
+    if (t >= active) return []
+    fade = Math.min(1, t / 0.22, (active - t) / 0.5)
+  }
   const turn = state.time * orbitRate(state.mods.orbiter)
   const discs = []
   for (let i = 0; i < count; i++) {
@@ -789,8 +825,9 @@ export function orbitDiscs(state: GameState): { x: number; y: number; spin: numb
     discs.push({
       x: state.playerX + Math.cos(angle) * DISC.orbit,
       y: state.playerY + Math.sin(angle) * DISC.orbit,
-      spin: angle * DISC.turn,
+      spin: angle * discTurn(state.mods.orbiter),
       fade,
+      halo,
     })
   }
   return discs
@@ -827,7 +864,7 @@ function pulseField(state: GameState, events: StepEvents): void {
     const dx = enemy.x - state.playerX
     const dy = enemy.y - state.playerY
     if (dx * dx + dy * dy > (radius + enemy.radius) ** 2) continue
-    damageEnemy(state, enemy, events, dealt, FIELD.color)
+    damageEnemy(state, enemy, events, dealt, fieldColor(rank))
   }
 }
 
@@ -880,10 +917,31 @@ function rollOffers(state: GameState): Offer[] {
 
 function describeOffer(state: GameState, id: UpgradeId): Offer {
   if (id === 'cache') {
-    return { id, title: 'Cache', detail: 'Bank 40 score.', rank: 1, max: 1 }
+    return { id, title: 'Cache', detail: 'Bank 40 score.', rank: 1, max: 1, overdrive: false }
   }
   const rank = state.mods[id] + 1
   const max = UPGRADE_MAX[id]
+  const overdrive = rank >= OVERDRIVE && (id === 'orbiter' || id === 'field')
+  if (id === 'orbiter' && overdrive) {
+    return {
+      id,
+      title: "Guardian's Halo",
+      detail: 'Six red discs stay out. They spin faster and throw hostiles back harder.',
+      rank,
+      max,
+      overdrive: true,
+    }
+  }
+  if (id === 'field' && overdrive) {
+    return {
+      id,
+      title: 'Null Zone',
+      detail: 'The field turns red, reaches farther, burns harder, and slows more.',
+      rank,
+      max,
+      overdrive: true,
+    }
+  }
   const copy: Record<Exclude<UpgradeId, 'cache'>, { title: string; detail: string }> = {
     pulse: { title: 'Pulse', detail: 'Shots leave the core sooner.' },
     caliber: { title: 'Caliber', detail: 'Each round takes off one more hit.' },
@@ -901,7 +959,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
       : id === 'field' && rank > 1
         ? 'The field widens, burns harder, slows more, and pulses faster.'
         : copy[id].detail
-  return { id, title: copy[id].title, detail, rank, max }
+  return { id, title: copy[id].title, detail, rank, max, overdrive: false }
 }
 
 function applyUpgrade(state: GameState, id: UpgradeId): void {
