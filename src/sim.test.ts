@@ -479,8 +479,8 @@ describe('orbs', () => {
     assert.equal(ballCount(6), 2)
     assert.ok(ballSpeed(5) < 700)
     assert.ok(ballSpeed(6) < 750)
-    assert.equal(ballLife(1), 3.5)
-    assert.equal(ballLife(6), 4.5)
+    assert.equal(ballLife(1), 4.6)
+    assert.equal(ballLife(6), 5.6)
     assert.ok(ballInterval(6) < ballInterval(1))
     state.xp = state.xpNeed
     step(state, input({ aimActive: false }), 1 / 60)
@@ -585,6 +585,7 @@ describe('orbs', () => {
     })
     step(split, input({ aimActive: false }), 1 / 60)
     const echoes = split.balls.filter((ball) => ball.echo)
+    assert.equal(split.balls.filter((ball) => !ball.echo).length, 0)
     assert.equal(echoes.length, 2)
     assert.equal(echoes[0]?.damage, Math.round(40 * 0.45))
     assert.equal(echoes[0]?.max, 0.45)

@@ -541,8 +541,8 @@ export function ballDamage(rank: number): number {
 }
 
 export function ballLife(rank: number): number {
-  if (rank >= OVERDRIVE) return 4.5
-  return 3.5 + Math.max(0, rank - 1) * 0.2
+  if (rank >= OVERDRIVE) return 5.6
+  return 4.6 + Math.max(0, rank - 1) * 0.2
 }
 
 export function ballInterval(rank: number): number {
@@ -581,7 +581,7 @@ function damageEnemy(
   color = '#ffffff',
 ): void {
   enemy.hitCd = TUNING.hitCooldown
-  enemy.flash = 0.18
+  enemy.flash = 0.28
   enemy.hp -= dealt
   pushFloater(state, enemy.x, enemy.y - enemy.radius * 0.35, String(dealt), color, -68)
   burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 6, 140)
@@ -1010,18 +1010,21 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
       shoveFromBall(enemy, ball)
       damageEnemy(state, enemy, events, ball.damage, ball.quantum ? '#ff2d3a' : '#8dff4a')
       enemy.hitCd = 0.14
-      splitBall(state, ball)
+      if (splitBall(state, ball)) {
+        state.balls.splice(i, 1)
+        break
+      }
     }
   }
 }
 
-function splitBall(state: GameState, ball: Ricochet): void {
-  if (!ball.quantum || ball.echo || state.balls.length > 24) return
+function splitBall(state: GameState, ball: Ricochet): boolean {
+  if (!ball.quantum || ball.echo || state.balls.length > 24) return false
   const speed = Math.hypot(ball.vx, ball.vy) || ballSpeed(OVERDRIVE)
   const angle = Math.atan2(ball.vy, ball.vx)
   const echoSpeed = speed * 1.15
   for (const turn of [-35, 35]) {
-    if (state.balls.length > 24) return
+    if (state.balls.length > 24) break
     const a = angle + (turn * Math.PI) / 180
     state.balls.push({
       x: ball.x,
@@ -1039,6 +1042,7 @@ function splitBall(state: GameState, ball: Ricochet): void {
       touched: [],
     })
   }
+  return true
 }
 
 function deflectOffEnemy(ball: Ricochet, enemy: Enemy): void {
@@ -1140,7 +1144,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     return {
       id,
       title: 'Quantum Core',
-      detail: 'Three hyper-fast red balls. A hit splits each one into two smaller balls.',
+      detail: 'Hyper-fast red balls. A hit replaces each one with two smaller balls.',
       rank,
       max,
       overdrive: true,
