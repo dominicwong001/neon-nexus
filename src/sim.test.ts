@@ -191,7 +191,7 @@ describe('hostiles', () => {
     assert.equal(state.enemies.length, 2)
     for (const child of state.enemies) {
       assert.equal(child.kind, 2)
-      assert.equal(child.hp, HIT / 2)
+      assert.equal(child.hp, 100)
       assert.equal(child.generation, 1)
       assert.ok(child.radius < 20)
     }
@@ -239,6 +239,28 @@ describe('hostiles', () => {
     }
     assert.equal(state.combo, 2)
     assert.equal(state.score, 30)
+  })
+
+  it('sends a rare red hex with a much thicker hull', () => {
+    const state = createGame(0, 7)
+    state.fireCd = 10
+    const counts = [0, 0, 0, 0]
+    for (let i = 0; i < 240; i++) {
+      state.spawnCd = 0
+      state.enemies.length = 0
+      step(state, input({ viewRadius: 400, aimActive: false }), 1 / 60)
+      for (const hostile of state.enemies) {
+        counts[hostile.kind] += 1
+        assert.equal(hostile.hp, [100, 200, 300, 1000][hostile.kind])
+        if (hostile.kind !== 3) continue
+        assert.ok(hostile.radius > 22 * BODY)
+        assert.ok(hostile.speed < 66)
+      }
+    }
+    assert.ok(counts[3] >= 1)
+    assert.ok(counts[3] < counts[0])
+    assert.ok(counts[3] < counts[1])
+    assert.ok(counts[3] < counts[2])
   })
 
   it('spawns outside the view', () => {

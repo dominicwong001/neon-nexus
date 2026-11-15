@@ -19,9 +19,9 @@ export const TUNING = {
 
 export const HIT = 100
 
-export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a'] as const
+export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a', '#ff2d3a'] as const
 
-export type EnemyKind = 0 | 1 | 2
+export type EnemyKind = 0 | 1 | 2 | 3
 export type Phase = 'play' | 'dead' | 'level'
 export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'plate' | 'orbiter' | 'field' | 'cache'
 
@@ -180,9 +180,10 @@ export interface StepEvents {
 }
 
 const KIND = [
-  { radius: 14 * BODY, hp: HIT / 2, speed: 150, spin: 2.8 },
-  { radius: 22 * BODY, hp: HIT * 2, speed: 66, spin: 1.15 },
-  { radius: 20 * BODY, hp: HIT, speed: 72, spin: 0.8 },
+  { radius: 14 * BODY, hp: 100, speed: 150, spin: 2.8 },
+  { radius: 22 * BODY, hp: 200, speed: 66, spin: 1.15 },
+  { radius: 20 * BODY, hp: 300, speed: 72, spin: 0.8 },
+  { radius: 40 * BODY, hp: 1000, speed: 46, spin: 0.55 },
 ] as const
 
 export const OVERDRIVE = 6
@@ -534,7 +535,7 @@ function damageEnemy(
   const mult = state.comboTime > 0 ? state.combo + 1 : 1
   state.combo = mult
   state.comboTime = 1.7
-  const gain = 10 * mult * (enemy.kind === 1 ? 2 : 1)
+  const gain = 10 * mult * (enemy.kind === 3 ? 6 : enemy.kind === 1 ? 2 : 1)
   state.score += gain
   if (state.score > state.best) state.best = state.score
   state.kills += 1
@@ -567,7 +568,7 @@ function splitCircle(state: GameState, enemy: Enemy): void {
       vy: Math.sin(a) * speed * 0.55,
       radius,
       kind: 2,
-      hp: HIT / 2,
+      hp: 100,
       hitCd: TUNING.hitCooldown,
       orbitCd: 0.2,
       spin: enemy.spin,
@@ -594,8 +595,9 @@ function spawn(state: GameState, input: Input, dt: number): void {
 function spawnOne(state: GameState, viewRadius: number): void {
   const roll = state.rng()
   let kind: EnemyKind = 0
-  if (roll > 0.8) kind = 2
-  else if (roll > 0.46) kind = 1
+  if (roll > 0.93) kind = 3
+  else if (roll > 0.73) kind = 2
+  else if (roll > 0.4) kind = 1
   const spec = KIND[kind]
   const ang = state.rng() * Math.PI * 2
   const dist = Math.max(200, viewRadius) + 90 + state.rng() * 180
@@ -750,9 +752,10 @@ function touchPlayer(state: GameState, events: StepEvents): void {
 
 function dropOrb(state: GameState, enemy: Enemy): void {
   const rare = enemy.kind === 2
+  const brute = enemy.kind === 3
   const child = enemy.generation > 0
-  const radius = rare ? (child ? 4.5 : 7) : enemy.kind === 1 ? 4.5 : 3.5
-  const value = rare ? (child ? 3 : 4) : enemy.kind === 1 ? 2 : 1
+  const radius = brute ? 8 : rare ? (child ? 4.5 : 7) : enemy.kind === 1 ? 4.5 : 3.5
+  const value = brute ? 6 : rare ? (child ? 3 : 4) : enemy.kind === 1 ? 2 : 1
   const a = state.rng() * Math.PI * 2
   const kick = 18 + state.rng() * 36
   if (state.orbs.length > 90) state.orbs.shift()
@@ -763,8 +766,8 @@ function dropOrb(state: GameState, enemy: Enemy): void {
     vy: Math.sin(a) * kick,
     radius,
     value,
-    color: rare ? ORB_RARE : ORB_COMMON,
-    rare,
+    color: brute ? ENEMY_COLOR[3] : rare ? ORB_RARE : ORB_COMMON,
+    rare: rare || brute,
     homing: false,
     pulse: state.rng() * Math.PI * 2,
   })
