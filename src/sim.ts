@@ -14,6 +14,8 @@ export const TUNING = {
   mercy: 1.4,
 } as const
 
+export const HIT = 100
+
 export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a'] as const
 
 export type EnemyKind = 0 | 1 | 2
@@ -172,9 +174,9 @@ export interface StepEvents {
 }
 
 const KIND = [
-  { radius: 14, hp: 1, speed: 230, spin: 2.8 },
-  { radius: 22, hp: 2, speed: 100, spin: 1.15 },
-  { radius: 20, hp: 1, speed: 108, spin: 0.8 },
+  { radius: 14, hp: HIT, speed: 230, spin: 2.8 },
+  { radius: 22, hp: HIT * 2, speed: 100, spin: 1.15 },
+  { radius: 20, hp: HIT, speed: 108, spin: 0.8 },
 ] as const
 
 const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
@@ -438,9 +440,20 @@ function pushFloater(state: GameState, x: number, y: number, text: string, color
   if (state.floaters.length > 36) state.floaters.shift()
 }
 
-function damageEnemy(state: GameState, enemy: Enemy, events: StepEvents): void {
+export function orbiterDamage(rank: number): number {
+  return HIT / 2 + Math.max(0, rank - 1) * 10
+}
+
+export function orbitActive(rank: number): number {
+  return DISC.active + Math.max(0, rank - 1) * 0.45
+}
+
+export function orbitRate(rank: number): number {
+  return DISC.spin + Math.max(0, rank - 1) * 0.2
+}
+
+function damageEnemy(state: GameState, enemy: Enemy, events: StepEvents, dealt = HIT * (1 + state.mods.caliber)): void {
   enemy.hitCd = TUNING.hitCooldown
-  const dealt = 1 + state.mods.caliber
   enemy.hp -= dealt
   pushFloater(state, enemy.x, enemy.y - enemy.radius * 0.35, String(dealt), '#ffffff', -68)
   burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 6, 140)
@@ -454,7 +467,6 @@ function damageEnemy(state: GameState, enemy: Enemy, events: StepEvents): void {
   state.kills += 1
   events.kills += 1
   state.shake = Math.min(7, state.shake + 2.4)
-  pushFloater(state, enemy.x, enemy.y - 16, `+${gain}`, ENEMY_COLOR[enemy.kind], -34)
   state.shocks.push({
     x: enemy.x,
     y: enemy.y,
@@ -482,7 +494,7 @@ function splitCircle(state: GameState, enemy: Enemy): void {
       vy: Math.sin(a) * speed * 0.55,
       radius,
       kind: 2,
-      hp: 1,
+      hp: HIT,
       hitCd: TUNING.hitCooldown,
       orbitCd: 0.2,
       spin: enemy.spin,
@@ -723,18 +735,19 @@ function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents
 export function orbitDiscs(state: GameState): { x: number; y: number; spin: number; fade: number }[] {
   const count = state.mods.orbiter > 0 ? state.mods.orbiter + 1 : 0
   if (count === 0) return []
-  const period = DISC.active + DISC.recharge
+  const active = orbitActive(state.mods.orbiter)
+  const period = active + DISC.recharge
   const t = state.orbitTime % period
-  if (t >= DISC.active) return []
-  const fade = Math.min(1, t / 0.22, (DISC.active - t) / 0.5)
-  const turn = state.time * DISC.spin
+  if (t >= active) return []
+  const fade = Math.min(1, t / 0.22, (active - t) / 0.5)
+  const turn = state.time * orbitRate(state.mods.orbiter)
   const discs = []
   for (let i = 0; i < count; i++) {
     const angle = turn + (i * Math.PI * 2) / count
     discs.push({
       x: state.playerX + Math.cos(angle) * DISC.orbit,
       y: state.playerY + Math.sin(angle) * DISC.orbit,
-      spin: state.time * 9.6 + i,
+      spin: angle,
       fade,
     })
   }
@@ -755,7 +768,7 @@ function strikeOrbits(state: GameState, events: StepEvents): void {
       if (dx * dx + dy * dy > reach * reach) continue
       enemy.orbitCd = 0.42
       spawnImpact(state, disc.x, disc.y)
-      damageEnemy(state, enemy, events)
+      damageEnemy(state, enemy, events, orbiterDamage(state.mods.orbiter))
     }
   }
 }
@@ -801,7 +814,10 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     plate: { title: 'Plate', detail: 'Repair one hull segment and add a spare.' },
     orbiter: { title: 'Orbiter', detail: 'Two discs orbit the core, then fade out and recharge.' },
   }
-  const detail = id === 'orbiter' && rank > 1 ? 'One more disc joins the orbit.' : copy[id].detail
+  const detail =
+    id === 'orbiter' && rank > 1
+      ? 'One more disc. They last longer, hit harder, and spin faster.'
+      : copy[id].detail
   return { id, title: copy[id].title, detail, rank, max }
 }
 

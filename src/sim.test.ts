@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
+  HIT,
   TUNING,
   DISC,
   chooseUpgrade,
   createGame,
   hexRingReach,
+  orbitActive,
   orbitDiscs,
+  orbitRate,
+  orbiterDamage,
   screenToWorld,
   step,
   worldToScreen,
@@ -165,6 +169,7 @@ describe('hostiles', () => {
     assert.equal(state.score, 10)
     assert.equal(state.best, 10)
     assert.equal(state.enemies.length, 0)
+    assert.equal(state.floaters.some((floater) => floater.text.startsWith('+')), false)
   })
 
   it('splits a circle into smaller circles that do not split again', () => {
@@ -176,7 +181,7 @@ describe('hostiles', () => {
     assert.equal(state.enemies.length, 2)
     for (const child of state.enemies) {
       assert.equal(child.kind, 2)
-      assert.equal(child.hp, 1)
+      assert.equal(child.hp, HIT)
       assert.equal(child.generation, 1)
       assert.ok(child.radius < 20)
     }
@@ -203,11 +208,11 @@ describe('hostiles', () => {
   it('needs two hits to break a block', () => {
     const state = createGame(0, 11)
     state.spawnCd = 50
-    state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, radius: 26, kind: 1, hp: 2 }))
+    state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, radius: 26, kind: 1, hp: HIT * 2 }))
     step(state, input(), 1 / 60)
     assert.equal(state.score, 0)
     assert.equal(state.enemies.length, 1)
-    assert.equal(state.enemies[0]?.hp, 1)
+    assert.equal(state.enemies[0]?.hp, HIT)
     for (let i = 0; i < 40 && state.enemies.length; i++) step(state, input(), 1 / 60)
     assert.equal(state.enemies.length, 0)
     assert.equal(state.score, 20)
@@ -263,6 +268,7 @@ describe('hostiles', () => {
   it('shoves every hostile inside the hex ring when the hull cracks', () => {
     const state = createGame(0, 16)
     state.spawnCd = 999
+    state.fireCd = 10
     state.invuln = 0
     state.enemies.push(enemy({ x: 0, y: 0, radius: 18, hp: 8, speed: 0, phase: 0.4 }))
     state.enemies.push(enemy({ x: 22, y: 6, radius: 14, hp: 8, speed: 0, phase: 1.7 }))
@@ -406,12 +412,26 @@ describe('orbs', () => {
     state.orbitTime = 0.8
     const live = orbitDiscs(state)
     assert.equal(live.length, 2)
-    state.enemies.push(enemy({ x: 0, y: 0, radius: 240, hp: 8, speed: 0 }))
+    const disc = live[0]
+    assert.ok(disc)
+    const facing = Math.atan2(disc.y - state.playerY, disc.x - state.playerX)
+    const drift = Math.atan2(Math.sin(disc.spin - facing), Math.cos(disc.spin - facing))
+    assert.ok(Math.abs(drift) < 1e-6)
+    state.enemies.push(enemy({ x: 0, y: 0, radius: 240, hp: HIT, speed: 0, kind: 0 }))
     step(state, input({ aimActive: false }), 1 / 60)
     const bitten = state.enemies[0]
     assert.ok(bitten)
-    assert.ok(bitten.hp < 8)
-    assert.ok(state.floaters.some((floater) => floater.text === '1'))
+    assert.equal(bitten.hp, HIT - orbiterDamage(1))
+    assert.equal(orbiterDamage(1) * 2, HIT)
+    assert.ok(state.floaters.some((floater) => floater.text === String(orbiterDamage(1))))
+    assert.equal(state.floaters.some((floater) => floater.text.startsWith('+')), false)
+    assert.ok(orbitActive(2) > orbitActive(1))
+    assert.ok(orbitRate(2) > orbitRate(1))
+    const held = createGame(0, 18)
+    held.mods.orbiter = 2
+    held.time = 0.4
+    held.orbitTime = orbitActive(1) + 0.12
+    assert.ok(orbitDiscs(held).length >= 3)
 
     const quiet = createGame(0, 13)
     quiet.spawnCd = 999
@@ -457,11 +477,11 @@ describe('orbs', () => {
   it('paints a collision burst when a round hits', () => {
     const state = createGame(0, 44)
     state.spawnCd = 999
-    state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, kind: 1, hp: 2, radius: 22 }))
+    state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, kind: 1, hp: HIT * 2, radius: 22 }))
     step(state, input(), 1 / 60)
     assert.ok(state.impacts.length >= 1)
     assert.equal(state.enemies.length, 1)
-    assert.equal(state.enemies[0]?.hp, 1)
+    assert.equal(state.enemies[0]?.hp, HIT)
   })
 
   it('repairs hull when Plate is chosen', () => {

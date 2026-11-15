@@ -349,7 +349,9 @@ function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
 
   ctx.save()
   ctx.rotate(state.time * TUNING.ringSpin)
-  strokePoly(ctx, 0, 0, TUNING.ringRadius, 6, 'rgba(255, 255, 255, 0.92)', 1.6, 0)
+  ctx.setLineDash([0.1, 7.5])
+  ctx.lineCap = 'round'
+  strokePoly(ctx, 0, 0, TUNING.ringRadius, 6, 'rgba(255, 255, 255, 0.32)', 2.4, 0)
   ctx.restore()
 
   const speed = Math.hypot(state.playerVx, state.playerVy)
@@ -357,7 +359,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.save()
     ctx.rotate(Math.atan2(state.playerVy, state.playerVx) + Math.PI)
     const len = Math.min(28, 8 + speed * 0.035)
-    ctx.fillStyle = '#ffffff'
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.34)'
     ctx.beginPath()
     ctx.moveTo(-6, 0)
     ctx.lineTo(-6 - len, 4.5)
