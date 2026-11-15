@@ -504,8 +504,8 @@ export function orbiterCount(rank: number): number {
 
 export function orbiterShove(rank: number): number {
   const step = Math.min(Math.max(rank, 1), OVERDRIVE - 1)
-  const base = 4 + Math.max(0, step - 1) * 2.5
-  return rank >= OVERDRIVE ? base + 5.5 : base
+  const base = 1.4 + Math.max(0, step - 1) * 0.55
+  return rank >= OVERDRIVE ? base + 1.2 : base
 }
 
 export function orbitActive(rank: number): number {
@@ -849,8 +849,8 @@ function shoveFromDisc(state: GameState, enemy: Enemy, x: number, y: number, sho
   const ny = dy / dist
   enemy.x += nx * shove
   enemy.y += ny * shove
-  enemy.vx += nx * shove * 6
-  enemy.vy += ny * shove * 6
+  enemy.vx += nx * shove * 1.4
+  enemy.vy += ny * shove * 1.4
 }
 
 function pulseField(state: GameState, events: StepEvents): void {

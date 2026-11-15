@@ -561,7 +561,30 @@ describe('orbs', () => {
     assert.ok(Math.abs(low - orbiterShove(1)) < 0.05)
     assert.ok(high > low)
     assert.ok(orbiterShove(6) > orbiterShove(5))
-    assert.ok(orbiterShove(6) < 22)
+    assert.ok(orbiterShove(6) < 8)
+  })
+
+  it('lets a hostile walk through the discs', () => {
+    for (const rank of [1, 6]) {
+      const state = createGame(0, 8)
+      state.spawnCd = 999
+      state.fireCd = 10
+      state.invuln = 30
+      state.mods.orbiter = rank
+      state.orbitTime = 0.6
+      const hostile = enemy({
+        x: state.playerX + DISC.orbit + 90,
+        y: state.playerY,
+        hp: 8000,
+        speed: 66,
+        radius: 22 * BODY,
+        kind: 1,
+      })
+      state.enemies.push(hostile)
+      run(state, input({ aimActive: false }), 3)
+      const dist = Math.hypot(hostile.x - state.playerX, hostile.y - state.playerY)
+      assert.ok(dist < DISC.orbit, `rank ${rank} held the hostile at ${dist}`)
+    }
   })
 
   it('never offers Reach', () => {
