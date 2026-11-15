@@ -60,30 +60,39 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
 function drawField(ctx: CanvasRenderingContext2D, state: GameState): void {
   const radius = fieldRadius(state.mods.field)
   if (radius <= 0) return
+  const spin = -Math.PI / 2
   ctx.save()
-  const fill = ctx.createRadialGradient(0, 0, 0, 0, 0, radius)
-  fill.addColorStop(0, 'rgba(61, 240, 255, 0.02)')
-  fill.addColorStop(1, 'rgba(61, 240, 255, 0.25)')
+  ctx.filter = 'blur(7px)'
+  const fill = ctx.createRadialGradient(0, 0, radius * 0.08, 0, 0, radius)
+  fill.addColorStop(0, 'rgba(61, 240, 255, 0.14)')
+  fill.addColorStop(0.55, 'rgba(61, 240, 255, 0.06)')
+  fill.addColorStop(1, 'rgba(61, 240, 255, 0)')
   ctx.fillStyle = fill
   ctx.beginPath()
-  ctx.arc(0, 0, radius, 0, Math.PI * 2)
+  polyPath(ctx, 0, 0, radius, 6, spin)
   ctx.fill()
-
-  const phase = (state.time % FIELD.tick) / FIELD.tick
-  ctx.strokeStyle = `rgba(61, 240, 255, ${(1 - phase) * 0.7})`
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.arc(0, 0, Math.max(1, phase * radius), 0, Math.PI * 2)
-  ctx.stroke()
-
-  ctx.setLineDash([12, 8])
-  ctx.lineDashOffset = -state.time * 40
-  ctx.strokeStyle = FIELD.color
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.arc(0, 0, radius, 0, Math.PI * 2)
+  ctx.strokeStyle = 'rgba(61, 240, 255, 0.22)'
+  ctx.lineWidth = 10
   ctx.stroke()
   ctx.restore()
+
+  const life = 0.5
+  const newest = Math.floor(state.time / FIELD.tick)
+  for (let i = newest; i >= newest - 3; i--) {
+    if (i < 0) continue
+    const age = state.time - i * FIELD.tick
+    if (age < 0 || age > life) continue
+    const phase = age / life
+    ctx.save()
+    ctx.filter = `blur(${1 + phase * 11}px)`
+    ctx.globalAlpha = (1 - phase) * (1 - phase * 0.55)
+    ctx.strokeStyle = 'rgba(61, 240, 255, 0.9)'
+    ctx.lineWidth = 2.5
+    ctx.beginPath()
+    polyPath(ctx, 0, 0, Math.max(2, phase * radius), 6, spin + i * (Math.PI / 5))
+    ctx.stroke()
+    ctx.restore()
+  }
 }
 
 function drawGrid(ctx: CanvasRenderingContext2D, state: GameState, width: number, height: number): void {

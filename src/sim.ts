@@ -206,7 +206,7 @@ export const DISC = {
 } as const
 
 export const FIELD = {
-  tick: 0.6,
+  tick: 0.22,
   color: '#3df0ff',
 } as const
 
@@ -216,7 +216,7 @@ export function fieldRadius(rank: number): number {
 }
 
 export function fieldDamage(rank: number): number {
-  return 14 + Math.max(0, rank - 1) * 8
+  return 6 + Math.max(0, rank - 1) * 3
 }
 
 export function fieldSlow(rank: number): number {

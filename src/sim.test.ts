@@ -12,6 +12,7 @@ import {
   orbitRate,
   orbiterDamage,
   orbiterShove,
+  FIELD,
   fieldDamage,
   fieldRadius,
   fieldSlow,
@@ -436,7 +437,11 @@ describe('orbs', () => {
     const far = enemy({ x: 700, y: 40, hp: 400, speed: 180, vx: -180, radius: 10 })
     burn.enemies.push(inside, far)
     run(burn, input({ aimActive: false }), 0.7)
-    assert.equal(inside.hp, 400 - fieldDamage(1))
+    const ticks = Math.floor(burn.time / FIELD.tick)
+    assert.ok(FIELD.tick < 0.35)
+    assert.ok(fieldDamage(1) < 10)
+    assert.ok(ticks >= 2)
+    assert.equal(inside.hp, 400 - ticks * fieldDamage(1))
     assert.equal(far.hp, 400)
     assert.ok(Math.hypot(inside.vx, inside.vy) < Math.hypot(far.vx, far.vy) * 0.9)
     assert.ok(burn.floaters.some((floater) => floater.text === String(fieldDamage(1)) && floater.color === '#3df0ff'))
