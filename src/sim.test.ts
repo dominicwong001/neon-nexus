@@ -406,11 +406,12 @@ describe('orbs', () => {
     state.orbitTime = 0.8
     const live = orbitDiscs(state)
     assert.equal(live.length, 2)
-    state.enemies.push(enemy({ x: 0, y: 0, radius: 130, hp: 8, speed: 0 }))
+    state.enemies.push(enemy({ x: 0, y: 0, radius: 240, hp: 8, speed: 0 }))
     step(state, input({ aimActive: false }), 1 / 60)
     const bitten = state.enemies[0]
     assert.ok(bitten)
     assert.ok(bitten.hp < 8)
+    assert.ok(state.floaters.some((floater) => floater.text === '1'))
 
     const quiet = createGame(0, 13)
     quiet.spawnCd = 999
@@ -419,7 +420,7 @@ describe('orbs', () => {
     quiet.mods.orbiter = 1
     quiet.orbitTime = DISC.active + 0.4
     assert.equal(orbitDiscs(quiet).length, 0)
-    quiet.enemies.push(enemy({ x: 0, y: 0, radius: 130, hp: 8, speed: 0 }))
+    quiet.enemies.push(enemy({ x: 0, y: 0, radius: 240, hp: 8, speed: 0 }))
     step(quiet, input({ aimActive: false }), 1 / 60)
     assert.equal(quiet.enemies[0]?.hp, 8)
   })

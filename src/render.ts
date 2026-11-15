@@ -1,4 +1,8 @@
+import discUrl from './assets/disc.png'
 import { DISC, ENEMY_COLOR, TUNING, orbitDiscs, type GameState } from './sim.ts'
+
+const discSprite = new Image()
+discSprite.src = discUrl
 
 export interface StickView {
   x: number
@@ -47,9 +51,9 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
   drawEnemies(ctx, state, X, Y)
   drawBullets(ctx, state, X, Y)
   drawImpacts(ctx, state, X, Y)
-  drawFloaters(ctx, state, X, Y)
   drawOrbiters(ctx, state, X, Y)
   drawPlayer(ctx, state)
+  drawFloaters(ctx, state, X, Y)
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   if (state.phase === 'play') drawAim(ctx, view, sx, sy)
@@ -286,13 +290,19 @@ function drawFloaters(
   Y: (y: number) => number,
 ): void {
   ctx.save()
-  ctx.font = '600 14px Oxanium, sans-serif'
+  ctx.font = '700 18px Oxanium, sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
+  ctx.lineWidth = 3
+  ctx.lineJoin = 'round'
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.82)'
   for (const f of state.floaters) {
     ctx.globalAlpha = Math.max(0, f.life / f.max)
+    const x = X(f.x)
+    const y = Y(f.y)
+    ctx.strokeText(f.text, x, y)
     ctx.fillStyle = f.color
-    ctx.fillText(f.text, X(f.x), Y(f.y))
+    ctx.fillText(f.text, x, y)
   }
   ctx.restore()
 }
@@ -313,51 +323,17 @@ function drawOrbiters(
     ctx.save()
     ctx.translate(x, y)
     ctx.globalAlpha = disc.fade
+    const glowSize = DISC.radius * 3.1
     ctx.globalCompositeOperation = 'lighter'
-    ctx.drawImage(glow, -34, -34, 68, 68)
+    ctx.drawImage(glow, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
     ctx.globalCompositeOperation = 'source-over'
     ctx.rotate(disc.spin)
-    drawSaw(ctx, DISC.radius)
+    if (discSprite.complete && discSprite.naturalWidth > 0) {
+      const size = DISC.radius * 2
+      ctx.drawImage(discSprite, -size / 2, -size / 2, size, size)
+    }
     ctx.restore()
   }
-}
-
-function drawSaw(ctx: CanvasRenderingContext2D, r: number): void {
-  ctx.beginPath()
-  ctx.arc(0, 0, r, 0, Math.PI * 2)
-  ctx.fillStyle = '#4b525b'
-  ctx.fill()
-  ctx.lineWidth = Math.max(1.25, r * 0.08)
-  ctx.strokeStyle = '#101114'
-  ctx.stroke()
-
-  ctx.fillStyle = '#ffffff'
-  ctx.strokeStyle = '#141414'
-  ctx.lineWidth = Math.max(1, r * 0.065)
-  ctx.lineJoin = 'round'
-  for (let i = 0; i < 3; i++) {
-    const a = (i * Math.PI * 2) / 3
-    const span = 1.22
-    ctx.beginPath()
-    ctx.arc(0, 0, r * 0.96, a + 0.08, a + span)
-    ctx.arc(0, 0, r * 0.46, a + span - 0.22, a + 0.28, true)
-    ctx.closePath()
-    ctx.fill()
-    ctx.stroke()
-  }
-
-  ctx.beginPath()
-  ctx.arc(0, 0, r * 0.38, 0, Math.PI * 2)
-  ctx.fillStyle = '#3a4048'
-  ctx.fill()
-  ctx.strokeStyle = '#101114'
-  ctx.lineWidth = Math.max(1, r * 0.07)
-  ctx.stroke()
-
-  ctx.beginPath()
-  ctx.arc(0, 0, r * 0.15, 0, Math.PI * 2)
-  ctx.fillStyle = '#ffffff'
-  ctx.fill()
 }
 
 function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {

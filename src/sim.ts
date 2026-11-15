@@ -189,11 +189,11 @@ const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
 }
 
 export const DISC = {
-  radius: 20,
-  orbit: 116,
-  active: 1.9,
-  recharge: 3.3,
-  spin: 1.7,
+  radius: 36,
+  orbit: 176,
+  active: 4,
+  recharge: 2.8,
+  spin: 2.35,
 } as const
 
 const ORB_COMMON = '#ffffff'
@@ -425,9 +425,24 @@ function moveBullets(state: GameState, input: Input, dt: number, events: StepEve
   }
 }
 
+function pushFloater(state: GameState, x: number, y: number, text: string, color: string, vy: number): void {
+  state.floaters.push({
+    x: x + Math.sin(x * 0.17 + y) * 6,
+    y,
+    vy,
+    text,
+    life: 0.72,
+    max: 0.72,
+    color,
+  })
+  if (state.floaters.length > 36) state.floaters.shift()
+}
+
 function damageEnemy(state: GameState, enemy: Enemy, events: StepEvents): void {
   enemy.hitCd = TUNING.hitCooldown
-  enemy.hp -= 1 + state.mods.caliber
+  const dealt = 1 + state.mods.caliber
+  enemy.hp -= dealt
+  pushFloater(state, enemy.x, enemy.y - enemy.radius * 0.35, String(dealt), '#ffffff', -68)
   burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 6, 140)
   if (enemy.hp > 0) return
   const mult = state.comboTime > 0 ? state.combo + 1 : 1
@@ -439,16 +454,7 @@ function damageEnemy(state: GameState, enemy: Enemy, events: StepEvents): void {
   state.kills += 1
   events.kills += 1
   state.shake = Math.min(7, state.shake + 2.4)
-  state.floaters.push({
-    x: enemy.x,
-    y: enemy.y,
-    vy: -36,
-    text: `+${gain}`,
-    life: 0.7,
-    max: 0.7,
-    color: ENEMY_COLOR[enemy.kind],
-  })
-  if (state.floaters.length > 14) state.floaters.shift()
+  pushFloater(state, enemy.x, enemy.y - 16, `+${gain}`, ENEMY_COLOR[enemy.kind], -34)
   state.shocks.push({
     x: enemy.x,
     y: enemy.y,
@@ -720,7 +726,7 @@ export function orbitDiscs(state: GameState): { x: number; y: number; spin: numb
   const period = DISC.active + DISC.recharge
   const t = state.orbitTime % period
   if (t >= DISC.active) return []
-  const fade = Math.min(1, t / 0.2, (DISC.active - t) / 0.32)
+  const fade = Math.min(1, t / 0.22, (DISC.active - t) / 0.5)
   const turn = state.time * DISC.spin
   const discs = []
   for (let i = 0; i < count; i++) {
@@ -728,7 +734,7 @@ export function orbitDiscs(state: GameState): { x: number; y: number; spin: numb
     discs.push({
       x: state.playerX + Math.cos(angle) * DISC.orbit,
       y: state.playerY + Math.sin(angle) * DISC.orbit,
-      spin: state.time * 6.5 + i,
+      spin: state.time * 9.6 + i,
       fade,
     })
   }
