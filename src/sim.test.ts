@@ -154,17 +154,22 @@ describe('cursor stream', () => {
     }
   })
 
-  it('keeps the stream on the cursor line while the core is moving', () => {
+  it('flies straight and does not follow a later change in drift', () => {
     const state = createGame(0, 8)
     state.playerVx = 220
     state.playerVy = -80
     step(state, input({ aimX: 400, aimY: 0, moveX: 0, moveY: 0 }), 1 / 60)
     const bullet = state.bullets[0]
     assert.ok(bullet)
-    const rx = bullet.vx - state.playerVx
-    const ry = bullet.vy - state.playerVy
-    assert.ok(rx > 800)
-    assert.ok(Math.abs(ry) < 40)
+    assert.ok(bullet.vx > 800)
+    assert.ok(Math.abs(bullet.vy) < 40)
+    const vx = bullet.vx
+    const vy = bullet.vy
+    state.playerVx = -300
+    state.playerVy = 240
+    step(state, input({ aimX: 400, aimY: 0, moveX: -1, moveY: 1 }), 1 / 60)
+    assert.equal(bullet.vx, vx)
+    assert.equal(bullet.vy, vy)
   })
 
   it('holds the last aim when the cursor sits on the core', () => {

@@ -461,10 +461,8 @@ function fire(state: GameState, dt: number, events: StepEvents): void {
       state.bullets.push({
         x: state.playerX + cs * TUNING.muzzle,
         y: state.playerY + sn * TUNING.muzzle,
-        // Carry the core's velocity so the shot stays on the cursor line
-        // while the camera keeps the core centered.
-        vx: cs * shotSpeed + state.playerVx,
-        vy: sn * shotSpeed + state.playerVy,
+        vx: cs * shotSpeed,
+        vy: sn * shotSpeed,
         life,
       })
     }

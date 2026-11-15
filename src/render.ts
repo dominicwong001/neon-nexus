@@ -306,11 +306,9 @@ function drawBullets(
   ctx.restore()
 
   for (const b of state.bullets) {
-    const rx = b.vx - state.playerVx
-    const ry = b.vy - state.playerVy
     ctx.save()
     ctx.translate(X(b.x), Y(b.y))
-    ctx.rotate(Math.atan2(ry, rx))
+    ctx.rotate(Math.atan2(b.vy, b.vx))
     ctx.scale(BODY, BODY)
     ctx.fillStyle = '#ffffff'
     ctx.strokeStyle = '#ffffff'
@@ -439,38 +437,31 @@ function drawOrbiters(
 }
 
 function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void {
-  const blades = halo ? 6 : 3
   const rim = halo ? '#ff2d3a' : '#ffffff'
-  const body = halo ? '#5a3034' : '#8e949b'
   const hub = halo ? '#ff5a66' : '#ffffff'
-  const steel = halo ? '#3a2428' : '#667078'
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
   ctx.lineWidth = Math.max(1.2, r * 0.07)
   ctx.strokeStyle = '#07080a'
-  for (let i = 0; i < blades; i++) {
+  for (let i = 0; i < 3; i++) {
     ctx.save()
-    ctx.rotate((i * Math.PI * 2) / blades)
-    ctx.fillStyle = body
-    if (halo) traceAngledBlade(ctx, r)
-    else traceBlade(ctx, r)
+    ctx.rotate((i * Math.PI * 2) / 3)
+    ctx.fillStyle = '#8e949b'
+    traceBlade(ctx, r)
     ctx.fill()
     ctx.stroke()
     ctx.fillStyle = rim
-    if (halo) traceAngledRim(ctx, r)
-    else traceRim(ctx, r)
+    traceRim(ctx, r)
     ctx.fill()
     ctx.stroke()
-    if (!halo) {
-      traceAccent(ctx, r)
-      ctx.fill()
-      ctx.stroke()
-    }
+    traceAccent(ctx, r)
+    ctx.fill()
+    ctx.stroke()
     ctx.restore()
   }
   ctx.beginPath()
   ctx.arc(0, 0, r * 0.34, 0, Math.PI * 2)
-  ctx.fillStyle = steel
+  ctx.fillStyle = '#667078'
   ctx.fill()
   ctx.stroke()
   ctx.beginPath()
@@ -478,23 +469,6 @@ function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void 
   ctx.fillStyle = hub
   ctx.fill()
   ctx.stroke()
-}
-
-function traceAngledBlade(ctx: CanvasRenderingContext2D, r: number): void {
-  ctx.beginPath()
-  ctx.moveTo(r * 0.32, -r * 0.14)
-  ctx.lineTo(r * 1.04, -r * 0.38)
-  ctx.lineTo(r * 0.72, r * 0.08)
-  ctx.lineTo(r * 0.26, r * 0.2)
-  ctx.closePath()
-}
-
-function traceAngledRim(ctx: CanvasRenderingContext2D, r: number): void {
-  ctx.beginPath()
-  ctx.moveTo(r * 0.5, -r * 0.2)
-  ctx.lineTo(r * 1.04, -r * 0.38)
-  ctx.lineTo(r * 0.84, -r * 0.06)
-  ctx.closePath()
 }
 
 function traceBlade(ctx: CanvasRenderingContext2D, r: number): void {
