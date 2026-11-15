@@ -223,6 +223,10 @@ export function fieldSlow(rank: number): number {
   return Math.max(0.34, 0.76 - Math.max(0, rank - 1) * 0.08)
 }
 
+export function fieldRipple(rank: number): number {
+  return Math.max(0.18, 0.42 - Math.max(0, rank - 1) * 0.06)
+}
+
 const ORB_COMMON = '#ffffff'
 const ORB_RARE = '#d9a6ff'
 
@@ -895,7 +899,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     id === 'orbiter' && rank > 1
       ? 'One more disc. They last longer, hit harder, spin faster, and nudge harder.'
       : id === 'field' && rank > 1
-        ? 'The field widens, burns harder, and slows more.'
+        ? 'The field widens, burns harder, slows more, and pulses faster.'
         : copy[id].detail
   return { id, title: copy[id].title, detail, rank, max }
 }

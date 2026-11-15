@@ -1,4 +1,4 @@
-import { BODY, DISC, ENEMY_COLOR, TUNING, fieldRadius, orbitDiscs, type GameState } from './sim.ts'
+import { BODY, DISC, ENEMY_COLOR, TUNING, fieldRadius, fieldRipple, orbitDiscs, type GameState } from './sim.ts'
 
 export interface StickView {
   x: number
@@ -64,8 +64,8 @@ function drawField(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.save()
   ctx.filter = 'blur(7px)'
   const fill = ctx.createRadialGradient(0, 0, radius * 0.08, 0, 0, radius)
-  fill.addColorStop(0, 'rgba(61, 240, 255, 0.14)')
-  fill.addColorStop(0.55, 'rgba(61, 240, 255, 0.06)')
+  fill.addColorStop(0, 'rgba(61, 240, 255, 0.34)')
+  fill.addColorStop(0.5, 'rgba(61, 240, 255, 0.18)')
   fill.addColorStop(1, 'rgba(61, 240, 255, 0)')
   ctx.fillStyle = fill
   ctx.beginPath()
@@ -74,9 +74,10 @@ function drawField(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.restore()
 
   const life = 1.35
-  const every = 0.72
+  const every = fieldRipple(state.mods.field)
   const newest = Math.floor(state.time / every)
-  for (let i = newest; i >= newest - 2; i--) {
+  const span = Math.ceil(life / every)
+  for (let i = newest; i >= newest - span; i--) {
     if (i < 0) continue
     const age = state.time - i * every
     if (age < 0 || age > life) continue

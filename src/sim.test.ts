@@ -15,6 +15,7 @@ import {
   FIELD,
   fieldDamage,
   fieldRadius,
+  fieldRipple,
   fieldSlow,
   screenToWorld,
   step,
@@ -427,6 +428,8 @@ describe('orbs', () => {
     assert.ok(fieldRadius(2) > fieldRadius(1))
     assert.ok(fieldDamage(5) > fieldDamage(1))
     assert.ok(fieldSlow(5) < fieldSlow(1))
+    assert.ok(fieldRipple(5) < fieldRipple(1))
+    assert.ok(fieldRipple(1) < 0.5)
 
     const burn = createGame(0, 4)
     burn.spawnCd = 999
