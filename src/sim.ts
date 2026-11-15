@@ -198,7 +198,8 @@ export const DISC = {
   orbit: 176 * BODY,
   active: 4,
   recharge: 2.8,
-  spin: 3.75,
+  spin: 3,
+  turn: 2.5,
 } as const
 
 const ORB_COMMON = '#ffffff'
@@ -754,7 +755,7 @@ export function orbitDiscs(state: GameState): { x: number; y: number; spin: numb
     discs.push({
       x: state.playerX + Math.cos(angle) * DISC.orbit,
       y: state.playerY + Math.sin(angle) * DISC.orbit,
-      spin: angle,
+      spin: angle * DISC.turn,
       fade,
     })
   }

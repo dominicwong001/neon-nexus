@@ -411,13 +411,15 @@ describe('orbs', () => {
     state.invuln = 5
     state.mods.orbiter = 1
     state.orbitTime = 0.8
+    state.time = 0.5
     const live = orbitDiscs(state)
     assert.equal(live.length, 2)
     const disc = live[0]
     assert.ok(disc)
     const facing = Math.atan2(disc.y - state.playerY, disc.x - state.playerX)
-    const drift = Math.atan2(Math.sin(disc.spin - facing), Math.cos(disc.spin - facing))
+    const drift = Math.atan2(Math.sin(disc.spin - facing * DISC.turn), Math.cos(disc.spin - facing * DISC.turn))
     assert.ok(Math.abs(drift) < 1e-6)
+    assert.ok(DISC.turn > 1)
     state.enemies.push(enemy({ x: 0, y: 0, radius: 240, hp: HIT, speed: 0, kind: 0 }))
     step(state, input({ aimActive: false }), 1 / 60)
     const bitten = state.enemies[0]
