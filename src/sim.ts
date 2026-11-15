@@ -1,12 +1,15 @@
+/** Drawn size of the ship, its gear, and the hostiles. */
+export const BODY = 0.7
+
 export const TUNING = {
   thrust: 12,
   maxSpeed: 450,
   drag: 6.5,
   bulletSpeed: 980,
   fireInterval: 0.28,
-  muzzle: 22,
-  playerRadius: 14,
-  ringRadius: 34,
+  muzzle: 22 * BODY,
+  playerRadius: 14 * BODY,
+  ringRadius: 34 * BODY,
   ringSpin: 0.65,
   hullMax: 5,
   invuln: 1.15,
@@ -174,9 +177,9 @@ export interface StepEvents {
 }
 
 const KIND = [
-  { radius: 14, hp: HIT, speed: 230, spin: 2.8 },
-  { radius: 22, hp: HIT * 2, speed: 100, spin: 1.15 },
-  { radius: 20, hp: HIT, speed: 108, spin: 0.8 },
+  { radius: 14 * BODY, hp: HIT, speed: 230, spin: 2.8 },
+  { radius: 22 * BODY, hp: HIT * 2, speed: 100, spin: 1.15 },
+  { radius: 20 * BODY, hp: HIT, speed: 108, spin: 0.8 },
 ] as const
 
 const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
@@ -191,11 +194,11 @@ const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
 }
 
 export const DISC = {
-  radius: 36,
-  orbit: 176,
+  radius: 36 * BODY,
+  orbit: 176 * BODY,
   active: 4,
   recharge: 2.8,
-  spin: 2.35,
+  spin: 3,
 } as const
 
 const ORB_COMMON = '#ffffff'
@@ -416,7 +419,7 @@ function moveBullets(state: GameState, input: Input, dt: number, events: StepEve
       const e = state.enemies[j]
       const dx = b.x - e.x
       const dy = b.y - e.y
-      const reach = e.radius + 8
+      const reach = e.radius + 8 * BODY
       if (dx * dx + dy * dy > reach * reach) continue
       state.bullets.splice(i, 1)
       spawnImpact(state, b.x, b.y)
@@ -485,7 +488,7 @@ function splitCircle(state: GameState, enemy: Enemy): void {
   const heading = Math.hypot(enemy.vx, enemy.vy) > 8 ? Math.atan2(enemy.vy, enemy.vx) : state.rng() * Math.PI * 2
   for (const side of [-1, 1]) {
     const a = heading + side * 0.9
-    const radius = Math.max(9, enemy.radius * 0.55)
+    const radius = Math.max(9 * BODY, enemy.radius * 0.55)
     const speed = enemy.speed
     state.enemies.push({
       x: enemy.x + Math.cos(a) * enemy.radius * 0.75,
@@ -582,7 +585,7 @@ function separateEnemies(state: GameState): void {
         let dx = b.x - a.x
         let dy = b.y - a.y
         let dist = Math.hypot(dx, dy)
-        const min = a.radius + b.radius + 6
+        const min = a.radius + b.radius + 6 * BODY
         if (dist >= min) continue
         if (dist < 0.01) {
           const ang = a.phase + b.phase + pass
@@ -612,7 +615,7 @@ export function hexRingReach(angle: number, time: number): number {
 }
 
 function shoveOutsideRing(state: GameState): void {
-  const extra = 16
+  const extra = 16 * BODY
   for (const e of state.enemies) {
     const dx = e.x - state.playerX
     const dy = e.y - state.playerY
@@ -652,7 +655,7 @@ function touchPlayer(state: GameState, events: StepEvents): void {
     const dx = e.x - state.playerX
     const dy = e.y - state.playerY
     const dist = Math.hypot(dx, dy) || 1
-    const reach = TUNING.playerRadius + e.radius - 4
+    const reach = TUNING.playerRadius + e.radius - 4 * BODY
     if (dist > reach) continue
     state.hull -= 1
     state.invuln = TUNING.invuln
@@ -723,7 +726,7 @@ function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents
     orb.y += orb.vy * dt
     orb.pulse += dt
     const landed = Math.hypot(state.playerX - orb.x, state.playerY - orb.y)
-    if (landed > TUNING.playerRadius + orb.radius + 6) continue
+    if (landed > TUNING.playerRadius + orb.radius + 6 * BODY) continue
     const gain = Math.max(1, Math.round(orb.value * greed))
     state.xp += gain
     events.pickups += 1
@@ -855,13 +858,13 @@ function thrustEmbers(state: GameState, dt: number): void {
   const cs = Math.cos(a)
   const sn = Math.sin(a)
   pushParticle(state, {
-    x: state.playerX + cs * 12,
-    y: state.playerY + sn * 12,
+    x: state.playerX + cs * 12 * BODY,
+    y: state.playerY + sn * 12 * BODY,
     vx: cs * 50 + (state.rng() - 0.5) * 40,
     vy: sn * 50 + (state.rng() - 0.5) * 40,
     life: 0.22,
     max: 0.22,
-    size: 2.2,
+    size: 2.2 * BODY,
     color: '#ffffff',
   })
 }

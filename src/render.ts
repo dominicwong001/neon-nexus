@@ -1,5 +1,5 @@
 import discUrl from './assets/disc.png'
-import { DISC, ENEMY_COLOR, TUNING, orbitDiscs, type GameState } from './sim.ts'
+import { BODY, DISC, ENEMY_COLOR, TUNING, orbitDiscs, type GameState } from './sim.ts'
 
 const discSprite = new Image()
 discSprite.src = discUrl
@@ -194,17 +194,17 @@ function drawImpacts(
     ctx.globalAlpha = alpha
     ctx.fillStyle = '#ffffff'
     ctx.beginPath()
-    ctx.arc(x, y, 2 + (1 - t) * 6, 0, Math.PI * 2)
+    ctx.arc(x, y, (2 + (1 - t) * 6) * BODY, 0, Math.PI * 2)
     ctx.fill()
     ctx.globalAlpha = alpha * 0.9
     ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 2
+    ctx.lineWidth = 2 * BODY
     ctx.beginPath()
-    ctx.arc(x, y, 5 + t * 28, 0, Math.PI * 2)
+    ctx.arc(x, y, (5 + t * 28) * BODY, 0, Math.PI * 2)
     ctx.stroke()
     ctx.globalAlpha = alpha
-    ctx.lineWidth = 1.6
-    const len = 5 + t * 20
+    ctx.lineWidth = 1.6 * BODY
+    const len = (5 + t * 20) * BODY
     ctx.beginPath()
     for (let i = 0; i < 6; i++) {
       const a = hit.spin + (i * Math.PI) / 3
@@ -237,7 +237,7 @@ function drawEnemies(
     ctx.rotate(e.angle)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.78)'
     ctx.strokeStyle = ENEMY_COLOR[e.kind]
-    ctx.lineWidth = 2
+    ctx.lineWidth = 2 * BODY
     ctx.beginPath()
     if (e.kind === 0) polyPath(ctx, 0, 0, e.radius, 3, -Math.PI / 2)
     else if (e.kind === 1) polyPath(ctx, 0, 0, e.radius, 4, Math.PI / 4)
@@ -258,7 +258,7 @@ function drawBullets(
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   for (const b of state.bullets) {
-    ctx.drawImage(glow, X(b.x) - 14, Y(b.y) - 14, 28, 28)
+    ctx.drawImage(glow, X(b.x) - 14 * BODY, Y(b.y) - 14 * BODY, 28 * BODY, 28 * BODY)
   }
   ctx.restore()
 
@@ -268,6 +268,7 @@ function drawBullets(
     ctx.save()
     ctx.translate(X(b.x), Y(b.y))
     ctx.rotate(Math.atan2(ry, rx))
+    ctx.scale(BODY, BODY)
     ctx.fillStyle = '#ffffff'
     ctx.strokeStyle = '#ffffff'
     ctx.lineWidth = 1.25
@@ -344,20 +345,21 @@ function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
   const glow = glowFor('#ffffff')
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
-  ctx.drawImage(glow, -52, -52, 104, 104)
+  ctx.drawImage(glow, -52 * BODY, -52 * BODY, 104 * BODY, 104 * BODY)
   ctx.restore()
 
   ctx.save()
   ctx.rotate(state.time * TUNING.ringSpin)
-  ctx.setLineDash([0.1, 7.5])
+  ctx.setLineDash([0.1 * BODY, 7.5 * BODY])
   ctx.lineCap = 'round'
-  strokePoly(ctx, 0, 0, TUNING.ringRadius, 6, 'rgba(255, 255, 255, 0.32)', 2.4, 0)
+  strokePoly(ctx, 0, 0, TUNING.ringRadius, 6, 'rgba(255, 255, 255, 0.32)', 2.4 * BODY, 0)
   ctx.restore()
 
   const speed = Math.hypot(state.playerVx, state.playerVy)
   if (speed > 40) {
     ctx.save()
     ctx.rotate(Math.atan2(state.playerVy, state.playerVx) + Math.PI)
+    ctx.scale(BODY, BODY)
     const len = Math.min(28, 8 + speed * 0.035)
     ctx.fillStyle = 'rgba(255, 255, 255, 0.34)'
     ctx.beginPath()
@@ -372,6 +374,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
 
   ctx.save()
   ctx.rotate(state.aim)
+  ctx.scale(BODY, BODY)
   ctx.fillStyle = '#071016'
   ctx.strokeStyle = '#ffffff'
   ctx.lineWidth = 2.5
