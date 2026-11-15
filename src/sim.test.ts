@@ -425,7 +425,8 @@ describe('orbs', () => {
     state.xp = state.xpNeed
     step(state, input({ aimActive: false }), 1 / 60)
     assert.equal(state.offers.some((offer) => offer.id === 'field'), false)
-    assert.ok(fieldRadius(2) > fieldRadius(1))
+    assert.ok(fieldRadius(2) > fieldRadius(1) * 1.3)
+    assert.ok(fieldRadius(5) > fieldRadius(1) * 2.5)
     assert.ok(fieldDamage(5) > fieldDamage(1))
     assert.ok(fieldSlow(5) < fieldSlow(1))
     assert.ok(fieldRipple(5) < fieldRipple(1))

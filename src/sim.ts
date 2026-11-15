@@ -212,7 +212,7 @@ export const FIELD = {
 
 export function fieldRadius(rank: number): number {
   if (rank <= 0) return 0
-  return (128 + Math.max(0, rank - 1) * 26) * BODY
+  return (128 + Math.max(0, rank - 1) * 64) * BODY
 }
 
 export function fieldDamage(rank: number): number {
