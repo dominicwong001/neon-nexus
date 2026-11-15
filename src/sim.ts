@@ -198,7 +198,7 @@ export const DISC = {
   orbit: 176 * BODY,
   active: 4,
   recharge: 2.8,
-  spin: 3,
+  spin: 3.75,
 } as const
 
 const ORB_COMMON = '#ffffff'
