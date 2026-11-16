@@ -24,13 +24,14 @@ function tintSaw(source: HTMLImageElement): void {
     const alpha = pixels.data[i + 3] ?? 0
     if (alpha < 8) continue
     const lum = ((pixels.data[i] ?? 0) + (pixels.data[i + 1] ?? 0) + (pixels.data[i + 2] ?? 0)) / 3
+    const t = lum / 255
+    red[i] = Math.round(78 + t * 177)
+    red[i + 1] = Math.round(t * 32)
+    red[i + 2] = Math.round(14 + t * 30)
     if (lum < 100 || lum >= 190) continue
     white[i] = 255
     white[i + 1] = 255
     white[i + 2] = 255
-    red[i] = 255
-    red[i + 1] = 45
-    red[i + 2] = 58
   }
   for (const [canvas, data] of [
     [sawWhite, white],
