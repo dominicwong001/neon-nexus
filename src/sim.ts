@@ -117,6 +117,7 @@ export interface Ricochet {
   quantum: boolean
   knock: number
   spin: number
+  flex: number
   touched: { enemy: Enemy; cd: number }[]
 }
 
@@ -533,8 +534,8 @@ export function ballCount(rank: number): number {
 }
 
 export function ballSpeed(rank: number): number {
-  if (rank >= OVERDRIVE) return 620
-  return 420 + Math.max(0, rank - 1) * 35
+  if (rank >= OVERDRIVE) return 700
+  return 600
 }
 
 export function ballDamage(rank: number): number {
@@ -966,6 +967,7 @@ function launchBalls(state: GameState, dt: number): void {
       quantum,
       knock: quantum ? 8 : 2.2,
       spin: state.rng() * Math.PI * 2,
+      flex: 0,
       touched: [],
     })
   }
@@ -983,6 +985,7 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
     const ball = state.balls[i]
     if (!ball) continue
     ball.life -= dt
+    ball.flex = Math.max(0, ball.flex - dt * 2.6)
     if (ball.life <= 0) {
       state.balls.splice(i, 1)
       continue
@@ -990,20 +993,34 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
     ball.x += ball.vx * dt
     ball.y += ball.vy * dt
     if (Math.hypot(ball.vx, ball.vy) > 30) ball.spin += dt * 2.4
+    let bounced = false
     if (ball.x - ball.radius < left) {
       ball.x = left + ball.radius
-      if (ball.vx < 0) ball.vx = -ball.vx
+      if (ball.vx < 0) {
+        ball.vx = -ball.vx
+        bounced = true
+      }
     } else if (ball.x + ball.radius > right) {
       ball.x = right - ball.radius
-      if (ball.vx > 0) ball.vx = -ball.vx
+      if (ball.vx > 0) {
+        ball.vx = -ball.vx
+        bounced = true
+      }
     }
     if (ball.y - ball.radius < top) {
       ball.y = top + ball.radius
-      if (ball.vy < 0) ball.vy = -ball.vy
+      if (ball.vy < 0) {
+        ball.vy = -ball.vy
+        bounced = true
+      }
     } else if (ball.y + ball.radius > bottom) {
       ball.y = bottom - ball.radius
-      if (ball.vy > 0) ball.vy = -ball.vy
+      if (ball.vy > 0) {
+        ball.vy = -ball.vy
+        bounced = true
+      }
     }
+    if (bounced) ball.flex = 1
     for (let t = ball.touched.length - 1; t >= 0; t--) {
       const touch = ball.touched[t]
       if (!touch) continue
@@ -1019,7 +1036,7 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
       const reach = ball.radius + enemy.radius
       if (dx * dx + dy * dy > reach * reach) continue
       ball.touched.push({ enemy, cd: 0.15 })
-      if (enemy.kind === 3 || enemy.hp >= 1000) deflectOffEnemy(ball, enemy)
+      if ((enemy.kind === 3 || enemy.hp >= 1000) && deflectOffEnemy(ball, enemy)) ball.flex = 1
       shoveFromBall(enemy, ball)
       damageEnemy(state, enemy, events, ball.damage, ball.quantum ? '#ff2d3a' : '#8dff4a')
       enemy.hitCd = 0.14
@@ -1052,13 +1069,14 @@ function splitBall(state: GameState, ball: Ricochet): boolean {
       quantum: true,
       knock: 2.4,
       spin: ball.spin,
+      flex: 0,
       touched: [],
     })
   }
   return true
 }
 
-function deflectOffEnemy(ball: Ricochet, enemy: Enemy): void {
+function deflectOffEnemy(ball: Ricochet, enemy: Enemy): boolean {
   let dx = ball.x - enemy.x
   let dy = ball.y - enemy.y
   let dist = Math.hypot(dx, dy)
@@ -1076,7 +1094,9 @@ function deflectOffEnemy(ball: Ricochet, enemy: Enemy): void {
   if (toward < 0) {
     ball.vx -= 2 * toward * nx
     ball.vy -= 2 * toward * ny
+    return true
   }
+  return false
 }
 
 function shoveFromBall(enemy: Enemy, ball: Ricochet): void {
@@ -1191,7 +1211,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
       : id === 'field' && rank > 1
         ? 'The field widens, burns harder, slows more, and pulses faster.'
         : id === 'ball' && rank > 1
-          ? 'More balls, faster and harder, and they stay out longer.'
+          ? 'More balls. They hit harder and stay out longer.'
           : copy[id].detail
   return { id, title: copy[id].title, detail, rank, max, overdrive: false }
 }

@@ -343,57 +343,50 @@ function drawBalls(
   Y: (y: number) => number,
 ): void {
   if (state.balls.length === 0) return
-  const green = glowFor('#8dff4a')
+  const white = glowFor('#ffffff')
   const red = glowFor('#ff2d3a')
   for (const ball of state.balls) {
     const x = X(ball.x)
     const y = Y(ball.y)
-    const sheet = ball.quantum ? red : green
-    const glowSize = ball.radius * 3.8
+    const sheet = ball.quantum ? red : white
+    const glowSize = ball.radius * 3.2
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
+    ctx.globalAlpha = 0.72
     ctx.drawImage(sheet, x - glowSize / 2, y - glowSize / 2, glowSize, glowSize)
     ctx.restore()
+    const flex = ball.flex
+    const squish = Math.max(0, (flex - 0.58) / 0.42)
+    const stretch = flex > 0 && flex < 0.7 ? Math.sin(((0.7 - flex) / 0.7) * Math.PI) : 0
+    const heading = Math.atan2(ball.vy, ball.vx)
     ctx.save()
     ctx.translate(x, y)
-    ctx.rotate(ball.spin)
+    ctx.rotate(heading)
+    ctx.scale(1 - squish * 0.42 + stretch * 0.36, 1 + squish * 0.34 - stretch * 0.14)
+    ctx.rotate(ball.spin - heading)
     drawEnergyBall(ctx, ball.radius, ball.quantum)
     ctx.restore()
   }
 }
 
 function drawEnergyBall(ctx: CanvasRenderingContext2D, r: number, red: boolean): void {
-  const ink = red ? '#ff2d3a' : '#8dff4a'
-  const deep = red ? '#8d1020' : '#1f7a28'
-  const hot = red ? '#ffe4e6' : '#f4ffd2'
+  const ink = red ? '#ff2d3a' : '#ffffff'
   ctx.beginPath()
   ctx.arc(0, 0, r, 0, Math.PI * 2)
-  const body = ctx.createRadialGradient(-r * 0.38, -r * 0.42, r * 0.12, r * 0.12, r * 0.16, r)
-  body.addColorStop(0, red ? '#8d98a3' : '#f7f9fc')
-  body.addColorStop(0.38, red ? '#5c6772' : '#c5d2e0')
-  body.addColorStop(0.74, red ? '#343c46' : '#7f93a8')
-  body.addColorStop(1, red ? '#1c2228' : '#516478')
-  ctx.fillStyle = body
+  ctx.fillStyle = '#05060a'
   ctx.fill()
-  ctx.lineWidth = Math.max(1.7, r * 0.14)
+  ctx.lineWidth = Math.max(1.6, r * 0.11)
   ctx.strokeStyle = ink
-  ctx.shadowColor = ink
-  ctx.shadowBlur = 12
   ctx.stroke()
-  ctx.shadowBlur = 0
-  const ex = -r * 0.3
-  const ey = -r * 0.16
+  const ex = -r * 0.28
+  const ey = -r * 0.14
   ctx.beginPath()
-  ctx.arc(ex, ey, r * 0.4, 0, Math.PI * 2)
-  ctx.fillStyle = red ? '#3a1218' : '#3c4450'
-  ctx.fill()
-  const eye = ctx.createRadialGradient(ex - r * 0.05, ey - r * 0.05, r * 0.02, ex, ey, r * 0.26)
-  eye.addColorStop(0, hot)
-  eye.addColorStop(0.45, ink)
-  eye.addColorStop(1, deep)
+  ctx.arc(ex, ey, r * 0.3, 0, Math.PI * 2)
+  ctx.lineWidth = Math.max(1.2, r * 0.07)
+  ctx.stroke()
   ctx.beginPath()
-  ctx.arc(ex, ey, r * 0.26, 0, Math.PI * 2)
-  ctx.fillStyle = eye
+  ctx.arc(ex, ey, r * 0.11, 0, Math.PI * 2)
+  ctx.fillStyle = ink
   ctx.fill()
 }
 
@@ -429,31 +422,27 @@ function drawOrbiters(
 ): void {
   const discs = orbitDiscs(state)
   if (discs.length === 0) return
-  const glow = glowFor(discs[0]?.halo ? '#ff8a96' : '#ffffff')
+  const glow = glowFor(discs[0]?.halo ? '#ff2d3a' : '#ffffff')
   for (const disc of discs) {
     if (disc.fade < 0.04) continue
     const x = X(disc.x)
     const y = Y(disc.y)
     ctx.save()
     ctx.translate(x, y)
-    ctx.globalAlpha = disc.fade
-    const glowSize = disc.radius * (disc.halo ? 5.6 : 3.1)
+    ctx.globalAlpha = disc.fade * (disc.halo ? 0.82 : 1)
+    const glowSize = disc.radius * (disc.halo ? 4.8 : 3.1)
     ctx.globalCompositeOperation = 'lighter'
     ctx.drawImage(glow, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
-    if (disc.halo) ctx.drawImage(glow, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
     ctx.globalCompositeOperation = 'source-over'
+    ctx.globalAlpha = disc.fade
     ctx.rotate(disc.spin)
     drawSaw(ctx, disc.radius, disc.halo)
-    if (disc.halo) {
-      ctx.globalCompositeOperation = 'lighter'
-      drawSaw(ctx, disc.radius, true)
-    }
     ctx.restore()
   }
 }
 
 function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void {
-  const ink = halo ? '#ff4d5a' : '#ffffff'
+  const ink = halo ? '#ff2d3a' : '#ffffff'
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
   for (let i = 0; i < 3; i++) {
@@ -468,7 +457,7 @@ function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void 
     if (halo) {
       ctx.beginPath()
       ctx.arc(0, 0, r * 0.78, 0.08, 0.92)
-      ctx.strokeStyle = '#ff2d3a'
+      ctx.strokeStyle = ink
       ctx.lineWidth = Math.max(1.1, r * 0.045)
       ctx.stroke()
     }

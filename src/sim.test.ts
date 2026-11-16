@@ -491,8 +491,9 @@ describe('orbs', () => {
     assert.equal(ballCount(4), 2)
     assert.equal(ballCount(5), 3)
     assert.equal(ballCount(6), 2)
-    assert.ok(ballSpeed(5) < 700)
-    assert.ok(ballSpeed(6) < 750)
+    assert.equal(ballSpeed(1), ballSpeed(5))
+    assert.ok(ballSpeed(1) > 500)
+    assert.ok(ballSpeed(6) > ballSpeed(1))
     assert.equal(ballLife(1), 4.6)
     assert.equal(ballLife(6), 5.6)
     assert.ok(ballInterval(6) < ballInterval(1))
@@ -517,6 +518,7 @@ describe('orbs', () => {
       quantum: false,
       knock: 2.2,
       spin: 0,
+      flex: 0,
       touched: [],
     })
     const first = enemy({ x: 40, y: 0, hp: 200, radius: 18, kind: 1 })
@@ -547,6 +549,7 @@ describe('orbs', () => {
       quantum: false,
       knock: 2.2,
       spin: 0,
+      flex: 0,
       touched: [],
     })
     step(stuck, input({ aimActive: false }), 1 / 60)
@@ -569,11 +572,13 @@ describe('orbs', () => {
       quantum: true,
       knock: 8,
       spin: 0,
+      flex: 0,
       touched: [],
     }
     wall.balls.push(shot)
     step(wall, input({ aimActive: false, viewW: 1280, viewH: 720 }), 1 / 60)
     assert.ok(shot.vx < 0)
+    assert.equal(shot.flex, 1)
     assert.ok(shot.spin !== 0)
     assert.equal(wall.balls.filter((ball) => ball.echo).length, 0)
 
@@ -595,6 +600,7 @@ describe('orbs', () => {
       quantum: true,
       knock: 8,
       spin: 0,
+      flex: 0,
       touched: [],
     })
     step(split, input({ aimActive: false }), 1 / 60)
@@ -626,6 +632,7 @@ describe('orbs', () => {
       quantum: false,
       knock: 2.2,
       spin: 0,
+      flex: 0,
       touched: [],
     }
     tank.balls.push(incoming)
