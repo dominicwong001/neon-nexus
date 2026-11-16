@@ -883,8 +883,8 @@ export function orbitDiscs(state: GameState): { x: number; y: number; spin: numb
   for (let i = 0; i < count; i++) {
     const angle = turn + (i * Math.PI * 2) / count
     discs.push({
-      x: state.playerX + Math.cos(angle) * DISC.orbit,
-      y: state.playerY + Math.sin(angle) * DISC.orbit,
+      x: state.playerX + Math.cos(-angle) * DISC.orbit,
+      y: state.playerY + Math.sin(-angle) * DISC.orbit,
       spin: -angle * discTurn(state.mods.orbiter),
       fade,
       halo,
