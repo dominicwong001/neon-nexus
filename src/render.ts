@@ -26,8 +26,8 @@ function tintSaw(source: HTMLImageElement): void {
     const lum = ((pixels.data[i] ?? 0) + (pixels.data[i + 1] ?? 0) + (pixels.data[i + 2] ?? 0)) / 3
     if (lum < 100) continue
     red[i] = 255
-    red[i + 1] = 45
-    red[i + 2] = 58
+    red[i + 1] = 118
+    red[i + 2] = 128
     if (lum >= 190) continue
     white[i] = 255
     white[i + 1] = 255
@@ -480,7 +480,7 @@ function drawOrbiters(
 ): void {
   const discs = orbitDiscs(state)
   if (discs.length === 0) return
-  const glow = glowFor(discs[0]?.halo ? '#ff2d3a' : '#ffffff')
+  const glow = glowFor(discs[0]?.halo ? '#ff8a96' : '#ffffff')
   for (const disc of discs) {
     if (disc.fade < 0.04) continue
     const x = X(disc.x)
@@ -488,12 +488,17 @@ function drawOrbiters(
     ctx.save()
     ctx.translate(x, y)
     ctx.globalAlpha = disc.fade
-    const glowSize = disc.radius * 3.1
+    const glowSize = disc.radius * (disc.halo ? 5.6 : 3.1)
     ctx.globalCompositeOperation = 'lighter'
     ctx.drawImage(glow, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
+    if (disc.halo) ctx.drawImage(glow, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
     ctx.globalCompositeOperation = 'source-over'
     ctx.rotate(disc.spin)
     drawSaw(ctx, disc.radius, disc.halo)
+    if (disc.halo) {
+      ctx.globalCompositeOperation = 'lighter'
+      drawSaw(ctx, disc.radius, true)
+    }
     ctx.restore()
   }
 }
