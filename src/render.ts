@@ -1,5 +1,5 @@
 import sawUrl from './saw-ref.png'
-import { BODY, DISC, ENEMY_COLOR, TUNING, fieldColor, fieldRadius, fieldRipple, orbitDiscs, type GameState } from './sim.ts'
+import { BODY, ENEMY_COLOR, TUNING, fieldColor, fieldRadius, fieldRipple, orbitDiscs, type GameState } from './sim.ts'
 
 const SAW_W = 138
 const SAW_H = 144
@@ -24,11 +24,11 @@ function tintSaw(source: HTMLImageElement): void {
     const alpha = pixels.data[i + 3] ?? 0
     if (alpha < 8) continue
     const lum = ((pixels.data[i] ?? 0) + (pixels.data[i + 1] ?? 0) + (pixels.data[i + 2] ?? 0)) / 3
-    const t = lum / 255
-    red[i] = Math.round(78 + t * 177)
-    red[i + 1] = Math.round(t * 32)
-    red[i + 2] = Math.round(14 + t * 30)
-    if (lum < 100 || lum >= 190) continue
+    if (lum < 100) continue
+    red[i] = 255
+    red[i + 1] = 45
+    red[i + 2] = 58
+    if (lum >= 190) continue
     white[i] = 255
     white[i + 1] = 255
     white[i + 2] = 255
@@ -488,12 +488,12 @@ function drawOrbiters(
     ctx.save()
     ctx.translate(x, y)
     ctx.globalAlpha = disc.fade
-    const glowSize = DISC.radius * 3.1
+    const glowSize = disc.radius * 3.1
     ctx.globalCompositeOperation = 'lighter'
     ctx.drawImage(glow, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
     ctx.globalCompositeOperation = 'source-over'
     ctx.rotate(disc.spin)
-    drawSaw(ctx, DISC.radius, disc.halo)
+    drawSaw(ctx, disc.radius, disc.halo)
     ctx.restore()
   }
 }

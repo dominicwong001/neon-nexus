@@ -12,6 +12,8 @@ import {
   orbitDiscs,
   orbitRate,
   discTurn,
+  discRadius,
+  discOrbit,
   ballCount,
   ballDamage,
   ballSpeed,
@@ -451,6 +453,11 @@ describe('orbs', () => {
     assert.equal(state.mods.orbiter, 6)
     assert.equal(orbitDiscs(state).length, 6)
     assert.equal(orbitDiscs(state).every((disc) => disc.halo), true)
+    assert.ok(discRadius(6) > discRadius(5) * 1.3)
+    assert.ok(discOrbit(6) > discOrbit(5) * 1.3)
+    const haloDisc = orbitDiscs(state)[0]
+    assert.ok(haloDisc)
+    assert.ok(Math.hypot(haloDisc.x - state.playerX, haloDisc.y - state.playerY) > DISC.orbit * 1.3)
     state.orbitTime = DISC.active + DISC.recharge + 3
     assert.equal(orbitDiscs(state).length, 6)
     assert.ok(discTurn(6) > discTurn(5))

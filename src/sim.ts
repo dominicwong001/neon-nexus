@@ -573,6 +573,14 @@ export function discTurn(rank: number): number {
   return rank >= OVERDRIVE ? DISC.turn * 1.8 : DISC.turn
 }
 
+export function discRadius(rank: number): number {
+  return rank >= OVERDRIVE ? DISC.radius * 1.42 : DISC.radius
+}
+
+export function discOrbit(rank: number): number {
+  return rank >= OVERDRIVE ? DISC.orbit * 1.38 : DISC.orbit
+}
+
 function damageEnemy(
   state: GameState,
   enemy: Enemy,
@@ -866,7 +874,7 @@ function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents
   }
 }
 
-export function orbitDiscs(state: GameState): { x: number; y: number; spin: number; fade: number; halo: boolean }[] {
+export function orbitDiscs(state: GameState): { x: number; y: number; spin: number; fade: number; halo: boolean; radius: number }[] {
   const count = orbiterCount(state.mods.orbiter)
   if (count === 0) return []
   const halo = state.mods.orbiter >= OVERDRIVE
@@ -879,15 +887,18 @@ export function orbitDiscs(state: GameState): { x: number; y: number; spin: numb
     fade = Math.min(1, t / 0.22, (active - t) / 0.5)
   }
   const turn = state.time * orbitRate(state.mods.orbiter)
+  const orbit = discOrbit(state.mods.orbiter)
+  const radius = discRadius(state.mods.orbiter)
   const discs = []
   for (let i = 0; i < count; i++) {
     const angle = turn + (i * Math.PI * 2) / count
     discs.push({
-      x: state.playerX + Math.cos(-angle) * DISC.orbit,
-      y: state.playerY + Math.sin(-angle) * DISC.orbit,
+      x: state.playerX + Math.cos(-angle) * orbit,
+      y: state.playerY + Math.sin(-angle) * orbit,
       spin: -angle * discTurn(state.mods.orbiter),
       fade,
       halo,
+      radius,
     })
   }
   return discs
@@ -1086,7 +1097,7 @@ function strikeOrbits(state: GameState, events: StepEvents): void {
       if (!enemy || enemy.orbitCd > 0) continue
       const dx = disc.x - enemy.x
       const dy = disc.y - enemy.y
-      const reach = DISC.radius + enemy.radius
+      const reach = disc.radius + enemy.radius
       if (dx * dx + dy * dy > reach * reach) continue
       enemy.orbitCd = 0.42
       shoveFromDisc(state, enemy, disc.x, disc.y, orbiterShove(state.mods.orbiter))
