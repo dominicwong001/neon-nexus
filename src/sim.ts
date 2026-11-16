@@ -885,7 +885,7 @@ export function orbitDiscs(state: GameState): { x: number; y: number; spin: numb
     discs.push({
       x: state.playerX + Math.cos(angle) * DISC.orbit,
       y: state.playerY + Math.sin(angle) * DISC.orbit,
-      spin: angle * discTurn(state.mods.orbiter),
+      spin: -angle * discTurn(state.mods.orbiter),
       fade,
       halo,
     })

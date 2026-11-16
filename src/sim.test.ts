@@ -686,7 +686,7 @@ describe('orbs', () => {
     const disc = live[0]
     assert.ok(disc)
     const facing = Math.atan2(disc.y - state.playerY, disc.x - state.playerX)
-    const drift = Math.atan2(Math.sin(disc.spin - facing * discTurn(1)), Math.cos(disc.spin - facing * discTurn(1)))
+    const drift = Math.atan2(Math.sin(disc.spin + facing * discTurn(1)), Math.cos(disc.spin + facing * discTurn(1)))
     assert.ok(Math.abs(drift) < 1e-6)
     assert.ok(DISC.turn > 1)
     state.enemies.push(enemy({ x: 0, y: 0, radius: 240, hp: HIT, speed: 0, kind: 0 }))
