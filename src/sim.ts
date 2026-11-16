@@ -229,7 +229,7 @@ export const DISC = {
   active: 4,
   recharge: 2.8,
   spin: 3,
-  turn: 1.7,
+  turn: 2.05,
 } as const
 
 export const FIELD = {
