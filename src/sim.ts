@@ -482,8 +482,10 @@ function moveBullets(state: GameState, input: Input, dt: number, events: StepEve
   for (let i = state.bullets.length - 1; i >= 0; i--) {
     const b = state.bullets[i]
     b.life -= dt
-    b.x += b.vx * dt
-    b.y += b.vy * dt
+    // Carry the current drift so the shot stays on a straight line from the core
+    // when the camera turns with a change in direction.
+    b.x += (b.vx + state.playerVx) * dt
+    b.y += (b.vy + state.playerVy) * dt
     const dxp = b.x - state.playerX
     const dyp = b.y - state.playerY
     if (b.life <= 0 || dxp * dxp + dyp * dyp > maxR2) {

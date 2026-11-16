@@ -144,11 +144,6 @@ body.critical #vignette {
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
 }
 
-.hull.warn .hull-fill {
-  background: var(--magenta);
-  box-shadow: 0 0 10px rgba(255, 61, 242, 0.9);
-}
-
 .tools {
   position: fixed;
   z-index: 7;

@@ -1,55 +1,4 @@
-import sawUrl from './saw-ref.png'
 import { BODY, ENEMY_COLOR, TUNING, fieldColor, fieldRadius, fieldRipple, orbitDiscs, type GameState } from './sim.ts'
-
-const SAW_W = 138
-const SAW_H = 144
-const SAW_CX = 69.37
-const SAW_CY = 70.88
-const SAW_RADIUS = 66
-const sawWhite = document.createElement('canvas')
-const sawRed = document.createElement('canvas')
-let sawReady = false
-
-function tintSaw(source: HTMLImageElement): void {
-  const scratch = document.createElement('canvas')
-  scratch.width = SAW_W
-  scratch.height = SAW_H
-  const read = scratch.getContext('2d')
-  if (!read) return
-  read.drawImage(source, 0, 0)
-  const pixels = read.getImageData(0, 0, SAW_W, SAW_H)
-  const white = new Uint8ClampedArray(pixels.data)
-  const red = new Uint8ClampedArray(pixels.data)
-  for (let i = 0; i < pixels.data.length; i += 4) {
-    const alpha = pixels.data[i + 3] ?? 0
-    if (alpha < 8) continue
-    const lum = ((pixels.data[i] ?? 0) + (pixels.data[i + 1] ?? 0) + (pixels.data[i + 2] ?? 0)) / 3
-    if (lum < 100) continue
-    red[i] = 255
-    red[i + 1] = 118
-    red[i + 2] = 128
-    if (lum >= 190) continue
-    white[i] = 255
-    white[i + 1] = 255
-    white[i + 2] = 255
-  }
-  for (const [canvas, data] of [
-    [sawWhite, white],
-    [sawRed, red],
-  ] as const) {
-    canvas.width = SAW_W
-    canvas.height = SAW_H
-    const ctx = canvas.getContext('2d')
-    if (!ctx) continue
-    const image = new ImageData(data, SAW_W, SAW_H)
-    ctx.putImageData(image, 0, 0)
-  }
-  sawReady = true
-}
-
-const sawImage = new Image()
-sawImage.onload = () => tintSaw(sawImage)
-sawImage.src = sawUrl
 
 export interface StickView {
   x: number
@@ -504,11 +453,47 @@ function drawOrbiters(
 }
 
 function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void {
-  if (!sawReady) return
-  const sheet = halo ? sawRed : sawWhite
-  const scale = r / SAW_RADIUS
-  ctx.imageSmoothingEnabled = true
-  ctx.drawImage(sheet, -SAW_CX * scale, -SAW_CY * scale, SAW_W * scale, SAW_H * scale)
+  const ink = halo ? '#ff4d5a' : '#ffffff'
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  for (let i = 0; i < 3; i++) {
+    ctx.save()
+    ctx.rotate((i * Math.PI * 2) / 3)
+    traceCrescent(ctx, r)
+    ctx.fillStyle = '#05060a'
+    ctx.fill()
+    ctx.strokeStyle = ink
+    ctx.lineWidth = Math.max(1.4, r * 0.075)
+    ctx.stroke()
+    if (halo) {
+      ctx.beginPath()
+      ctx.arc(0, 0, r * 0.78, 0.08, 0.92)
+      ctx.strokeStyle = '#ff2d3a'
+      ctx.lineWidth = Math.max(1.1, r * 0.045)
+      ctx.stroke()
+    }
+    ctx.restore()
+  }
+  ctx.beginPath()
+  ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2)
+  ctx.fillStyle = '#05060a'
+  ctx.fill()
+  ctx.strokeStyle = ink
+  ctx.lineWidth = Math.max(1.3, r * 0.07)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(0, 0, r * 0.11, 0, Math.PI * 2)
+  ctx.fillStyle = ink
+  ctx.fill()
+}
+
+function traceCrescent(ctx: CanvasRenderingContext2D, r: number): void {
+  const a0 = -0.42
+  const a1 = 1.28
+  ctx.beginPath()
+  ctx.arc(0, 0, r * 0.98, a0, a1)
+  ctx.arc(0, 0, r * 0.6, a1 - 0.06, a0 + 0.1, true)
+  ctx.closePath()
 }
 
 function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
