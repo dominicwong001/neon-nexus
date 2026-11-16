@@ -1,4 +1,54 @@
+import sawUrl from './saw-ref.png'
 import { BODY, DISC, ENEMY_COLOR, TUNING, fieldColor, fieldRadius, fieldRipple, orbitDiscs, type GameState } from './sim.ts'
+
+const SAW_W = 138
+const SAW_H = 144
+const SAW_CX = 69.37
+const SAW_CY = 70.88
+const SAW_RADIUS = 66
+const sawWhite = document.createElement('canvas')
+const sawRed = document.createElement('canvas')
+let sawReady = false
+
+function tintSaw(source: HTMLImageElement): void {
+  const scratch = document.createElement('canvas')
+  scratch.width = SAW_W
+  scratch.height = SAW_H
+  const read = scratch.getContext('2d')
+  if (!read) return
+  read.drawImage(source, 0, 0)
+  const pixels = read.getImageData(0, 0, SAW_W, SAW_H)
+  const white = new Uint8ClampedArray(pixels.data)
+  const red = new Uint8ClampedArray(pixels.data)
+  for (let i = 0; i < pixels.data.length; i += 4) {
+    const alpha = pixels.data[i + 3] ?? 0
+    if (alpha < 8) continue
+    const lum = ((pixels.data[i] ?? 0) + (pixels.data[i + 1] ?? 0) + (pixels.data[i + 2] ?? 0)) / 3
+    if (lum < 100 || lum >= 190) continue
+    white[i] = 255
+    white[i + 1] = 255
+    white[i + 2] = 255
+    red[i] = 255
+    red[i + 1] = 45
+    red[i + 2] = 58
+  }
+  for (const [canvas, data] of [
+    [sawWhite, white],
+    [sawRed, red],
+  ] as const) {
+    canvas.width = SAW_W
+    canvas.height = SAW_H
+    const ctx = canvas.getContext('2d')
+    if (!ctx) continue
+    const image = new ImageData(data, SAW_W, SAW_H)
+    ctx.putImageData(image, 0, 0)
+  }
+  sawReady = true
+}
+
+const sawImage = new Image()
+sawImage.onload = () => tintSaw(sawImage)
+sawImage.src = sawUrl
 
 export interface StickView {
   x: number
@@ -448,41 +498,11 @@ function drawOrbiters(
 }
 
 function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void {
-  const body = halo ? '#3a1820' : '#3a4048'
-  const shade = halo ? '#6a2832' : '#6d7580'
-  const face = halo ? '#ff2d3a' : '#ffffff'
-  const hub = halo ? '#ffd0d4' : '#ffffff'
-  ctx.lineJoin = 'miter'
-  for (let i = 0; i < 6; i++) {
-    ctx.save()
-    ctx.rotate((i * Math.PI) / 3)
-    ctx.beginPath()
-    ctx.moveTo(r * 0.18, r * 0.04)
-    ctx.lineTo(r * 1.02, -r * 0.34)
-    ctx.lineTo(r * 0.46, r * 0.22)
-    ctx.closePath()
-    ctx.fillStyle = face
-    ctx.fill()
-    ctx.beginPath()
-    ctx.moveTo(r * 0.18, r * 0.04)
-    ctx.lineTo(r * 0.46, r * 0.22)
-    ctx.lineTo(r * 0.12, r * 0.46)
-    ctx.closePath()
-    ctx.fillStyle = body
-    ctx.fill()
-    ctx.beginPath()
-    ctx.moveTo(r * 0.28, r * 0.08)
-    ctx.lineTo(r * 0.46, r * 0.22)
-    ctx.lineTo(r * 0.22, r * 0.34)
-    ctx.closePath()
-    ctx.fillStyle = shade
-    ctx.fill()
-    ctx.restore()
-  }
-  ctx.beginPath()
-  ctx.arc(0, 0, r * 0.2, 0, Math.PI * 2)
-  ctx.fillStyle = hub
-  ctx.fill()
+  if (!sawReady) return
+  const sheet = halo ? sawRed : sawWhite
+  const scale = r / SAW_RADIUS
+  ctx.imageSmoothingEnabled = true
+  ctx.drawImage(sheet, -SAW_CX * scale, -SAW_CY * scale, SAW_W * scale, SAW_H * scale)
 }
 
 function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
