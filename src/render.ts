@@ -512,40 +512,40 @@ function drawReticle(
 ): void {
   if (state.mods.drone <= 0) return
   for (const shell of state.mortars) {
-    const fade = Math.min(1, shell.age / 0.22)
+    const t = Math.min(1, shell.age / 0.36)
+    const ease = 1 - (1 - t) ** 3
     const ink = shell.storm ? '#ff2d3a' : '#ffffff'
     ctx.save()
     ctx.translate(X(shell.tx), Y(shell.ty))
-    ctx.scale(0.82 + fade * 0.18, 0.82 + fade * 0.18)
     ctx.strokeStyle = ink
     ctx.fillStyle = ink
     ctx.lineWidth = 1.25
-    ctx.globalAlpha = 0.42 * fade
-    paintReticle(ctx)
+    ctx.globalAlpha = 0.48 * Math.min(1, 0.35 + ease)
+    paintReticle(ctx, (1 - ease) * 28)
     ctx.restore()
   }
 }
 
-function paintReticle(ctx: CanvasRenderingContext2D): void {
-  const s = 9
-  const gap = 3
+function paintReticle(ctx: CanvasRenderingContext2D, open: number): void {
+  const s = 9 + open
+  const arm = 6
   const tick = 4
   ctx.beginPath()
   ctx.moveTo(-s, -s)
-  ctx.lineTo(-gap, -s)
-  ctx.moveTo(gap, -s)
+  ctx.lineTo(-s + arm, -s)
+  ctx.moveTo(s - arm, -s)
   ctx.lineTo(s, -s)
   ctx.moveTo(s, -s)
-  ctx.lineTo(s, -gap)
-  ctx.moveTo(s, gap)
+  ctx.lineTo(s, -s + arm)
+  ctx.moveTo(s, s - arm)
   ctx.lineTo(s, s)
   ctx.moveTo(s, s)
-  ctx.lineTo(gap, s)
-  ctx.moveTo(-gap, s)
+  ctx.lineTo(s - arm, s)
+  ctx.moveTo(-s + arm, s)
   ctx.lineTo(-s, s)
   ctx.moveTo(-s, s)
-  ctx.lineTo(-s, gap)
-  ctx.moveTo(-s, -gap)
+  ctx.lineTo(-s, s - arm)
+  ctx.moveTo(-s, -s + arm)
   ctx.lineTo(-s, -s)
   ctx.moveTo(0, -s - tick)
   ctx.lineTo(0, -s + tick)
@@ -575,6 +575,21 @@ function drawMortars(
     const rate = 1 / Math.max(0.05, shell.flight)
     const heading = Math.atan2(pose.vy * rate - state.playerVy, pose.vx * rate - state.playerVx)
     const ink = shell.storm ? '#ff2d3a' : '#ffffff'
+    const steps = 8
+    ctx.save()
+    ctx.lineCap = 'round'
+    ctx.strokeStyle = ink
+    ctx.lineWidth = 2.4
+    for (let i = steps; i >= 1; i--) {
+      const back = shellPose(shell, Math.max(0, p - i * 0.028))
+      const front = shellPose(shell, Math.max(0, p - (i - 1) * 0.028))
+      ctx.globalAlpha = ((steps - i + 1) / (steps + 1)) * 0.28
+      ctx.beginPath()
+      ctx.moveTo(X(back.x), Y(back.y))
+      ctx.lineTo(X(front.x), Y(front.y))
+      ctx.stroke()
+    }
+    ctx.restore()
     ctx.save()
     ctx.translate(X(groundX), Y(groundY))
     ctx.globalAlpha = 0.35
