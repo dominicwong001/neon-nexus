@@ -510,13 +510,12 @@ function drawReticle(
   X: (x: number) => number,
   Y: (y: number) => number,
 ): void {
-  if (state.mods.drone <= 0 || !state.reticleOn) return
-  const ink = droneStorm(state.mods.drone) ? '#ff2d3a' : '#ffffff'
-  const marks = state.reticles.length > 0 ? state.reticles : [{ offX: state.reticleOffX, offY: state.reticleOffY, age: 1 }]
-  for (const mark of marks) {
-    const fade = Math.min(1, mark.age / 0.32)
+  if (state.mods.drone <= 0) return
+  for (const shell of state.mortars) {
+    const fade = Math.min(1, shell.age / 0.22)
+    const ink = shell.storm ? '#ff2d3a' : '#ffffff'
     ctx.save()
-    ctx.translate(X(state.playerX + mark.offX), Y(state.playerY + mark.offY))
+    ctx.translate(X(shell.tx), Y(shell.ty))
     ctx.scale(0.82 + fade * 0.18, 0.82 + fade * 0.18)
     ctx.strokeStyle = ink
     ctx.fillStyle = ink

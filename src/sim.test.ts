@@ -893,30 +893,44 @@ describe('orbs', () => {
     lob.droneCd = 0
     lob.droneReload = 0
     lob.droneBurst = 0
-    lob.enemies.push(enemy({ x: 220, y: 0, hp: 800, radius: 16, speed: 0 }))
+    lob.enemies.push(enemy({ x: 220, y: 0, hp: 800, radius: 70, speed: 0 }))
     step(lob, input({ aimActive: false }), 1 / 60)
     assert.equal(lob.reticleOn, true)
     assert.equal(lob.reticleX, 220)
     assert.equal(lob.enemies[0]?.hp, 800)
     assert.ok(lob.mortars.length >= 1)
+    const first = lob.mortars[0]
+    assert.ok(first)
     const lockedX = lob.reticleX
+    const markX = first.tx
+    const markY = first.ty
     if (lob.enemies[0]) lob.enemies[0].x = 40
-    step(lob, input({ aimActive: false }), 1 / 60)
-    assert.equal(lob.reticleX, lockedX)
-    if (lob.enemies[0]) lob.enemies[0].x = lockedX
-    const flight = lob.mortars[0]?.flight ?? 1
-    let elapsed = 1 / 60
-    while (elapsed + 1 / 60 < flight) {
-      step(lob, input({ aimActive: false }), 1 / 60)
-      elapsed += 1 / 60
-    }
-    assert.equal(lob.enemies[0]?.hp, 800)
-    step(lob, input({ aimActive: false }), 0.2)
-    assert.ok((lob.enemies[0]?.hp ?? 800) < 800)
-    const held = lob.reticleX
     lob.playerX += 36
     step(lob, input({ aimActive: false }), 1 / 60)
-    assert.ok(Math.abs(lob.reticleX - (held + 36)) < 1)
+    assert.equal(lob.reticleX, lockedX)
+    assert.equal(first.tx, markX)
+    assert.equal(first.ty, markY)
+    if (lob.enemies[0]) lob.enemies[0].x = lockedX
+    const hits = (shell: { tx: number; ty: number; radius: number }) => {
+      const foe = lob.enemies[0]
+      if (!foe) return false
+      const dx = foe.x - shell.tx
+      const dy = foe.y - shell.ty
+      const reach = shell.radius + foe.radius
+      return dx * dx + dy * dy <= reach * reach
+    }
+    let guard = 0
+    while (guard < 180) {
+      const soonest = lob.mortars.filter(hits).reduce((best, shell) => Math.min(best, shell.flight - shell.age), Infinity)
+      if (soonest <= 1 / 60) break
+      step(lob, input({ aimActive: false }), 1 / 60)
+      guard += 1
+    }
+    assert.equal(lob.enemies[0]?.hp, 800)
+    const landing = lob.mortars.filter(hits).reduce((soon, shell) => (shell.flight - shell.age < soon.flight - soon.age ? shell : soon))
+    step(lob, input({ aimActive: false }), 0.2)
+    assert.ok((lob.enemies[0]?.hp ?? 800) < 800)
+    assert.equal(lob.mortars.includes(landing), false)
 
     const rich = createGame(0, 49)
     rich.spawnCd = 999
@@ -941,8 +955,22 @@ describe('orbs', () => {
     storm.droneCd = 0
     storm.droneReload = 0
     storm.enemies.push(enemy({ x: 180, y: 40, hp: 2000, radius: 16, speed: 0 }))
-    for (let n = 0; n < 8; n++) step(storm, input({ aimActive: false }), 1 / 30)
+    for (let n = 0; n < 40; n++) step(storm, input({ aimActive: false }), 1 / 30)
     assert.ok(storm.mortars.length >= 3)
+    let up = 0
+    let down = 0
+    let low = Infinity
+    let high = 0
+    for (const shell of storm.mortars) {
+      const height = Math.abs(shell.arc)
+      if (shell.arc < 0) down += 1
+      else up += 1
+      if (height < low) low = height
+      if (height > high) high = height
+    }
+    assert.ok(up > 0)
+    assert.ok(down > 0)
+    assert.ok(high - low > 40)
   })
 
   it('repairs hull when Plate is chosen', () => {

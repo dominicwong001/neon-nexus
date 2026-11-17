@@ -105,12 +105,6 @@ export interface Mortar {
   storm: boolean
 }
 
-export interface ReticleMark {
-  offX: number
-  offY: number
-  age: number
-}
-
 export interface Mods {
   pulse: number
   caliber: number
@@ -197,9 +191,6 @@ export interface GameState {
   reticleOn: boolean
   reticleX: number
   reticleY: number
-  reticleOffX: number
-  reticleOffY: number
-  reticles: ReticleMark[]
   mods: Mods
   offers: Offer[]
   bullets: Bullet[]
@@ -404,9 +395,6 @@ export function createGame(best = 0, seed = 1): GameState {
     reticleOn: false,
     reticleX: 0,
     reticleY: 0,
-    reticleOffX: 0,
-    reticleOffY: 0,
-    reticles: [],
     mods: freshMods(),
     offers: [],
     bullets: [],
@@ -1237,11 +1225,6 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     explodeShell(state, shell, events)
     state.mortars.splice(i, 1)
   }
-  if (state.reticleOn) {
-    state.reticleX = state.playerX + state.reticleOffX
-    state.reticleY = state.playerY + state.reticleOffY
-    for (const mark of state.reticles) mark.age += dt
-  }
   if (state.droneReload > 0) {
     state.droneReload = Math.max(0, state.droneReload - dt)
     return
@@ -1252,12 +1235,9 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
       state.reticleOn = false
       return
     }
-    state.reticleOffX = target.x - state.playerX
-    state.reticleOffY = target.y - state.playerY
     state.reticleX = target.x
     state.reticleY = target.y
     state.reticleOn = true
-    state.reticles = spreadReticles(state, state.reticleOffX, state.reticleOffY)
     state.droneBurst = droneBurst(rank)
     state.droneCd = 0
   }
@@ -1265,30 +1245,16 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   state.droneCd -= dt
   if (state.droneCd <= 0 && state.mortars.length < 72) {
     const anchor = droneAnchor(state)
-    const mark = state.reticles[Math.floor(state.rng() * state.reticles.length)]
-    const aimX = state.playerX + (mark?.offX ?? state.reticleOffX) + (state.rng() - 0.5) * 16
-    const aimY = state.playerY + (mark?.offY ?? state.reticleOffY) + (state.rng() - 0.5) * 16
+    const span = 78
+    const aimX = state.reticleX + (state.rng() - 0.5) * span * 2
+    const aimY = state.reticleY + (state.rng() - 0.5) * span * 2
     launchShell(state, anchor.x, anchor.y, aimX, aimY, rank, droneStorm(rank))
     state.droneCd = droneInterval(rank)
   }
   if (state.droneBurst <= 0) {
     state.reticleOn = false
-    state.reticles = []
     state.droneReload = droneReload(rank)
   }
-}
-
-function spreadReticles(state: GameState, offX: number, offY: number): ReticleMark[] {
-  const span = 78
-  const marks: ReticleMark[] = [{ offX, offY, age: 0 }]
-  for (let i = 0; i < 5; i++) {
-    marks.push({
-      offX: offX + (state.rng() - 0.5) * span * 2,
-      offY: offY + (state.rng() - 0.5) * span * 2,
-      age: 0,
-    })
-  }
-  return marks
 }
 
 function richestDroneArea(state: GameState): { x: number; y: number } | null {
@@ -1345,11 +1311,16 @@ function launchShell(
     ty,
     age: 0,
     flight: Math.min(2.15, 0.9 + dist / 340),
-    arc: 12 + state.rng() * 26,
+    arc: shellArc(state),
     radius: droneBlast(rank),
     damage: droneDamage(rank),
     storm,
   })
+}
+
+function shellArc(state: GameState): number {
+  const height = 4 + state.rng() * 132
+  return (state.rng() < 0.42 ? -1 : 1) * height
 }
 
 function explodeShell(state: GameState, shell: Mortar, events: StepEvents): void {
@@ -1421,7 +1392,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     return {
       id,
       title: 'Bulletstorm',
-      detail: 'The drone turns red. Rockets pour into a locked reticle and the reload is barely a breath.',
+      detail: 'The drone turns red. Each rocket plants its own reticle, and the reload is barely a breath.',
       rank,
       max,
       overdrive: true,
@@ -1468,7 +1439,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
     field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen and pierces through hostiles.' },
-    drone: { title: 'Drone', detail: 'A drone locks a reticle and pours rockets into it for a few seconds, then reloads.' },
+    drone: { title: 'Drone', detail: 'A drone fires a rocket barrage. Each rocket plants a reticle where it will land, then reloads.' },
   }
   const detail =
     id === 'orbiter' && rank > 1
