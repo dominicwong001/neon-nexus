@@ -291,7 +291,7 @@ export function droneReload(rank: number): number {
 export function droneInterval(rank: number): number {
   if (droneStorm(rank)) return 0.026
   const step = Math.max(0, Math.min(rank, DRONE.stormRank - 1) - 1)
-  return Math.max(0.034, 0.064 - step * 0.01)
+  return Math.max(0.05, 0.16 - step * 0.034)
 }
 
 export function droneBlast(rank: number): number {
@@ -704,11 +704,13 @@ export function discTurn(rank: number): number {
 }
 
 export function discRadius(rank: number): number {
-  return rank >= OVERDRIVE ? DISC.radius * 1.42 : DISC.radius
+  if (rank >= OVERDRIVE) return DISC.radius * 1.42
+  return DISC.radius * 1.16
 }
 
 export function discOrbit(rank: number): number {
-  return rank >= OVERDRIVE ? DISC.orbit * 1.38 : DISC.orbit
+  if (rank >= OVERDRIVE) return DISC.orbit * 1.38
+  return DISC.orbit * 1.14
 }
 
 function damageEnemy(
@@ -1274,6 +1276,7 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     explodeShell(state, shell, events)
     state.mortars.splice(i, 1)
   }
+  if (droneStorm(rank)) slideStormArea(state, dt)
   if (state.droneReload > 0) {
     state.droneReload = Math.max(0, state.droneReload - dt)
     return
@@ -1284,8 +1287,10 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
       state.reticleOn = false
       return
     }
-    state.reticleX = target.x
-    state.reticleY = target.y
+    if (!droneStorm(rank) || (state.reticleX === 0 && state.reticleY === 0)) {
+      state.reticleX = target.x
+      state.reticleY = target.y
+    }
     state.reticleOn = true
     state.droneBurst = droneBurst(rank)
     state.droneCd = 0
@@ -1302,11 +1307,9 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     const s = Math.sin(state.droneFace)
     const sx = anchor.x + tip.x * c - tip.y * s
     const sy = anchor.y + tip.x * s + tip.y * c
-    const span = 150
-    const aimX = state.reticleX + (state.rng() - 0.5) * span * 2
-    const aimY = state.reticleY + (state.rng() - 0.5) * span * 2
-    const ang = Math.atan2(aimY - sy, aimX - sx) + (state.rng() - 0.5) * 0.55
-    const dist = Math.hypot(aimX - sx, aimY - sy)
+    const facing = Math.atan2(tip.y, tip.x)
+    const ang = state.droneFace + facing + (state.rng() - 0.5) * 0.32
+    const dist = 110 + state.rng() * 150
     launchShell(
       state,
       sx,
@@ -1322,6 +1325,19 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     state.reticleOn = false
     state.droneReload = droneReload(rank)
   }
+}
+
+function slideStormArea(state: GameState, dt: number): void {
+  if (!state.reticleOn && state.reticleX === 0 && state.reticleY === 0) return
+  const live = richestDroneArea(state)
+  if (!live) return
+  const dx = live.x - state.reticleX
+  const dy = live.y - state.reticleY
+  const dist = Math.hypot(dx, dy)
+  if (dist < 0.4) return
+  const step = Math.min(dist, 90 * dt)
+  state.reticleX += (dx / dist) * step
+  state.reticleY += (dy / dist) * step
 }
 
 function richestDroneArea(state: GameState): { x: number; y: number } | null {

@@ -380,8 +380,8 @@ function drawBalls(
     const flex = ball.flex
     const squish = Math.max(0, (flex - 0.58) / 0.42)
     const stretch = flex > 0 && flex < 0.7 ? Math.sin(((0.7 - flex) / 0.7) * Math.PI) : 0
-    const along = 1 - squish * 0.42 + stretch * 0.4
-    const across = 1 + squish * 0.36 - stretch * 0.16
+    const along = 1 - squish * 0.22 + stretch * 0.2
+    const across = 1 + squish * 0.18 - stretch * 0.08
     ctx.save()
     ctx.translate(x, y)
     ctx.rotate(ball.flexAngle)

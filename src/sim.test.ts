@@ -496,8 +496,10 @@ describe('orbs', () => {
     assert.equal(state.mods.orbiter, 6)
     assert.equal(orbitDiscs(state).length, 6)
     assert.equal(orbitDiscs(state).every((disc) => disc.halo), true)
-    assert.ok(discRadius(6) > discRadius(5) * 1.3)
-    assert.ok(discOrbit(6) > discOrbit(5) * 1.3)
+    assert.ok(discRadius(6) > discRadius(5) * 1.15)
+    assert.ok(discOrbit(6) > discOrbit(5) * 1.15)
+    assert.ok(discRadius(5) > DISC.radius)
+    assert.ok(discOrbit(5) > DISC.orbit)
     const haloDisc = orbitDiscs(state)[0]
     assert.ok(haloDisc)
     assert.ok(Math.hypot(haloDisc.x - state.playerX, haloDisc.y - state.playerY) > DISC.orbit * 1.3)
@@ -921,7 +923,13 @@ describe('orbs', () => {
     assert.equal(first.tx, markX)
     assert.equal(first.ty, markY)
     assert.ok(Math.hypot(first.sx - lob.droneX, first.sy - lob.droneY) > 8)
-    if (lob.enemies[0]) lob.enemies[0].x = lockedX
+    const fired = Math.atan2(first.ty - first.sy, first.tx - first.sx)
+    const off = Math.atan2(Math.sin(fired - lob.droneFace), Math.cos(fired - lob.droneFace))
+    assert.ok(Math.abs(off) > 0.4)
+    if (lob.enemies[0]) {
+      lob.enemies[0].x = markX
+      lob.enemies[0].y = markY
+    }
     const hits = (shell: { tx: number; ty: number; radius: number }) => {
       const foe = lob.enemies[0]
       if (!foe) return false
