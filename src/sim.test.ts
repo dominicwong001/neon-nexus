@@ -913,10 +913,10 @@ describe('orbs', () => {
     assert.equal(lob.enemies[0]?.hp, 800)
     step(lob, input({ aimActive: false }), 0.2)
     assert.ok((lob.enemies[0]?.hp ?? 800) < 800)
-    const followed = lob.reticleX
+    const held = lob.reticleX
     lob.playerX += 36
     step(lob, input({ aimActive: false }), 1 / 60)
-    assert.ok(Math.abs(lob.reticleX - (followed + 36)) < 1)
+    assert.equal(lob.reticleX, held)
 
     const rich = createGame(0, 49)
     rich.spawnCd = 999
