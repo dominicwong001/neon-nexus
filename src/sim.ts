@@ -1301,15 +1301,20 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   if (state.droneCd <= 0 && state.mortars.length < 72) {
     const anchor = droneAnchor(state)
     const tips = droneBlasterTips()
-    const tip = tips[state.droneBarrel % tips.length] ?? { x: 0, y: 0 }
-    state.droneBarrel = (state.droneBarrel + 1) % tips.length
+    const barrel = state.droneBarrel % tips.length
+    const tip = tips[barrel] ?? { x: 0, y: 0 }
+    const shot = Math.floor(state.droneBarrel / tips.length)
+    state.droneBarrel += 1
     const c = Math.cos(state.droneFace)
     const s = Math.sin(state.droneFace)
     const sx = anchor.x + tip.x * c - tip.y * s
     const sy = anchor.y + tip.x * s + tip.y * c
+    const slots = 5
+    const slot = shot % slots
     const facing = Math.atan2(tip.y, tip.x)
-    const ang = state.droneFace + facing + (state.rng() - 0.5) * 0.32
-    const dist = 110 + state.rng() * 150
+    const ang = state.droneFace + facing + (slot - (slots - 1) / 2) * 0.22
+    const reach = barrel === 0 ? [125, 230, 165, 265, 195] : [150, 210, 140, 250, 180]
+    const dist = reach[slot] ?? 180
     launchShell(
       state,
       sx,
@@ -1318,6 +1323,7 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
       sy + Math.sin(ang) * dist,
       rank,
       droneStorm(rank),
+      barrel === 0 ? 1 : -1,
     )
     state.droneCd = droneInterval(rank)
   }
@@ -1386,6 +1392,7 @@ function launchShell(
   ty: number,
   rank: number,
   storm: boolean,
+  arcSign: number,
 ): void {
   const dx = tx - sx
   const dy = ty - sy
@@ -1402,17 +1409,17 @@ function launchShell(
     ty: landY,
     age: 0,
     flight: Math.min(1.05, 0.34 + travel / 700),
-    arc: shellArc(state, travel),
+    arc: shellArc(state, travel, arcSign),
     radius: droneBlast(rank),
     damage: droneDamage(rank),
     storm,
   })
 }
 
-function shellArc(state: GameState, travel: number): number {
+function shellArc(state: GameState, travel: number, sign: number): number {
   const reach = Math.min(1, travel / 240)
   const scale = 0.02 + reach * reach * 0.16 + state.rng() * (0.05 + reach * 0.16)
-  return (state.rng() < 0.5 ? -1 : 1) * travel * scale
+  return sign * travel * scale
 }
 
 export function shellPose(shell: Mortar, p: number): { x: number; y: number; vx: number; vy: number; heading: number } {
