@@ -1,4 +1,4 @@
-import { BODY, ENEMY_COLOR, TUNING, droneAnchor, droneBlast, droneStorm, fieldColor, fieldRadius, fieldRipple, orbitDiscs, type GameState } from './sim.ts'
+import { BODY, ENEMY_COLOR, TUNING, droneAnchor, droneStorm, fieldColor, fieldRadius, fieldRipple, orbitDiscs, type GameState } from './sim.ts'
 
 export interface StickView {
   x: number
@@ -496,34 +496,45 @@ function drawReticle(
   X: (x: number) => number,
   Y: (y: number) => number,
 ): void {
-  if (state.mods.drone <= 0) return
-  const storm = droneStorm(state.mods.drone)
-  const ink = storm ? '#ff2d3a' : '#ffffff'
-  const radius = droneBlast(state.mods.drone)
+  if (state.mods.drone <= 0 || !state.reticleOn) return
+  const ink = droneStorm(state.mods.drone) ? '#ff2d3a' : '#ffffff'
+  const s = 14
+  const gap = 4.5
+  const tick = 6
   ctx.save()
   ctx.translate(X(state.reticleX), Y(state.reticleY))
-  ctx.rotate(state.time * (storm ? 3.4 : 0.8))
   ctx.strokeStyle = ink
-  ctx.globalAlpha = storm ? 0.9 : 0.72
-  ctx.lineWidth = 1.6
-  ctx.beginPath()
-  ctx.arc(0, 0, radius, 0, Math.PI * 2)
-  ctx.stroke()
-  ctx.lineWidth = 2
-  for (let i = 0; i < 4; i++) {
-    ctx.rotate(Math.PI / 2)
-    ctx.beginPath()
-    ctx.moveTo(radius * 0.62, 0)
-    ctx.lineTo(radius * 0.92, 0)
-    ctx.moveTo(radius + 7, -6)
-    ctx.lineTo(radius + 7, 6)
-    ctx.moveTo(radius + 7, 0)
-    ctx.lineTo(radius + 16, 0)
-    ctx.stroke()
-  }
-  ctx.beginPath()
-  ctx.arc(0, 0, 2.2, 0, Math.PI * 2)
   ctx.fillStyle = ink
+  ctx.lineWidth = 1.5
+  ctx.globalAlpha = 0.92
+  ctx.beginPath()
+  ctx.moveTo(-s, -s)
+  ctx.lineTo(-gap, -s)
+  ctx.moveTo(gap, -s)
+  ctx.lineTo(s, -s)
+  ctx.moveTo(s, -s)
+  ctx.lineTo(s, -gap)
+  ctx.moveTo(s, gap)
+  ctx.lineTo(s, s)
+  ctx.moveTo(s, s)
+  ctx.lineTo(gap, s)
+  ctx.moveTo(-gap, s)
+  ctx.lineTo(-s, s)
+  ctx.moveTo(-s, s)
+  ctx.lineTo(-s, gap)
+  ctx.moveTo(-s, -gap)
+  ctx.lineTo(-s, -s)
+  ctx.moveTo(0, -s - tick)
+  ctx.lineTo(0, -s + tick)
+  ctx.moveTo(0, s - tick)
+  ctx.lineTo(0, s + tick)
+  ctx.moveTo(-s - tick, 0)
+  ctx.lineTo(-s + tick, 0)
+  ctx.moveTo(s - tick, 0)
+  ctx.lineTo(s + tick, 0)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(0, 0, 1.7, 0, Math.PI * 2)
   ctx.fill()
   ctx.restore()
 }
@@ -550,11 +561,12 @@ function drawMortars(
     ctx.restore()
     ctx.save()
     ctx.translate(X(gx), Y(gy) - lift)
+    ctx.rotate(Math.atan2(shell.ty - shell.sy, shell.tx - shell.sx))
     ctx.fillStyle = '#05060a'
     ctx.strokeStyle = ink
-    ctx.lineWidth = 1.4
+    ctx.lineWidth = 1.3
     ctx.beginPath()
-    ctx.arc(0, 0, shell.storm ? 3.2 : 3.8, 0, Math.PI * 2)
+    ctx.rect(-7, -2.1, 14, 4.2)
     ctx.fill()
     ctx.stroke()
     ctx.restore()
@@ -585,27 +597,26 @@ function drawDrone(
   }
   ctx.fillStyle = '#05060a'
   ctx.strokeStyle = ink
-  ctx.lineWidth = 1.7
+  ctx.lineWidth = 1.6
   ctx.beginPath()
-  ctx.moveTo(16, 0)
-  ctx.lineTo(6, 7)
-  ctx.lineTo(-12, 8)
-  ctx.lineTo(-16, 0)
-  ctx.lineTo(-12, -8)
-  ctx.lineTo(6, -7)
-  ctx.closePath()
+  ctx.ellipse(0, 0, 13, 8, 0, 0, Math.PI * 2)
   ctx.fill()
   ctx.stroke()
   ctx.beginPath()
-  ctx.moveTo(-4, 8)
-  ctx.lineTo(-18, 16)
-  ctx.lineTo(-8, 7)
-  ctx.moveTo(-4, -8)
-  ctx.lineTo(-18, -16)
-  ctx.lineTo(-8, -7)
+  ctx.rect(2, -11, 5, 5)
+  ctx.rect(2, 6, 5, 5)
+  ctx.rect(-10, -10.5, 6, 4)
+  ctx.rect(-10, 6.5, 6, 4)
+  ctx.fill()
   ctx.stroke()
   ctx.beginPath()
-  ctx.arc(4, 0, 2.4, 0, Math.PI * 2)
+  ctx.moveTo(-6, 0)
+  ctx.lineTo(8, 0)
+  ctx.moveTo(1, -4)
+  ctx.lineTo(1, 4)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(7, 0, 1.8, 0, Math.PI * 2)
   ctx.fillStyle = ink
   ctx.fill()
   ctx.restore()

@@ -30,9 +30,10 @@ import {
   fieldSlow,
   droneBlast,
   droneDamage,
+  droneBurst,
   droneInterval,
+  droneReload,
   droneStorm,
-  droneVolley,
   screenToWorld,
   step,
   worldToScreen,
@@ -873,10 +874,13 @@ describe('orbs', () => {
     assert.equal(state.mods.drone, 5)
     assert.equal(droneStorm(4), false)
     assert.equal(droneStorm(5), true)
-    assert.equal(droneVolley(1), 1)
-    assert.ok(droneVolley(4) > droneVolley(1))
+    assert.ok(droneBurst(4) > droneBurst(1))
+    assert.ok(droneBurst(1) > 2)
+    assert.ok(droneReload(1) > 2)
+    assert.ok(droneReload(4) < droneReload(1))
+    assert.ok(droneReload(5) < 0.6)
     assert.ok(droneInterval(4) < droneInterval(1))
-    assert.ok(droneInterval(5) < droneInterval(4) * 0.25)
+    assert.ok(droneInterval(5) < droneInterval(4))
     assert.ok(droneBlast(4) > droneBlast(1))
     assert.ok(droneBlast(5) > droneBlast(4))
     assert.ok(droneDamage(1) > 0)
@@ -887,21 +891,28 @@ describe('orbs', () => {
     lob.invuln = 5
     lob.mods.drone = 1
     lob.droneCd = 0
-    lob.reticleX = 220
-    lob.reticleY = 0
-    lob.enemies.push(enemy({ x: 220, y: 0, hp: 400, radius: 16, speed: 0 }))
+    lob.droneReload = 0
+    lob.droneBurst = 0
+    lob.enemies.push(enemy({ x: 220, y: 0, hp: 800, radius: 16, speed: 0 }))
     step(lob, input({ aimActive: false }), 1 / 60)
-    assert.equal(lob.enemies[0]?.hp, 400)
+    assert.equal(lob.reticleOn, true)
+    assert.equal(lob.reticleX, 220)
+    assert.equal(lob.enemies[0]?.hp, 800)
     assert.ok(lob.mortars.length >= 1)
+    const lockedX = lob.reticleX
+    if (lob.enemies[0]) lob.enemies[0].x = 40
+    step(lob, input({ aimActive: false }), 1 / 60)
+    assert.equal(lob.reticleX, lockedX)
+    if (lob.enemies[0]) lob.enemies[0].x = lockedX
     const flight = lob.mortars[0]?.flight ?? 1
     let elapsed = 1 / 60
     while (elapsed + 1 / 60 < flight) {
       step(lob, input({ aimActive: false }), 1 / 60)
       elapsed += 1 / 60
     }
-    assert.equal(lob.enemies[0]?.hp, 400)
+    assert.equal(lob.enemies[0]?.hp, 800)
     step(lob, input({ aimActive: false }), 0.2)
-    assert.ok((lob.enemies[0]?.hp ?? 400) < 400)
+    assert.ok((lob.enemies[0]?.hp ?? 800) < 800)
 
     const storm = createGame(0, 48)
     storm.spawnCd = 999
@@ -909,6 +920,8 @@ describe('orbs', () => {
     storm.invuln = 5
     storm.mods.drone = 5
     storm.droneCd = 0
+    storm.droneReload = 0
+    storm.enemies.push(enemy({ x: 180, y: 40, hp: 2000, radius: 16, speed: 0 }))
     for (let n = 0; n < 8; n++) step(storm, input({ aimActive: false }), 1 / 30)
     assert.ok(storm.mortars.length >= 3)
   })

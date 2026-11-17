@@ -185,6 +185,9 @@ export interface GameState {
   fieldTick: number
   ballCd: number
   droneCd: number
+  droneBurst: number
+  droneReload: number
+  reticleOn: boolean
   reticleX: number
   reticleY: number
   mods: Mods
@@ -267,15 +270,22 @@ export function droneStorm(rank: number): boolean {
   return rank >= DRONE.stormRank
 }
 
-export function droneVolley(rank: number): number {
-  if (rank <= 0 || droneStorm(rank)) return rank > 0 ? 1 : 0
-  return rank
+export function droneBurst(rank: number): number {
+  if (rank <= 0) return 0
+  if (droneStorm(rank)) return 4.2
+  return 2.4 + Math.max(0, rank - 1) * 0.35
+}
+
+export function droneReload(rank: number): number {
+  if (rank <= 0) return 0
+  if (droneStorm(rank)) return 0.45
+  return Math.max(1.35, 2.5 - Math.max(0, rank - 1) * 0.28)
 }
 
 export function droneInterval(rank: number): number {
-  if (droneStorm(rank)) return 0.055
+  if (droneStorm(rank)) return 0.045
   const step = Math.max(0, Math.min(rank, DRONE.stormRank - 1) - 1)
-  return Math.max(0.46, 1.05 - step * 0.18)
+  return Math.max(0.055, 0.11 - step * 0.016)
 }
 
 export function droneBlast(rank: number): number {
@@ -285,8 +295,8 @@ export function droneBlast(rank: number): number {
 }
 
 export function droneDamage(rank: number): number {
-  if (droneStorm(rank)) return 16
-  return 28 + Math.max(0, rank - 1) * 6
+  if (droneStorm(rank)) return 9
+  return 11 + Math.max(0, rank - 1) * 3
 }
 
 export function droneAnchor(state: GameState): { x: number; y: number } {
@@ -378,7 +388,10 @@ export function createGame(best = 0, seed = 1): GameState {
     orbitTime: 0,
     fieldTick: 0,
     ballCd: 0.45,
-    droneCd: 0.6,
+    droneCd: 0,
+    droneBurst: 0,
+    droneReload: 0.4,
+    reticleOn: false,
     reticleX: 0,
     reticleY: 0,
     mods: freshMods(),
@@ -1203,8 +1216,6 @@ function strikeOrbits(state: GameState, events: StepEvents): void {
 function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   const rank = state.mods.drone
   if (rank <= 0) return
-  const storm = droneStorm(rank)
-  aimReticle(state, dt, storm)
   for (let i = state.mortars.length - 1; i >= 0; i--) {
     const shell = state.mortars[i]
     if (!shell) continue
@@ -1213,73 +1224,58 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     explodeShell(state, shell, events)
     state.mortars.splice(i, 1)
   }
-  state.droneCd -= dt
-  if (state.droneCd > 0 || state.mortars.length > 48) return
-  const anchor = droneAnchor(state)
-  if (storm) {
-    launchShell(state, anchor.x, anchor.y, state.reticleX, state.reticleY, rank, true)
-    state.droneCd = droneInterval(rank)
+  if (state.droneReload > 0) {
+    state.droneReload = Math.max(0, state.droneReload - dt)
     return
   }
-  const volley = droneVolley(rank)
-  const blast = droneBlast(rank)
-  const ang = Math.atan2(state.reticleY - anchor.y, state.reticleX - anchor.x) + Math.PI / 2
-  for (let n = 0; n < volley; n++) {
-    if (state.mortars.length > 48) break
-    const spread = volley === 1 ? 0 : (n - (volley - 1) / 2) * Math.min(18, blast * 0.2)
+  if (state.droneBurst <= 0) {
+    const target = nearestDroneTarget(state)
+    if (!target) {
+      state.reticleOn = false
+      return
+    }
+    state.reticleX = target.x
+    state.reticleY = target.y
+    state.reticleOn = true
+    state.droneBurst = droneBurst(rank)
+    state.droneCd = 0
+  }
+  state.droneBurst = Math.max(0, state.droneBurst - dt)
+  state.droneCd -= dt
+  if (state.droneCd <= 0 && state.mortars.length < 72) {
+    const anchor = droneAnchor(state)
+    const jitter = (state.rng() - 0.5) * 8
+    const tangent = Math.atan2(state.reticleY - anchor.y, state.reticleX - anchor.x) + Math.PI / 2
     launchShell(
       state,
       anchor.x,
       anchor.y,
-      state.reticleX + Math.cos(ang) * spread,
-      state.reticleY + Math.sin(ang) * spread,
+      state.reticleX + Math.cos(tangent) * jitter,
+      state.reticleY + Math.sin(tangent) * jitter,
       rank,
-      false,
+      droneStorm(rank),
     )
+    state.droneCd = droneInterval(rank)
   }
-  state.droneCd = droneInterval(rank)
+  if (state.droneBurst <= 0) {
+    state.reticleOn = false
+    state.droneReload = droneReload(rank)
+  }
 }
 
-function aimReticle(state: GameState, dt: number, storm: boolean): void {
-  if (storm) {
-    const sweep = state.time * 6.4
-    let tx = state.playerX + Math.cos(sweep) * 210
-    let ty = state.playerY + Math.sin(sweep) * 210
-    let best: Enemy | null = null
-    let bestD = 150 * 150
-    for (const enemy of state.enemies) {
-      const dx = enemy.x - tx
-      const dy = enemy.y - ty
-      const d = dx * dx + dy * dy
-      if (d < bestD) {
-        best = enemy
-        bestD = d
-      }
-    }
-    if (best) {
-      tx = best.x
-      ty = best.y
-    }
-    state.reticleX = tx
-    state.reticleY = ty
-    return
-  }
-  let tx = state.playerX + Math.cos(state.aim) * 200
-  let ty = state.playerY + Math.sin(state.aim) * 200
-  let bestD = 720 * 720
+function nearestDroneTarget(state: GameState): Enemy | null {
+  let best: Enemy | null = null
+  let bestD = 740 * 740
   for (const enemy of state.enemies) {
     const dx = enemy.x - state.playerX
     const dy = enemy.y - state.playerY
     const d = dx * dx + dy * dy
     if (d < bestD) {
-      tx = enemy.x
-      ty = enemy.y
+      best = enemy
       bestD = d
     }
   }
-  const ease = 1 - Math.exp(-9 * dt)
-  state.reticleX += (tx - state.reticleX) * ease
-  state.reticleY += (ty - state.reticleY) * ease
+  return best
 }
 
 function launchShell(
@@ -1375,7 +1371,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     return {
       id,
       title: 'Bulletstorm',
-      detail: 'The drone turns red and never rests. A sweeping reticle calls down a stream of shells that burst as they land.',
+      detail: 'The drone turns red. Rockets pour into a locked reticle and the reload is barely a breath.',
       rank,
       max,
       overdrive: true,
@@ -1422,7 +1418,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
     field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen and pierces through hostiles.' },
-    drone: { title: 'Drone', detail: 'A drone hovers by the core and lobs shells. They only explode inside the reticle.' },
+    drone: { title: 'Drone', detail: 'A drone locks a reticle and pours rockets into it for a few seconds, then reloads.' },
   }
   const detail =
     id === 'orbiter' && rank > 1
@@ -1432,7 +1428,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
         : id === 'ball' && rank > 1
           ? 'More balls. They hit harder and stay out longer.'
           : id === 'drone' && rank > 1
-            ? 'More shells in each volley, a quicker trigger, and a wider blast.'
+            ? 'A longer barrage, quicker rockets, a wider blast, and a shorter reload.'
             : copy[id].detail
   return { id, title: copy[id].title, detail, rank, max, overdrive: false }
 }
@@ -1447,7 +1443,7 @@ function applyUpgrade(state: GameState, id: UpgradeId): void {
   if (id === 'orbiter' && state.mods.orbiter === 1) state.orbitTime = 0.35
   if (id === 'field') state.fieldTick = Math.floor(state.time / FIELD.tick)
   if (id === 'ball') state.ballCd = 0.2
-  if (id === 'drone' && state.mods.drone === 1) state.droneCd = 0.35
+  if (id === 'drone' && state.mods.drone === 1) state.droneReload = 0.25
   if (id !== 'plate') return
   state.hullMax = Math.min(8, state.hullMax + 1)
   state.hull = Math.min(state.hullMax, state.hull + 1)
