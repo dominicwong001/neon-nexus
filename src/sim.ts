@@ -1276,10 +1276,20 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   state.droneCd -= dt
   if (state.droneCd <= 0 && state.mortars.length < 72) {
     const anchor = droneAnchor(state)
-    const span = 136
+    const span = 150
     const aimX = state.reticleX + (state.rng() - 0.5) * span * 2
     const aimY = state.reticleY + (state.rng() - 0.5) * span * 2
-    launchShell(state, anchor.x, anchor.y, aimX, aimY, rank, droneStorm(rank))
+    const ang = Math.atan2(aimY - anchor.y, aimX - anchor.x) + (state.rng() - 0.5) * 0.55
+    const dist = Math.hypot(aimX - anchor.x, aimY - anchor.y)
+    launchShell(
+      state,
+      anchor.x,
+      anchor.y,
+      anchor.x + Math.cos(ang) * dist,
+      anchor.y + Math.sin(ang) * dist,
+      rank,
+      droneStorm(rank),
+    )
     state.droneCd = droneInterval(rank)
   }
   if (state.droneBurst <= 0) {
@@ -1359,11 +1369,11 @@ function launchShell(
 
 function shellArc(state: GameState, travel: number): number {
   const reach = Math.min(1, travel / 240)
-  const scale = 0.05 + reach * reach * 0.42 + state.rng() * (0.04 + reach * 0.22)
+  const scale = 0.04 + reach * reach * 0.36 + state.rng() * (0.12 + reach * 0.4)
   return (state.rng() < 0.5 ? -1 : 1) * travel * scale
 }
 
-export function shellPose(shell: Mortar, p: number): { x: number; y: number; heading: number } {
+export function shellPose(shell: Mortar, p: number): { x: number; y: number; vx: number; vy: number; heading: number } {
   const t = Math.min(1, Math.max(0, p))
   const dx = shell.tx - shell.sx
   const dy = shell.ty - shell.sy
@@ -1375,6 +1385,8 @@ export function shellPose(shell: Mortar, p: number): { x: number; y: number; hea
   return {
     x: shell.sx + dx * t + perp.x * bulge,
     y: shell.sy + dy * t + perp.y * bulge,
+    vx,
+    vy,
     heading: Math.atan2(vy, vx),
   }
 }

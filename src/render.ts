@@ -336,7 +336,7 @@ function drawBullets(
   for (const b of state.bullets) {
     ctx.save()
     ctx.translate(X(b.x), Y(b.y))
-    ctx.rotate(Math.atan2(b.vy, b.vx))
+    ctx.rotate(Math.atan2(b.vy - state.playerVy, b.vx - state.playerVx))
     ctx.scale(BODY, BODY)
     ctx.fillStyle = '#ffffff'
     ctx.strokeStyle = '#ffffff'
@@ -572,6 +572,8 @@ function drawMortars(
     const pose = shellPose(shell, p)
     const groundX = shell.sx + (shell.tx - shell.sx) * p
     const groundY = shell.sy + (shell.ty - shell.sy) * p
+    const rate = 1 / Math.max(0.05, shell.flight)
+    const heading = Math.atan2(pose.vy * rate - state.playerVy, pose.vx * rate - state.playerVx)
     const ink = shell.storm ? '#ff2d3a' : '#ffffff'
     ctx.save()
     ctx.translate(X(groundX), Y(groundY))
@@ -583,7 +585,7 @@ function drawMortars(
     ctx.restore()
     ctx.save()
     ctx.translate(X(pose.x), Y(pose.y))
-    ctx.rotate(pose.heading)
+    ctx.rotate(heading)
     ctx.fillStyle = ink
     ctx.strokeStyle = ink
     ctx.lineWidth = 1.2
