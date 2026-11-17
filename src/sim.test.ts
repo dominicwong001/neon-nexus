@@ -970,15 +970,15 @@ describe('orbs', () => {
     assert.ok(tail.playerX > origin + 8)
     for (let n = 0; n < 30; n++) step(tail, input({ moveX: 1, aimActive: false }), 1 / 60)
     assert.ok(tail.droneX > parked + 40)
-    let low = Infinity
-    let high = 0
+    let up = 0
+    let down = 0
     for (const shell of storm.mortars) {
       const travel = Math.hypot(shell.tx - shell.sx, shell.ty - shell.sy)
-      assert.ok(shell.arc > 0)
-      assert.ok(shell.arc > travel * 0.3)
-      assert.ok(shell.arc < travel * 0.52)
-      if (shell.arc < low) low = shell.arc
-      if (shell.arc > high) high = shell.arc
+      const height = Math.abs(shell.arc)
+      if (shell.arc < 0) down += 1
+      else up += 1
+      assert.ok(height > travel * 0.7)
+      assert.ok(height < travel * 1.12)
       for (const mark of [0, 0.35, 0.7]) {
         const pose = shellPose(shell, mark)
         const ahead = pose.heading
@@ -988,7 +988,8 @@ describe('orbs', () => {
         assert.ok(forward > 0)
       }
     }
-    assert.ok(high > low)
+    assert.ok(up > 0)
+    assert.ok(down > 0)
   })
 
   it('repairs hull when Plate is chosen', () => {
