@@ -374,7 +374,7 @@ export function fieldDamage(rank: number): number {
 export function fieldSlow(rank: number): number {
   const step = Math.min(Math.max(rank, 1), OVERDRIVE - 1)
   const raw = Math.max(0.34, 0.76 - Math.max(0, step - 1) * 0.08)
-  const eased = 1 - (1 - raw) * 0.8
+  const eased = 1 - (1 - raw) * 0.55
   if (fieldOverdrive(rank)) return Math.max(0.3, eased - 0.16)
   return eased
 }
@@ -649,7 +649,7 @@ function pushFloater(state: GameState, x: number, y: number, text: string, color
 }
 
 export function orbiterDamage(rank: number): number {
-  return 22 + Math.max(0, rank - 1) * 4
+  return 31 + Math.max(0, rank - 1) * 8
 }
 
 export function ballCount(rank: number): number {
