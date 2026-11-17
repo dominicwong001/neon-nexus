@@ -68,6 +68,7 @@ export interface Shock {
   life: number
   max: number
   color: string
+  square?: boolean
 }
 
 export interface Impact {
@@ -1244,14 +1245,13 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   state.droneCd -= dt
   if (state.droneCd <= 0 && state.mortars.length < 72) {
     const anchor = droneAnchor(state)
-    const jitter = (state.rng() - 0.5) * 8
-    const tangent = Math.atan2(state.reticleY - anchor.y, state.reticleX - anchor.x) + Math.PI / 2
+    const span = 22
     launchShell(
       state,
       anchor.x,
       anchor.y,
-      state.reticleX + Math.cos(tangent) * jitter,
-      state.reticleY + Math.sin(tangent) * jitter,
+      state.reticleX + (state.rng() - 0.5) * span * 2,
+      state.reticleY + (state.rng() - 0.5) * span * 2,
       rank,
       droneStorm(rank),
     )
@@ -1304,7 +1304,7 @@ function launchShell(
 
 function explodeShell(state: GameState, shell: Mortar, events: StepEvents): void {
   const color = shell.storm ? '#ff2d3a' : '#ffffff'
-  state.shocks.push({ x: shell.tx, y: shell.ty, life: 0.24, max: 0.24, color })
+  state.shocks.push({ x: shell.tx, y: shell.ty, life: 0.38, max: 0.38, color, square: true })
   burst(state, shell.tx, shell.ty, color, shell.storm ? 4 : 9, 170)
   for (let j = state.enemies.length - 1; j >= 0; j--) {
     const enemy = state.enemies[j]

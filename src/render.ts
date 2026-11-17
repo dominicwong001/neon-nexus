@@ -156,8 +156,19 @@ function drawShocks(
   ctx.globalCompositeOperation = 'lighter'
   for (const shock of state.shocks) {
     const t = 1 - shock.life / shock.max
-    ctx.globalAlpha = Math.max(0, shock.life / shock.max)
+    const fade = Math.max(0, shock.life / shock.max)
     ctx.strokeStyle = shock.color
+    if (shock.square) {
+      const outer = 8 + t * 34
+      const inner = 4 + t * 20
+      ctx.globalAlpha = fade
+      ctx.lineWidth = 4.2
+      ctx.strokeRect(X(shock.x) - outer, Y(shock.y) - outer, outer * 2, outer * 2)
+      ctx.lineWidth = 1.15
+      ctx.strokeRect(X(shock.x) - inner, Y(shock.y) - inner, inner * 2, inner * 2)
+      continue
+    }
+    ctx.globalAlpha = fade
     ctx.lineWidth = 2
     ctx.beginPath()
     ctx.arc(X(shock.x), Y(shock.y), 8 + t * 52, 0, Math.PI * 2)
