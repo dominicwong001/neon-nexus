@@ -29,6 +29,7 @@ const levelKicker = must<HTMLElement>('#level-kicker')
 const offersEl = must<HTMLElement>('#offers')
 const muteBtn = must<HTMLButtonElement>('#mute')
 const fullBtn = must<HTMLButtonElement>('#full')
+const fastBtn = must<HTMLButtonElement>('#fast')
 
 const ctx = canvas.getContext('2d', { alpha: false })
 if (!ctx) throw new Error('Canvas unavailable')
@@ -43,6 +44,7 @@ hintEl.textContent = coarse
   : 'WASD drifts · cursor aims · orbs fill the bar'
 
 let state = createGame(loadBest(), seed())
+let fast = localStorage.getItem('neon-fast') === '1'
 let width = 1
 let height = 1
 let dpr = 1
@@ -64,6 +66,7 @@ let shownOffers = ''
 let last = performance.now()
 
 syncAudioButton()
+syncFastButton()
 resize()
 requestAnimationFrame(frame)
 
@@ -87,6 +90,12 @@ muteBtn.addEventListener('click', () => {
   syncAudioButton()
 })
 fullBtn.addEventListener('click', toggleFull)
+fastBtn.addEventListener('click', () => {
+  fast = !fast
+  localStorage.setItem('neon-fast', fast ? '1' : '0')
+  syncFastButton()
+  resize()
+})
 document.addEventListener('fullscreenchange', syncFullButton)
 
 function frame(now: number): void {
@@ -126,6 +135,7 @@ function frame(now: number): void {
       pointerOn,
       stick: move.stick,
       reduceMotion,
+      fast,
     })
     syncHud(state, now)
   }
@@ -344,7 +354,7 @@ function onPointerUp(event: PointerEvent): void {
 function resize(): void {
   width = Math.max(1, window.innerWidth)
   height = Math.max(1, window.innerHeight)
-  dpr = Math.min(window.devicePixelRatio || 1, 2)
+  dpr = Math.min(window.devicePixelRatio || 1, fast ? 1 : 2)
   canvas.width = Math.floor(width * dpr)
   canvas.height = Math.floor(height * dpr)
 }
@@ -355,6 +365,13 @@ function toggleFull(): void {
   } else {
     void document.exitFullscreen()
   }
+}
+
+function syncFastButton(): void {
+  fastBtn.textContent = fast ? 'Fast on' : 'Fast'
+  fastBtn.setAttribute('aria-pressed', fast ? 'true' : 'false')
+  fastBtn.setAttribute('aria-label', fast ? 'Fast mode on. Glows are off.' : 'Fast mode off. Turn off glows to raise frame rate.')
+  document.body.classList.toggle('fast', fast)
 }
 
 function syncAudioButton(): void {

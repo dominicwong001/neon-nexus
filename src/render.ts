@@ -16,12 +16,15 @@ export interface View {
   pointerOn: boolean
   stick: StickView | null
   reduceMotion: boolean
+  fast: boolean
 }
 
 const glowCache = new Map<string, HTMLCanvasElement>()
+let lean = false
 
 export function render(ctx: CanvasRenderingContext2D, state: GameState, view: View): void {
   const { width, height, dpr } = view
+  lean = view.fast
   let sx = 0
   let sy = 0
   if (!view.reduceMotion && state.shake > 0.15) {
@@ -68,7 +71,7 @@ function drawField(ctx: CanvasRenderingContext2D, state: GameState): void {
   const ink = red ? '255, 45, 58' : '255, 255, 255'
   const spin = -Math.PI / 2
   ctx.save()
-  ctx.filter = 'blur(7px)'
+  if (!lean) ctx.filter = 'blur(7px)'
   const fill = ctx.createRadialGradient(0, 0, radius * 0.08, 0, 0, radius)
   fill.addColorStop(0, `rgba(${ink}, 0.34)`)
   fill.addColorStop(0.5, `rgba(${ink}, 0.18)`)
@@ -89,7 +92,7 @@ function drawField(ctx: CanvasRenderingContext2D, state: GameState): void {
     if (age < 0 || age > life) continue
     const phase = age / life
     ctx.save()
-    ctx.filter = `blur(${1 + phase * 11}px)`
+    if (!lean) ctx.filter = `blur(${1 + phase * 11}px)`
     ctx.globalAlpha = (1 - phase) * (1 - phase * 0.55)
     ctx.strokeStyle = `rgba(${ink}, 0.9)`
     ctx.lineWidth = 2.5
@@ -153,7 +156,7 @@ function drawShocks(
   Y: (y: number) => number,
 ): void {
   ctx.save()
-  ctx.globalCompositeOperation = 'lighter'
+  if (!lean) ctx.globalCompositeOperation = 'lighter'
   for (const shock of state.shocks) {
     const t = 1 - shock.life / shock.max
     const fade = Math.max(0, shock.life / shock.max)
@@ -186,6 +189,7 @@ function drawParticles(
   X: (x: number) => number,
   Y: (y: number) => number,
 ): void {
+  if (lean) return
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   for (const p of state.particles) {
@@ -203,6 +207,7 @@ function drawOrbs(
   X: (x: number) => number,
   Y: (y: number) => number,
 ): void {
+  if (!lean) {
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   for (const orb of state.orbs) {
@@ -217,6 +222,7 @@ function drawOrbs(
     ctx.drawImage(hot, x - h / 2, y - h / 2, h, h)
   }
   ctx.restore()
+  }
 
   for (const orb of state.orbs) {
     const bob = Math.sin(state.time * 4 + orb.pulse) * 1.4
@@ -239,7 +245,7 @@ function drawImpacts(
   Y: (y: number) => number,
 ): void {
   ctx.save()
-  ctx.globalCompositeOperation = 'lighter'
+  if (!lean) ctx.globalCompositeOperation = 'lighter'
   for (const hit of state.impacts) {
     const t = 1 - hit.life / hit.max
     const alpha = Math.max(0, hit.life / hit.max)
@@ -276,6 +282,7 @@ function drawEnemies(
   X: (x: number) => number,
   Y: (y: number) => number,
 ): void {
+  if (!lean) {
   const sheets = [glowFor('#ff3df2'), glowFor('#ffd23a'), glowFor('#8dff6a'), glowFor('#ff2d3a')]
   const hurtGlow = glowFor('#ffffff')
   ctx.save()
@@ -292,6 +299,7 @@ function drawEnemies(
     }
   }
   ctx.restore()
+  }
 
   for (const e of state.enemies) {
     ctx.save()
@@ -325,6 +333,7 @@ function drawBullets(
   X: (x: number) => number,
   Y: (y: number) => number,
 ): void {
+  if (!lean) {
   const glow = glowFor('#ffffff')
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
@@ -332,6 +341,7 @@ function drawBullets(
     ctx.drawImage(glow, X(b.x) - 14 * BODY, Y(b.y) - 14 * BODY, 28 * BODY, 28 * BODY)
   }
   ctx.restore()
+  }
 
   for (const b of state.bullets) {
     ctx.save()
@@ -360,8 +370,8 @@ function drawBalls(
   Y: (y: number) => number,
 ): void {
   if (state.balls.length === 0) return
-  const white = glowFor('#ffffff')
-  const red = glowFor('#ff2d3a')
+  const white = lean ? null : glowFor('#ffffff')
+  const red = lean ? null : glowFor('#ff2d3a')
   for (const ball of state.balls) {
     const x = X(ball.x)
     const y = Y(ball.y)
@@ -377,11 +387,13 @@ function drawBalls(
     ctx.rotate(ball.flexAngle)
     ctx.scale(along, across)
     ctx.rotate(-ball.flexAngle)
+    if (!lean && sheet) {
     ctx.globalCompositeOperation = 'lighter'
     ctx.globalAlpha = 0.72
     ctx.drawImage(sheet, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
     ctx.globalCompositeOperation = 'source-over'
     ctx.globalAlpha = 1
+    }
     ctx.rotate(ball.spin)
     drawEnergyBall(ctx, ball.radius, ball.quantum)
     ctx.restore()
@@ -441,7 +453,7 @@ function drawOrbiters(
 ): void {
   const discs = orbitDiscs(state)
   if (discs.length === 0) return
-  const glow = glowFor(discs[0]?.halo ? '#ff2d3a' : '#ffffff')
+  const glow = lean ? null : glowFor(discs[0]?.halo ? '#ff2d3a' : '#ffffff')
   for (const disc of discs) {
     if (disc.fade < 0.04) continue
     const x = X(disc.x)
@@ -449,10 +461,12 @@ function drawOrbiters(
     ctx.save()
     ctx.translate(x, y)
     ctx.globalAlpha = disc.fade * (disc.halo ? 0.82 : 1)
+    if (!lean && glow) {
     const glowSize = disc.radius * (disc.halo ? 4.8 : 3.1)
     ctx.globalCompositeOperation = 'lighter'
     ctx.drawImage(glow, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
     ctx.globalCompositeOperation = 'source-over'
+    }
     ctx.globalAlpha = disc.fade
     ctx.rotate(disc.spin)
     drawSaw(ctx, disc.radius, disc.halo)
@@ -575,6 +589,7 @@ function drawMortars(
     const rate = 1 / Math.max(0.05, shell.flight)
     const heading = Math.atan2(pose.vy * rate - state.playerVy, pose.vx * rate - state.playerVx)
     const ink = shell.storm ? '#ff2d3a' : '#ffffff'
+    if (!lean) {
     const steps = 8
     ctx.save()
     ctx.lineCap = 'round'
@@ -590,6 +605,7 @@ function drawMortars(
       ctx.stroke()
     }
     ctx.restore()
+    }
     ctx.save()
     ctx.translate(X(groundX), Y(groundY))
     ctx.globalAlpha = 0.35
@@ -628,7 +644,7 @@ function drawDrone(
   ctx.save()
   ctx.translate(X(pose.x), Y(pose.y))
   ctx.rotate(state.droneFace)
-  if (storm) {
+  if (storm && !lean) {
     const glow = glowFor('#ff2d3a')
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
@@ -670,11 +686,13 @@ function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.save()
   if (blink) ctx.globalAlpha = 0.32
 
+  if (!lean) {
   const glow = glowFor('#ffffff')
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   ctx.drawImage(glow, -52 * BODY, -52 * BODY, 104 * BODY, 104 * BODY)
   ctx.restore()
+  }
 
   ctx.save()
   ctx.rotate(state.time * TUNING.ringSpin)
