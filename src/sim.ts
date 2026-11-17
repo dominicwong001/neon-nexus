@@ -1303,19 +1303,14 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     const tips = droneBlasterTips()
     const barrel = state.droneBarrel % tips.length
     const tip = tips[barrel] ?? { x: 0, y: 0 }
-    const cols = 4
-    const rows = 3
-    const span = 150
-    const cell = state.droneBarrel % (cols * rows)
+    const spot = areaCircle(state.droneBarrel)
     state.droneBarrel += 1
     const c = Math.cos(state.droneFace)
     const s = Math.sin(state.droneFace)
     const sx = anchor.x + tip.x * c - tip.y * s
     const sy = anchor.y + tip.x * s + tip.y * c
-    const col = cell % cols
-    const row = Math.floor(cell / cols)
-    const tx = state.reticleX + (col - (cols - 1) / 2) * ((span * 2) / (cols - 1))
-    const ty = state.reticleY + (row - (rows - 1) / 2) * ((span * 2) / (rows - 1))
+    const tx = state.reticleX + Math.cos(spot.angle) * spot.radius
+    const ty = state.reticleY + Math.sin(spot.angle) * spot.radius
     const shotX = tx - sx
     const shotY = ty - sy
     launchShell(
@@ -1327,6 +1322,7 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
       rank,
       droneStorm(rank),
       blasterArcSign(state.droneFace, tip.y, shotX, shotY),
+      spot.radius,
     )
     state.droneCd = droneInterval(rank)
   }
@@ -1396,6 +1392,7 @@ function launchShell(
   rank: number,
   storm: boolean,
   arcSign: number,
+  fromCenter: number,
 ): void {
   const dx = tx - sx
   const dy = ty - sy
@@ -1412,7 +1409,7 @@ function launchShell(
     ty: landY,
     age: 0,
     flight: Math.min(1.05, 0.34 + travel / 700),
-    arc: shellArc(state, travel, arcSign),
+    arc: shellArc(state, travel, arcSign, fromCenter),
     radius: droneBlast(rank),
     damage: droneDamage(rank),
     storm,
@@ -1431,9 +1428,27 @@ function blasterArcSign(face: number, side: number, shotX: number, shotY: number
   return px * outwardX + py * outwardY >= 0 ? 1 : -1
 }
 
-function shellArc(state: GameState, travel: number, sign: number): number {
-  const reach = Math.min(1, travel / 240)
-  const scale = 0.02 + reach * reach * 0.16 + state.rng() * (0.05 + reach * 0.16)
+function areaCircle(index: number): { radius: number; angle: number } {
+  const outer = 150
+  const cycle = 37
+  const n = ((index % cycle) + cycle) % cycle
+  if (n === 0) return { radius: 0, angle: 0 }
+  let left = n - 1
+  let ring = 1
+  while (left >= ring * 6) {
+    left -= ring * 6
+    ring += 1
+  }
+  const count = ring * 6
+  return {
+    radius: (ring / 3) * outer,
+    angle: ((left + 0.5) / count) * Math.PI * 2 + ring * 0.37,
+  }
+}
+
+function shellArc(state: GameState, travel: number, sign: number, fromCenter: number): number {
+  const ring = Math.min(1, fromCenter / 150)
+  const scale = 0.015 + ring * ring * 0.14 + state.rng() * (0.02 + ring * 0.46)
   return sign * travel * scale
 }
 

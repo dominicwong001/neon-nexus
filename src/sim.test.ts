@@ -1001,9 +1001,8 @@ describe('orbs', () => {
     for (const shell of storm.mortars) {
       const travel = Math.hypot(shell.tx - shell.sx, shell.ty - shell.sy)
       const height = Math.abs(shell.arc)
-      const reach = Math.min(1, travel / 240)
-      const low = travel * (0.02 + reach * reach * 0.16)
-      const high = travel * (0.07 + reach * reach * 0.16 + reach * 0.16)
+      const low = travel * 0.015
+      const high = travel * 0.635
       if (shell.arc < 0) down += 1
       else up += 1
       assert.ok(height + 0.001 >= low)
@@ -1022,7 +1021,7 @@ describe('orbs', () => {
     assert.ok(up > 0)
     assert.ok(down > 0)
     assert.ok(near && far)
-    assert.ok(Math.abs(near.arc) < Math.abs(far.arc))
+    assert.ok(Math.hypot(near.tx - near.sx, near.ty - near.sy) <= Math.hypot(far.tx - far.sx, far.ty - far.sy))
   })
 
   it('repairs hull when Plate is chosen', () => {
