@@ -1315,15 +1315,17 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     const ang = state.droneFace + facing + (slot - (slots - 1) / 2) * 0.22
     const reach = barrel === 0 ? [125, 230, 165, 265, 195] : [150, 210, 140, 250, 180]
     const dist = reach[slot] ?? 180
+    const shotX = Math.cos(ang)
+    const shotY = Math.sin(ang)
     launchShell(
       state,
       sx,
       sy,
-      sx + Math.cos(ang) * dist,
-      sy + Math.sin(ang) * dist,
+      sx + shotX * dist,
+      sy + shotY * dist,
       rank,
       droneStorm(rank),
-      barrel === 0 ? 1 : -1,
+      blasterArcSign(state.droneFace, tip.y, shotX, shotY),
     )
     state.droneCd = droneInterval(rank)
   }
@@ -1414,6 +1416,18 @@ function launchShell(
     damage: droneDamage(rank),
     storm,
   })
+}
+
+function blasterArcSign(face: number, side: number, shotX: number, shotY: number): number {
+  let px = -shotY
+  let py = shotX
+  if (py > 0 || (py === 0 && px < 0)) {
+    px = -px
+    py = -py
+  }
+  const outwardX = -Math.sin(face) * Math.sign(side || 1)
+  const outwardY = Math.cos(face) * Math.sign(side || 1)
+  return px * outwardX + py * outwardY >= 0 ? 1 : -1
 }
 
 function shellArc(state: GameState, travel: number, sign: number): number {
