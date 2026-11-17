@@ -56,6 +56,20 @@ function input(over: Partial<Input> = {}): Input {
   }
 }
 
+function takeOffer(state: ReturnType<typeof createGame>, id: string) {
+  for (let n = 0; n < 48; n++) {
+    state.xp = state.xpNeed
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(state.phase, 'level')
+    assert.equal(state.offers.length, 3)
+    assert.equal(new Set(state.offers.map((offer) => offer.id)).size, 3)
+    const offer = state.offers.find((item) => item.id === id)
+    if (offer) return offer
+    chooseUpgrade(state, 0)
+  }
+  throw new Error(`never offered ${id}`)
+}
+
 function enemy(over: Partial<Enemy> = {}): Enemy {
   return {
     x: 0,
@@ -445,18 +459,15 @@ describe('orbs', () => {
     assert.equal(state.phase, 'play')
   })
 
-  it('always offers Orbiter and adds a disc on every rank', () => {
+  it('adds a disc on every Orbiter rank', () => {
     const state = createGame(0, 11)
     state.spawnCd = 999
     state.fireCd = 10
     for (let n = 0; n < 6; n++) {
-      state.xp = state.xpNeed
-      step(state, input({ aimActive: false }), 1 / 60)
-      assert.equal(state.phase, 'level')
-      assert.equal(state.offers[0]?.id, 'orbiter')
-      assert.equal(state.offers[0]?.title, n === 5 ? "Guardian's Halo" : 'Sentinel')
-      assert.equal(state.offers[0]?.overdrive, n === 5)
-      chooseUpgrade(state, 0)
+      const offer = takeOffer(state, 'orbiter')
+      assert.equal(offer.title, n === 5 ? "Guardian's Halo" : 'Sentinel')
+      assert.equal(offer.overdrive, n === 5)
+      chooseUpgrade(state, state.offers.indexOf(offer))
       state.orbitTime = 0.8
       assert.equal(orbitDiscs(state).length, orbiterCount(n + 1))
       assert.ok(orbitDiscs(state).length <= 6)
@@ -475,21 +486,19 @@ describe('orbs', () => {
     assert.ok(orbiterShove(6) > orbiterShove(5))
     state.xp = state.xpNeed
     step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(state.offers.length, 3)
     assert.equal(state.offers.some((offer) => offer.id === 'orbiter'), false)
-    assert.equal(state.offers.some((offer) => offer.id === 'field'), true)
   })
 
-  it('always offers Bouncy Ball, then ricochets, pierces, and splits', () => {
+  it('ricochets, pierces, and splits a Bouncy Ball', () => {
     const state = createGame(0, 5)
     state.spawnCd = 999
     state.fireCd = 10
     for (let n = 0; n < 6; n++) {
-      state.xp = state.xpNeed
-      step(state, input({ aimActive: false }), 1 / 60)
-      const offer = state.offers.find((item) => item.id === 'ball')
-      assert.equal(offer?.title, n === 5 ? 'Quantum Core' : 'Bouncy Ball')
-      assert.equal(offer?.overdrive, n === 5)
-      chooseUpgrade(state, state.offers.indexOf(offer!))
+      const offer = takeOffer(state, 'ball')
+      assert.equal(offer.title, n === 5 ? 'Quantum Core' : 'Bouncy Ball')
+      assert.equal(offer.overdrive, n === 5)
+      chooseUpgrade(state, state.offers.indexOf(offer))
     }
     assert.equal(state.mods.ball, 6)
     assert.equal(ballCount(1), 1)
@@ -653,17 +662,15 @@ describe('orbs', () => {
     assert.ok(incoming.x < brute.x)
   })
 
-  it('always offers Force Field, then burns and slows inside a wider ring', () => {
+  it('burns and slows inside a wider Force Field ring', () => {
     const state = createGame(0, 3)
     state.spawnCd = 999
     state.fireCd = 10
     for (let n = 0; n < 6; n++) {
-      state.xp = state.xpNeed
-      step(state, input({ aimActive: false }), 1 / 60)
-      const offer = state.offers.find((item) => item.id === 'field')
-      assert.equal(offer?.title, n === 5 ? 'Null Zone' : 'Force Field')
-      assert.equal(offer?.overdrive, n === 5)
-      chooseUpgrade(state, state.offers.indexOf(offer!))
+      const offer = takeOffer(state, 'field')
+      assert.equal(offer.title, n === 5 ? 'Null Zone' : 'Force Field')
+      assert.equal(offer.overdrive, n === 5)
+      chooseUpgrade(state, state.offers.indexOf(offer))
     }
     assert.equal(state.mods.field, 6)
     state.xp = state.xpNeed
@@ -837,16 +844,11 @@ describe('orbs', () => {
     const state = createGame(0, 46)
     state.spawnCd = 999
     state.fireCd = 10
-    state.mods.orbiter = 6
-    state.mods.field = 6
-    state.mods.ball = 6
     for (let n = 0; n < 5; n++) {
-      state.xp = state.xpNeed
-      step(state, input({ aimActive: false }), 1 / 60)
-      const offer = state.offers.find((item) => item.id === 'drone')
-      assert.equal(offer?.title, n === 4 ? 'Bulletstorm' : 'Drone')
-      assert.equal(offer?.overdrive, n === 4)
-      chooseUpgrade(state, state.offers.indexOf(offer!))
+      const offer = takeOffer(state, 'drone')
+      assert.equal(offer.title, n === 4 ? 'Bulletstorm' : 'Drone')
+      assert.equal(offer.overdrive, n === 4)
+      chooseUpgrade(state, state.offers.indexOf(offer))
     }
     assert.equal(state.mods.drone, 5)
     assert.equal(droneStorm(4), false)

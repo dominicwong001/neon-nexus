@@ -1335,11 +1335,6 @@ function rollOffers(state: GameState): Offer[] {
     (id) => state.mods[id] < UPGRADE_MAX[id],
   )
   const picked: UpgradeId[] = []
-  for (const pinned of ['orbiter', 'field', 'ball', 'drone'] as const) {
-    if (picked.length >= 3) break
-    const index = pool.indexOf(pinned)
-    if (index >= 0) picked.push(pool.splice(index, 1)[0] ?? pinned)
-  }
   while (picked.length < 3 && pool.length > 0) {
     const index = Math.floor(state.rng() * pool.length)
     const id = pool.splice(index, 1)[0]
