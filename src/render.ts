@@ -609,12 +609,9 @@ function drawDrone(
   const storm = droneStorm(state.mods.drone)
   const ink = storm ? '#ff2d3a' : '#ffffff'
   const pose = droneAnchor(state)
-  const face = state.reticleOn
-    ? Math.atan2(state.reticleY - pose.y, state.reticleX - pose.x)
-    : state.aim
   ctx.save()
   ctx.translate(X(pose.x), Y(pose.y))
-  ctx.rotate(face)
+  ctx.rotate(state.droneFace)
   if (storm) {
     const glow = glowFor('#ff2d3a')
     ctx.save()

@@ -886,6 +886,7 @@ describe('orbs', () => {
     assert.ok(droneBlast(4) > droneBlast(1))
     assert.ok(droneBlast(5) > droneBlast(4))
     assert.ok(droneDamage(1) > 0)
+    assert.ok(droneDamage(5) > droneDamage(4))
 
     const lob = createGame(0, 47)
     lob.spawnCd = 999
@@ -970,6 +971,15 @@ describe('orbs', () => {
     assert.ok(tail.playerX > origin + 8)
     for (let n = 0; n < 30; n++) step(tail, input({ moveX: 1, aimActive: false }), 1 / 60)
     assert.ok(tail.droneX > parked + 40)
+    const yaw = createGame(0, 52)
+    yaw.mods.drone = 1
+    yaw.reticleOn = true
+    yaw.reticleX = yaw.droneX
+    yaw.reticleY = yaw.droneY - 240
+    yaw.droneFace = 0
+    for (let n = 0; n < 8; n++) step(yaw, input({ aimActive: false }), 1 / 60)
+    assert.ok(yaw.droneFace < -0.2)
+    assert.ok(yaw.droneFace > -0.7)
     let up = 0
     let down = 0
     for (const shell of storm.mortars) {
@@ -977,8 +987,8 @@ describe('orbs', () => {
       const height = Math.abs(shell.arc)
       if (shell.arc < 0) down += 1
       else up += 1
-      assert.ok(height > travel * 0.7)
-      assert.ok(height < travel * 1.12)
+      assert.ok(height > travel * 0.32)
+      assert.ok(height < travel * 0.86)
       for (const mark of [0, 0.35, 0.7]) {
         const pose = shellPose(shell, mark)
         const ahead = pose.heading

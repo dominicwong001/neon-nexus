@@ -191,6 +191,7 @@ export interface GameState {
   droneX: number
   droneY: number
   droneLag: number
+  droneFace: number
   reticleOn: boolean
   reticleX: number
   reticleY: number
@@ -299,7 +300,7 @@ export function droneBlast(rank: number): number {
 }
 
 export function droneDamage(rank: number): number {
-  if (droneStorm(rank)) return 9
+  if (rank <= 0) return 0
   return 11 + Math.max(0, rank - 1) * 3
 }
 
@@ -322,11 +323,18 @@ function followDrone(state: GameState, dt: number): void {
   const moving = speed > 36
   if (moving) state.droneLag = Math.min(0.2, state.droneLag + dt)
   else state.droneLag = 0
-  if (moving && state.droneLag < 0.2) return
-  const rate = moving ? 6.5 : 11
-  const k = 1 - Math.exp(-rate * dt)
-  state.droneX += (slot.x - state.droneX) * k
-  state.droneY += (slot.y - state.droneY) * k
+  if (!(moving && state.droneLag < 0.2)) {
+    const rate = moving ? 6.5 : 11
+    const k = 1 - Math.exp(-rate * dt)
+    state.droneX += (slot.x - state.droneX) * k
+    state.droneY += (slot.y - state.droneY) * k
+  }
+  const want = state.reticleOn
+    ? Math.atan2(state.reticleY - state.droneY, state.reticleX - state.droneX)
+    : state.aim
+  const diff = Math.atan2(Math.sin(want - state.droneFace), Math.cos(want - state.droneFace))
+  const maxStep = 2.4 * dt
+  state.droneFace += Math.max(-maxStep, Math.min(maxStep, diff))
 }
 
 export function fieldOverdrive(rank: number): boolean {
@@ -415,6 +423,7 @@ export function createGame(best = 0, seed = 1): GameState {
     droneX: -36 * BODY + 5,
     droneY: -48 * BODY,
     droneLag: 0,
+    droneFace: 0,
     reticleOn: false,
     reticleX: 0,
     reticleY: 0,
@@ -1351,7 +1360,7 @@ function launchShell(
 }
 
 function shellArc(state: GameState, travel: number): number {
-  const height = travel * (0.72 + state.rng() * 0.38)
+  const height = travel * (0.34 + state.rng() * 0.5)
   return (state.rng() < 0.5 ? -1 : 1) * height
 }
 
