@@ -279,14 +279,14 @@ export function droneBurst(rank: number): number {
 
 export function droneReload(rank: number): number {
   if (rank <= 0) return 0
-  if (droneStorm(rank)) return 0.45
-  return Math.max(1.35, 2.5 - Math.max(0, rank - 1) * 0.28)
+  if (droneStorm(rank)) return 0.32
+  return Math.max(1.05, 2.05 - Math.max(0, rank - 1) * 0.24)
 }
 
 export function droneInterval(rank: number): number {
-  if (droneStorm(rank)) return 0.045
+  if (droneStorm(rank)) return 0.026
   const step = Math.max(0, Math.min(rank, DRONE.stormRank - 1) - 1)
-  return Math.max(0.055, 0.11 - step * 0.016)
+  return Math.max(0.034, 0.064 - step * 0.01)
 }
 
 export function droneBlast(rank: number): number {
@@ -1310,7 +1310,7 @@ function launchShell(
     tx,
     ty,
     age: 0,
-    flight: Math.min(2.15, 0.9 + dist / 340),
+    flight: Math.min(1.2, 0.4 + dist / 620),
     arc: shellArc(state),
     radius: droneBlast(rank),
     damage: droneDamage(rank),
