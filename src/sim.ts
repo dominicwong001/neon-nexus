@@ -1262,6 +1262,7 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     explodeShell(state, shell, events)
     state.mortars.splice(i, 1)
   }
+  followRocketArea(state)
   if (state.droneReload > 0) {
     state.droneReload = Math.max(0, state.droneReload - dt)
     return
@@ -1303,6 +1304,52 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     state.reticleOn = false
     state.droneReload = droneReload(rank)
   }
+}
+
+function followRocketArea(state: GameState): void {
+  if (!state.reticleOn && state.mortars.length === 0) return
+  let originX = state.reticleX
+  let originY = state.reticleY
+  if (!state.reticleOn) {
+    originX = 0
+    originY = 0
+    for (const shell of state.mortars) {
+      originX += shell.tx
+      originY += shell.ty
+    }
+    originX /= state.mortars.length
+    originY /= state.mortars.length
+  }
+  const crowd = crowdAround(state, originX, originY)
+  if (!crowd) return
+  const dx = crowd.x - originX
+  const dy = crowd.y - originY
+  if (dx === 0 && dy === 0) return
+  if (state.reticleOn) {
+    state.reticleX += dx
+    state.reticleY += dy
+  }
+  for (const shell of state.mortars) {
+    shell.tx += dx
+    shell.ty += dy
+  }
+}
+
+function crowdAround(state: GameState, x: number, y: number): { x: number; y: number } | null {
+  const reach = 220
+  let sx = 0
+  let sy = 0
+  let count = 0
+  for (const enemy of state.enemies) {
+    const dx = enemy.x - x
+    const dy = enemy.y - y
+    if (dx * dx + dy * dy > reach * reach) continue
+    sx += enemy.x
+    sy += enemy.y
+    count += 1
+  }
+  if (count === 0) return null
+  return { x: sx / count, y: sy / count }
 }
 
 function richestDroneArea(state: GameState): { x: number; y: number } | null {
@@ -1376,7 +1423,7 @@ function launchShell(
 
 function shellArc(state: GameState, travel: number): number {
   const reach = Math.min(1, travel / 240)
-  const scale = 0.035 + reach * reach * 0.3 + state.rng() * (0.1 + reach * 0.32)
+  const scale = 0.02 + reach * reach * 0.16 + state.rng() * (0.05 + reach * 0.16)
   return (state.rng() < 0.5 ? -1 : 1) * travel * scale
 }
 

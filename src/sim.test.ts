@@ -917,8 +917,8 @@ describe('orbs', () => {
     if (lob.enemies[0]) lob.enemies[0].x = 40
     lob.playerX += 36
     step(lob, input({ aimActive: false }), 1 / 60)
-    assert.equal(lob.reticleX, lockedX)
-    assert.equal(first.tx, markX)
+    assert.ok(Math.abs(lob.reticleX - 40) < 1)
+    assert.ok(Math.abs(first.tx - (markX - (lockedX - 40))) < 1)
     assert.equal(first.ty, markY)
     if (lob.enemies[0]) lob.enemies[0].x = lockedX
     const hits = (shell: { tx: number; ty: number; radius: number }) => {
@@ -995,8 +995,8 @@ describe('orbs', () => {
       const travel = Math.hypot(shell.tx - shell.sx, shell.ty - shell.sy)
       const height = Math.abs(shell.arc)
       const reach = Math.min(1, travel / 240)
-      const low = travel * (0.035 + reach * reach * 0.3)
-      const high = travel * (0.135 + reach * reach * 0.3 + reach * 0.32)
+      const low = travel * (0.02 + reach * reach * 0.16)
+      const high = travel * (0.07 + reach * reach * 0.16 + reach * 0.16)
       if (shell.arc < 0) down += 1
       else up += 1
       assert.ok(height + 0.001 >= low)
