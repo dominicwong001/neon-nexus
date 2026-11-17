@@ -1360,8 +1360,9 @@ function launchShell(
 }
 
 function shellArc(state: GameState, travel: number): number {
-  const height = travel * (0.34 + state.rng() * 0.5)
-  return (state.rng() < 0.5 ? -1 : 1) * height
+  const reach = Math.min(1, travel / 240)
+  const scale = 0.05 + reach * reach * 0.42 + state.rng() * (0.04 + reach * 0.22)
+  return (state.rng() < 0.5 ? -1 : 1) * travel * scale
 }
 
 export function shellPose(shell: Mortar, p: number): { x: number; y: number; heading: number } {

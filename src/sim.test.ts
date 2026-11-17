@@ -982,13 +982,20 @@ describe('orbs', () => {
     assert.ok(yaw.droneFace > -0.7)
     let up = 0
     let down = 0
+    let near = storm.mortars[0]
+    let far = storm.mortars[0]
     for (const shell of storm.mortars) {
       const travel = Math.hypot(shell.tx - shell.sx, shell.ty - shell.sy)
       const height = Math.abs(shell.arc)
+      const reach = Math.min(1, travel / 240)
+      const low = travel * (0.05 + reach * reach * 0.42)
+      const high = travel * (0.09 + reach * reach * 0.42 + reach * 0.22)
       if (shell.arc < 0) down += 1
       else up += 1
-      assert.ok(height > travel * 0.32)
-      assert.ok(height < travel * 0.86)
+      assert.ok(height + 0.001 >= low)
+      assert.ok(height <= high + 0.001)
+      if (near && travel < Math.hypot(near.tx - near.sx, near.ty - near.sy)) near = shell
+      if (far && travel > Math.hypot(far.tx - far.sx, far.ty - far.sy)) far = shell
       for (const mark of [0, 0.35, 0.7]) {
         const pose = shellPose(shell, mark)
         const ahead = pose.heading
@@ -1000,6 +1007,8 @@ describe('orbs', () => {
     }
     assert.ok(up > 0)
     assert.ok(down > 0)
+    assert.ok(near && far)
+    assert.ok(Math.abs(near.arc) < Math.abs(far.arc))
   })
 
   it('repairs hull when Plate is chosen', () => {
