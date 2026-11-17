@@ -1369,7 +1369,7 @@ function launchShell(
 
 function shellArc(state: GameState, travel: number): number {
   const reach = Math.min(1, travel / 240)
-  const scale = 0.04 + reach * reach * 0.36 + state.rng() * (0.12 + reach * 0.4)
+  const scale = 0.035 + reach * reach * 0.3 + state.rng() * (0.1 + reach * 0.32)
   return (state.rng() < 0.5 ? -1 : 1) * travel * scale
 }
 
