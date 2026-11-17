@@ -434,6 +434,26 @@ describe('orbs', () => {
     assert.ok(third < first * 3)
   })
 
+  it('always includes one of the four main abilities', () => {
+    const state = createGame(0, 90)
+    state.spawnCd = 999
+    state.fireCd = 10
+    const mains = new Set(['orbiter', 'field', 'ball', 'drone'])
+    const seen = new Set<string>()
+    for (let n = 0; n < 20; n++) {
+      state.xp = state.xpNeed
+      step(state, input({ aimActive: false }), 1 / 60)
+      assert.equal(state.offers.length, 3)
+      assert.equal(state.offers.some((offer) => mains.has(offer.id)), true)
+      for (const offer of state.offers) {
+        if (mains.has(offer.id)) seen.add(offer.id)
+      }
+      const skip = state.offers.findIndex((offer) => !mains.has(offer.id))
+      chooseUpgrade(state, skip >= 0 ? skip : 0)
+    }
+    assert.ok(seen.size >= 3)
+  })
+
   it('opens three upgrades when the bar fills and freezes the pit', () => {
     const state = createGame(0, 42)
     state.spawnCd = 999

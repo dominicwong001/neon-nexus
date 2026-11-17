@@ -1330,17 +1330,37 @@ function openLevel(state: GameState): boolean {
   return true
 }
 
+const SIGNATURE = ['orbiter', 'field', 'ball', 'drone'] as const
+
 function rollOffers(state: GameState): Offer[] {
   const pool = (Object.keys(UPGRADE_MAX) as Exclude<UpgradeId, 'cache'>[]).filter(
     (id) => state.mods[id] < UPGRADE_MAX[id],
   )
   const picked: UpgradeId[] = []
+  const signature = pool.filter((id) => (SIGNATURE as readonly string[]).includes(id))
+  if (signature.length > 0) {
+    const id = signature[Math.floor(state.rng() * signature.length)]
+    const index = id ? pool.indexOf(id) : -1
+    if (id && index >= 0) {
+      picked.push(id)
+      pool.splice(index, 1)
+    }
+  }
   while (picked.length < 3 && pool.length > 0) {
     const index = Math.floor(state.rng() * pool.length)
     const id = pool.splice(index, 1)[0]
     if (id) picked.push(id)
   }
   while (picked.length < 3) picked.push('cache')
+  for (let i = picked.length - 1; i > 0; i--) {
+    const j = Math.floor(state.rng() * (i + 1))
+    const swap = picked[i]
+    const other = picked[j]
+    if (swap && other) {
+      picked[i] = other
+      picked[j] = swap
+    }
+  }
   return picked.map((id) => describeOffer(state, id))
 }
 
