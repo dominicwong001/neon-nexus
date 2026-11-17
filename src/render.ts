@@ -1,4 +1,4 @@
-import { BODY, ENEMY_COLOR, TUNING, droneAnchor, droneStorm, fieldColor, fieldRadius, fieldRipple, orbitDiscs, shellPose, type GameState } from './sim.ts'
+import { BODY, ENEMY_COLOR, TUNING, droneAnchor, droneBlasterTips, droneStorm, fieldColor, fieldRadius, fieldRipple, orbitDiscs, shellPose, type GameState } from './sim.ts'
 
 export interface StickView {
   x: number
@@ -62,7 +62,7 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   if (state.phase === 'play') drawAim(ctx, view, sx, sy)
-  if (view.stick && state.phase === 'play') drawStick(ctx, view.stick, '#ff3df2')
+  if (view.stick && state.phase === 'play') drawStick(ctx, view.stick, '#ffffff')
   if (view.aimStick && state.phase === 'play') drawStick(ctx, view.aimStick, '#ffffff')
 }
 
@@ -487,7 +487,7 @@ function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void 
     ctx.fillStyle = '#05060a'
     ctx.fill()
     ctx.strokeStyle = ink
-    ctx.lineWidth = Math.max(1.4, r * 0.075)
+    ctx.lineWidth = Math.max(2.8, r * 0.16)
     ctx.stroke()
     if (halo) {
       ctx.beginPath()
@@ -512,8 +512,8 @@ function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void 
 }
 
 function traceCrescent(ctx: CanvasRenderingContext2D, r: number): void {
-  const a0 = -0.42
-  const a1 = 1.28
+  const a0 = -0.32
+  const a1 = 1.1
   ctx.beginPath()
   ctx.arc(0, 0, r * 0.98, a0, a1)
   ctx.arc(0, 0, r * 0.6, a1 - 0.06, a0 + 0.1, true)
@@ -671,20 +671,19 @@ function drawDrone(
   ctx.beginPath()
   polyPath(ctx, 0, 0, r, 6, spin)
   ctx.fill()
-  const reach = r * Math.cos(Math.PI / 6)
-  for (const edge of [0, 4]) {
-    const aim = spin + (edge + 0.5) * (Math.PI / 3)
-    const nx = Math.cos(aim)
-    const ny = Math.sin(aim)
+  for (const tip of droneBlasterTips()) {
+    const len = Math.hypot(tip.x, tip.y) || 1
+    const nx = tip.x / len
+    const ny = tip.y / len
     const px = -ny
     const py = nx
     const half = 3.4
-    const len = 6.5
+    const base = len - 6.5
     ctx.beginPath()
-    ctx.moveTo(nx * reach + px * half, ny * reach + py * half)
-    ctx.lineTo(nx * reach - px * half, ny * reach - py * half)
-    ctx.lineTo(nx * (reach + len) - px * half, ny * (reach + len) - py * half)
-    ctx.lineTo(nx * (reach + len) + px * half, ny * (reach + len) + py * half)
+    ctx.moveTo(nx * base + px * half, ny * base + py * half)
+    ctx.lineTo(nx * base - px * half, ny * base - py * half)
+    ctx.lineTo(tip.x - px * half, tip.y - py * half)
+    ctx.lineTo(tip.x + px * half, tip.y + py * half)
     ctx.closePath()
     ctx.fill()
     ctx.stroke()

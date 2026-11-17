@@ -917,9 +917,12 @@ describe('orbs', () => {
     if (lob.enemies[0]) lob.enemies[0].x = 40
     lob.playerX += 36
     step(lob, input({ aimActive: false }), 1 / 60)
-    assert.ok(Math.abs(lob.reticleX - 40) < 1)
-    assert.ok(Math.abs(first.tx - (markX - (lockedX - 40))) < 1)
+    const crept = lockedX - lob.reticleX
+    assert.ok(crept > 0.2)
+    assert.ok(crept < 1)
+    assert.ok(Math.abs(first.tx - (markX - crept)) < 0.05)
     assert.equal(first.ty, markY)
+    assert.ok(Math.hypot(first.sx - lob.droneX, first.sy - lob.droneY) > 8)
     if (lob.enemies[0]) lob.enemies[0].x = lockedX
     const hits = (shell: { tx: number; ty: number; radius: number }) => {
       const foe = lob.enemies[0]

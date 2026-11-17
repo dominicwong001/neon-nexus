@@ -192,6 +192,7 @@ export interface GameState {
   droneY: number
   droneLag: number
   droneFace: number
+  droneBarrel: number
   reticleOn: boolean
   reticleX: number
   reticleY: number
@@ -306,6 +307,16 @@ export function droneDamage(rank: number): number {
 
 export function droneAnchor(state: GameState): { x: number; y: number } {
   return { x: state.droneX, y: state.droneY }
+}
+
+export function droneBlasterTips(): { x: number; y: number }[] {
+  const r = 13
+  const spin = Math.PI / 6
+  const reach = r * Math.cos(Math.PI / 6) + 6.5
+  return [0, 4].map((edge) => {
+    const aim = spin + (edge + 0.5) * (Math.PI / 3)
+    return { x: Math.cos(aim) * reach, y: Math.sin(aim) * reach }
+  })
 }
 
 function droneSlot(state: GameState): { x: number; y: number } {
@@ -430,6 +441,7 @@ export function createGame(best = 0, seed = 1): GameState {
     droneY: -64 * BODY,
     droneLag: 0,
     droneFace: 0,
+    droneBarrel: 0,
     reticleOn: false,
     reticleX: 0,
     reticleY: 0,
@@ -1262,7 +1274,7 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     explodeShell(state, shell, events)
     state.mortars.splice(i, 1)
   }
-  followRocketArea(state)
+  followRocketArea(state, dt)
   if (state.droneReload > 0) {
     state.droneReload = Math.max(0, state.droneReload - dt)
     return
@@ -1273,8 +1285,10 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
       state.reticleOn = false
       return
     }
-    state.reticleX = target.x
-    state.reticleY = target.y
+    if (!state.reticleOn && state.mortars.length === 0 && state.reticleX === 0 && state.reticleY === 0) {
+      state.reticleX = target.x
+      state.reticleY = target.y
+    }
     state.reticleOn = true
     state.droneBurst = droneBurst(rank)
     state.droneCd = 0
@@ -1284,17 +1298,24 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   state.droneCd -= dt
   if (state.droneCd <= 0 && state.mortars.length < 72) {
     const anchor = droneAnchor(state)
+    const tips = droneBlasterTips()
+    const tip = tips[state.droneBarrel % tips.length] ?? { x: 0, y: 0 }
+    state.droneBarrel = (state.droneBarrel + 1) % tips.length
+    const c = Math.cos(state.droneFace)
+    const s = Math.sin(state.droneFace)
+    const sx = anchor.x + tip.x * c - tip.y * s
+    const sy = anchor.y + tip.x * s + tip.y * c
     const span = 150
     const aimX = state.reticleX + (state.rng() - 0.5) * span * 2
     const aimY = state.reticleY + (state.rng() - 0.5) * span * 2
-    const ang = Math.atan2(aimY - anchor.y, aimX - anchor.x) + (state.rng() - 0.5) * 0.55
-    const dist = Math.hypot(aimX - anchor.x, aimY - anchor.y)
+    const ang = Math.atan2(aimY - sy, aimX - sx) + (state.rng() - 0.5) * 0.55
+    const dist = Math.hypot(aimX - sx, aimY - sy)
     launchShell(
       state,
-      anchor.x,
-      anchor.y,
-      anchor.x + Math.cos(ang) * dist,
-      anchor.y + Math.sin(ang) * dist,
+      sx,
+      sy,
+      sx + Math.cos(ang) * dist,
+      sy + Math.sin(ang) * dist,
       rank,
       droneStorm(rank),
     )
@@ -1306,50 +1327,23 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   }
 }
 
-function followRocketArea(state: GameState): void {
-  if (!state.reticleOn && state.mortars.length === 0) return
-  let originX = state.reticleX
-  let originY = state.reticleY
-  if (!state.reticleOn) {
-    originX = 0
-    originY = 0
-    for (const shell of state.mortars) {
-      originX += shell.tx
-      originY += shell.ty
-    }
-    originX /= state.mortars.length
-    originY /= state.mortars.length
-  }
-  const crowd = crowdAround(state, originX, originY)
-  if (!crowd) return
-  const dx = crowd.x - originX
-  const dy = crowd.y - originY
-  if (dx === 0 && dy === 0) return
-  if (state.reticleOn) {
-    state.reticleX += dx
-    state.reticleY += dy
-  }
+function followRocketArea(state: GameState, dt: number): void {
+  if (!state.reticleOn && state.reticleX === 0 && state.reticleY === 0) return
+  const target = richestDroneArea(state)
+  if (!target) return
+  const dx = target.x - state.reticleX
+  const dy = target.y - state.reticleY
+  const dist = Math.hypot(dx, dy)
+  if (dist < 0.35) return
+  const step = Math.min(dist, 32 * dt)
+  const mx = (dx / dist) * step
+  const my = (dy / dist) * step
+  state.reticleX += mx
+  state.reticleY += my
   for (const shell of state.mortars) {
-    shell.tx += dx
-    shell.ty += dy
+    shell.tx += mx
+    shell.ty += my
   }
-}
-
-function crowdAround(state: GameState, x: number, y: number): { x: number; y: number } | null {
-  const reach = 220
-  let sx = 0
-  let sy = 0
-  let count = 0
-  for (const enemy of state.enemies) {
-    const dx = enemy.x - x
-    const dy = enemy.y - y
-    if (dx * dx + dy * dy > reach * reach) continue
-    sx += enemy.x
-    sy += enemy.y
-    count += 1
-  }
-  if (count === 0) return null
-  return { x: sx / count, y: sy / count }
 }
 
 function richestDroneArea(state: GameState): { x: number; y: number } | null {
