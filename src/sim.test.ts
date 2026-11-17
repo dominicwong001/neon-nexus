@@ -519,6 +519,7 @@ describe('orbs', () => {
       knock: 2.2,
       spin: 0,
       flex: 0,
+      flexAngle: 0,
       touched: [],
     })
     const first = enemy({ x: 40, y: 0, hp: 200, radius: 18, kind: 1 })
@@ -550,6 +551,7 @@ describe('orbs', () => {
       knock: 2.2,
       spin: 0,
       flex: 0,
+      flexAngle: 0,
       touched: [],
     })
     step(stuck, input({ aimActive: false }), 1 / 60)
@@ -573,12 +575,14 @@ describe('orbs', () => {
       knock: 8,
       spin: 0,
       flex: 0,
+      flexAngle: 0,
       touched: [],
     }
     wall.balls.push(shot)
     step(wall, input({ aimActive: false, viewW: 1280, viewH: 720 }), 1 / 60)
     assert.ok(shot.vx < 0)
     assert.equal(shot.flex, 1)
+    assert.ok(Math.cos(shot.flexAngle) < -0.9)
     assert.ok(shot.spin !== 0)
     assert.equal(wall.balls.filter((ball) => ball.echo).length, 0)
 
@@ -601,6 +605,7 @@ describe('orbs', () => {
       knock: 8,
       spin: 0,
       flex: 0,
+      flexAngle: 0,
       touched: [],
     })
     step(split, input({ aimActive: false }), 1 / 60)
@@ -633,6 +638,7 @@ describe('orbs', () => {
       knock: 2.2,
       spin: 0,
       flex: 0,
+      flexAngle: 0,
       touched: [],
     }
     tank.balls.push(incoming)

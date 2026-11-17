@@ -350,20 +350,22 @@ function drawBalls(
     const y = Y(ball.y)
     const sheet = ball.quantum ? red : white
     const glowSize = ball.radius * 3.2
-    ctx.save()
-    ctx.globalCompositeOperation = 'lighter'
-    ctx.globalAlpha = 0.72
-    ctx.drawImage(sheet, x - glowSize / 2, y - glowSize / 2, glowSize, glowSize)
-    ctx.restore()
     const flex = ball.flex
     const squish = Math.max(0, (flex - 0.58) / 0.42)
     const stretch = flex > 0 && flex < 0.7 ? Math.sin(((0.7 - flex) / 0.7) * Math.PI) : 0
-    const heading = Math.atan2(ball.vy, ball.vx)
+    const along = 1 - squish * 0.42 + stretch * 0.4
+    const across = 1 + squish * 0.36 - stretch * 0.16
     ctx.save()
     ctx.translate(x, y)
-    ctx.rotate(heading)
-    ctx.scale(1 - squish * 0.42 + stretch * 0.36, 1 + squish * 0.34 - stretch * 0.14)
-    ctx.rotate(ball.spin - heading)
+    ctx.rotate(ball.flexAngle)
+    ctx.scale(along, across)
+    ctx.rotate(-ball.flexAngle)
+    ctx.globalCompositeOperation = 'lighter'
+    ctx.globalAlpha = 0.72
+    ctx.drawImage(sheet, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.globalAlpha = 1
+    ctx.rotate(ball.spin)
     drawEnergyBall(ctx, ball.radius, ball.quantum)
     ctx.restore()
   }

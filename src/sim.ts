@@ -118,6 +118,7 @@ export interface Ricochet {
   knock: number
   spin: number
   flex: number
+  flexAngle: number
   touched: { enemy: Enemy; cd: number }[]
 }
 
@@ -968,6 +969,7 @@ function launchBalls(state: GameState, dt: number): void {
       knock: quantum ? 8 : 2.2,
       spin: state.rng() * Math.PI * 2,
       flex: 0,
+      flexAngle: 0,
       touched: [],
     })
   }
@@ -993,34 +995,38 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
     ball.x += ball.vx * dt
     ball.y += ball.vy * dt
     if (Math.hypot(ball.vx, ball.vy) > 30) ball.spin += dt * 2.4
-    let bounced = false
+    let nx = 0
+    let ny = 0
     if (ball.x - ball.radius < left) {
       ball.x = left + ball.radius
       if (ball.vx < 0) {
         ball.vx = -ball.vx
-        bounced = true
+        nx += 1
       }
     } else if (ball.x + ball.radius > right) {
       ball.x = right - ball.radius
       if (ball.vx > 0) {
         ball.vx = -ball.vx
-        bounced = true
+        nx -= 1
       }
     }
     if (ball.y - ball.radius < top) {
       ball.y = top + ball.radius
       if (ball.vy < 0) {
         ball.vy = -ball.vy
-        bounced = true
+        ny += 1
       }
     } else if (ball.y + ball.radius > bottom) {
       ball.y = bottom - ball.radius
       if (ball.vy > 0) {
         ball.vy = -ball.vy
-        bounced = true
+        ny -= 1
       }
     }
-    if (bounced) ball.flex = 1
+    if (nx !== 0 || ny !== 0) {
+      ball.flex = 1
+      ball.flexAngle = Math.atan2(ny, nx)
+    }
     for (let t = ball.touched.length - 1; t >= 0; t--) {
       const touch = ball.touched[t]
       if (!touch) continue
@@ -1070,6 +1076,7 @@ function splitBall(state: GameState, ball: Ricochet): boolean {
       knock: 2.4,
       spin: ball.spin,
       flex: 0,
+      flexAngle: ball.flexAngle,
       touched: [],
     })
   }
@@ -1094,6 +1101,7 @@ function deflectOffEnemy(ball: Ricochet, enemy: Enemy): boolean {
   if (toward < 0) {
     ball.vx -= 2 * toward * nx
     ball.vy -= 2 * toward * ny
+    ball.flexAngle = Math.atan2(ny, nx)
     return true
   }
   return false
