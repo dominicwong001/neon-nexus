@@ -580,7 +580,7 @@ function drawMortars(
     ctx.globalAlpha = 0.35
     ctx.fillStyle = '#000'
     ctx.beginPath()
-    ctx.ellipse(0, 0, 4.5, 2.2, 0, 0, Math.PI * 2)
+    ctx.ellipse(0, 0, 6.2, 3, 0, 0, Math.PI * 2)
     ctx.fill()
     ctx.restore()
     ctx.save()
@@ -588,12 +588,12 @@ function drawMortars(
     ctx.rotate(heading)
     ctx.fillStyle = '#05060a'
     ctx.strokeStyle = ink
-    ctx.lineWidth = 1.3
+    ctx.lineWidth = 1.6
     ctx.beginPath()
-    ctx.rect(-8, -2.2, 12, 4.4)
-    ctx.moveTo(4, -2.5)
-    ctx.lineTo(11, 0)
-    ctx.lineTo(4, 2.5)
+    ctx.rect(-11, -3.1, 17, 6.2)
+    ctx.moveTo(6, -3.5)
+    ctx.lineTo(16, 0)
+    ctx.lineTo(6, 3.5)
     ctx.closePath()
     ctx.fill()
     ctx.stroke()
