@@ -144,7 +144,7 @@ describe('drift', () => {
     const state = createGame(0, 4)
     state.spawnCd = 999
     run(state, input({ moveX: 1, aimActive: false }), 10)
-    assert.ok(state.playerX > 4000)
+    assert.ok(state.playerX > 2400)
     assert.ok(Number.isFinite(state.playerX))
   })
 

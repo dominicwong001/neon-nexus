@@ -3,7 +3,7 @@ export const BODY = 0.7
 
 export const TUNING = {
   thrust: 12,
-  maxSpeed: 450,
+  maxSpeed: 300,
   drag: 6.5,
   bulletSpeed: 980,
   fireInterval: 0.28,
@@ -230,10 +230,10 @@ export interface StepEvents {
 }
 
 const KIND = [
-  { radius: 14 * BODY, hp: 100, speed: 150, spin: 2.8 },
-  { radius: 22 * BODY, hp: 200, speed: 66, spin: 1.15 },
-  { radius: 20 * BODY, hp: 300, speed: 72, spin: 0.8 },
-  { radius: 40 * BODY, hp: 1000, speed: 46, spin: 0.55 },
+  { radius: 14 * BODY, hp: 100, speed: 100, spin: 2.8 },
+  { radius: 22 * BODY, hp: 200, speed: 44, spin: 1.15 },
+  { radius: 20 * BODY, hp: 300, speed: 48, spin: 0.8 },
+  { radius: 40 * BODY, hp: 1000, speed: 31, spin: 0.55 },
 ] as const
 
 export const OVERDRIVE = 6
