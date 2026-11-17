@@ -446,6 +446,7 @@ describe('orbs', () => {
       state.xp = state.xpNeed
       step(state, input({ aimActive: false }), 1 / 60)
       assert.equal(state.offers.length, 3)
+      assert.equal(state.offers.some((offer) => offer.id === 'drone'), true)
       assert.equal(state.offers.some((offer) => mains.has(offer.id)), true)
       for (const offer of state.offers) {
         if (mains.has(offer.id)) seen.add(offer.id)
@@ -958,6 +959,17 @@ describe('orbs', () => {
     storm.enemies.push(enemy({ x: 180, y: 40, hp: 2000, radius: 16, speed: 0 }))
     for (let n = 0; n < 40; n++) step(storm, input({ aimActive: false }), 1 / 30)
     assert.ok(storm.mortars.length >= 3)
+    const tail = createGame(0, 51)
+    tail.spawnCd = 999
+    tail.fireCd = 10
+    tail.mods.drone = 1
+    const parked = tail.droneX
+    const origin = tail.playerX
+    for (let n = 0; n < 6; n++) step(tail, input({ moveX: 1, aimActive: false }), 1 / 60)
+    assert.ok(Math.abs(tail.droneX - parked) < 2)
+    assert.ok(tail.playerX > origin + 8)
+    for (let n = 0; n < 30; n++) step(tail, input({ moveX: 1, aimActive: false }), 1 / 60)
+    assert.ok(tail.droneX > parked + 40)
     let low = Infinity
     let high = 0
     for (const shell of storm.mortars) {

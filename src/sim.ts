@@ -188,6 +188,9 @@ export interface GameState {
   droneCd: number
   droneBurst: number
   droneReload: number
+  droneX: number
+  droneY: number
+  droneLag: number
   reticleOn: boolean
   reticleX: number
   reticleY: number
@@ -301,12 +304,29 @@ export function droneDamage(rank: number): number {
 }
 
 export function droneAnchor(state: GameState): { x: number; y: number } {
+  return { x: state.droneX, y: state.droneY }
+}
+
+function droneSlot(state: GameState): { x: number; y: number } {
   const bob = Math.sin(state.time * 3.1) * 7
   const sway = Math.cos(state.time * 1.3) * 5
   return {
     x: state.playerX - 36 * BODY + sway,
     y: state.playerY - 48 * BODY + bob,
   }
+}
+
+function followDrone(state: GameState, dt: number): void {
+  const slot = droneSlot(state)
+  const speed = Math.hypot(state.playerVx, state.playerVy)
+  const moving = speed > 36
+  if (moving) state.droneLag = Math.min(0.2, state.droneLag + dt)
+  else state.droneLag = 0
+  if (moving && state.droneLag < 0.2) return
+  const rate = moving ? 6.5 : 11
+  const k = 1 - Math.exp(-rate * dt)
+  state.droneX += (slot.x - state.droneX) * k
+  state.droneY += (slot.y - state.droneY) * k
 }
 
 export function fieldOverdrive(rank: number): boolean {
@@ -392,6 +412,9 @@ export function createGame(best = 0, seed = 1): GameState {
     droneCd: 0,
     droneBurst: 0,
     droneReload: 0.4,
+    droneX: -36 * BODY + 5,
+    droneY: -48 * BODY,
+    droneLag: 0,
     reticleOn: false,
     reticleX: 0,
     reticleY: 0,
@@ -512,6 +535,7 @@ function drift(state: GameState, input: Input, dt: number): void {
   }
   state.playerX += state.playerVx * dt
   state.playerY += state.playerVy * dt
+  followDrone(state, dt)
 }
 
 function aimAt(state: GameState, input: Input): void {
@@ -1388,8 +1412,13 @@ function rollOffers(state: GameState): Offer[] {
     (id) => state.mods[id] < UPGRADE_MAX[id],
   )
   const picked: UpgradeId[] = []
+  const droneIndex = pool.indexOf('drone')
+  if (droneIndex >= 0) {
+    picked.push('drone')
+    pool.splice(droneIndex, 1)
+  }
   const signature = pool.filter((id) => (SIGNATURE as readonly string[]).includes(id))
-  if (signature.length > 0) {
+  if (picked.length === 0 && signature.length > 0) {
     const id = signature[Math.floor(state.rng() * signature.length)]
     const index = id ? pool.indexOf(id) : -1
     if (id && index >= 0) {
