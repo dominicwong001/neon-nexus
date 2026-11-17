@@ -61,8 +61,8 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
 function drawField(ctx: CanvasRenderingContext2D, state: GameState): void {
   const radius = fieldRadius(state.mods.field)
   if (radius <= 0) return
-  const red = fieldColor(state.mods.field) !== '#3df0ff'
-  const ink = red ? '255, 45, 58' : '61, 240, 255'
+  const red = fieldColor(state.mods.field) !== '#ffffff'
+  const ink = red ? '255, 45, 58' : '255, 255, 255'
   const spin = -Math.PI / 2
   ctx.save()
   ctx.filter = 'blur(7px)'

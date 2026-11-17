@@ -236,7 +236,7 @@ export const DISC = {
 
 export const FIELD = {
   tick: 0.22,
-  color: '#3df0ff',
+  color: '#ffffff',
   nullColor: '#ff2d3a',
 } as const
 
@@ -1210,7 +1210,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     greed: { title: 'Greed', detail: 'Every orb is worth more.' },
     plate: { title: 'Plate', detail: 'Repair one hull segment and add a spare.' },
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
-    field: { title: 'Force Field', detail: 'A cyan field burns and slows anything inside.' },
+    field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen and pierces through hostiles.' },
   }
   const detail =

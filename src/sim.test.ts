@@ -675,7 +675,7 @@ describe('orbs', () => {
     assert.ok(fieldSlow(5) < fieldSlow(1))
     assert.ok(fieldSlow(1) > 0.76)
     assert.ok(fieldSlow(6) < fieldSlow(5))
-    assert.equal(fieldColor(5), '#3df0ff')
+    assert.equal(fieldColor(5), '#ffffff')
     assert.equal(fieldColor(6), '#ff2d3a')
     assert.ok(fieldRipple(5) < fieldRipple(1))
     assert.ok(fieldRipple(1) < 0.5)
@@ -696,7 +696,7 @@ describe('orbs', () => {
     assert.equal(inside.hp, 400 - ticks * fieldDamage(1))
     assert.equal(far.hp, 400)
     assert.ok(Math.hypot(inside.vx, inside.vy) < Math.hypot(far.vx, far.vy) * 0.9)
-    assert.ok(burn.floaters.some((floater) => floater.text === String(fieldDamage(1)) && floater.color === '#3df0ff'))
+    assert.ok(burn.floaters.some((floater) => floater.text === String(fieldDamage(1)) && floater.color === '#ffffff'))
   })
 
   it('lets the discs bite, then hides them while they recharge', () => {
