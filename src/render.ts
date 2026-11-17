@@ -586,8 +586,7 @@ function drawMortars(
     const pose = shellPose(shell, p)
     const groundX = shell.sx + (shell.tx - shell.sx) * p
     const groundY = shell.sy + (shell.ty - shell.sy) * p
-    const rate = 1 / Math.max(0.05, shell.flight)
-    const heading = Math.atan2(pose.vy * rate - state.playerVy, pose.vx * rate - state.playerVx)
+    const heading = pose.heading
     const ink = shell.storm ? '#ff2d3a' : '#ffffff'
     if (!lean) {
     const steps = 8
@@ -614,6 +613,14 @@ function drawMortars(
     ctx.ellipse(0, 0, 6.2, 3, 0, 0, Math.PI * 2)
     ctx.fill()
     ctx.restore()
+    if (!lean) {
+      const glow = glowFor(ink)
+      const s = 40
+      ctx.save()
+      ctx.globalCompositeOperation = 'lighter'
+      ctx.drawImage(glow, X(pose.x) - s / 2, Y(pose.y) - s / 2, s, s)
+      ctx.restore()
+    }
     ctx.save()
     ctx.translate(X(pose.x), Y(pose.y))
     ctx.rotate(heading)
