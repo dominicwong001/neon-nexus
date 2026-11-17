@@ -271,6 +271,14 @@ button:focus-visible {
   text-transform: none;
   letter-spacing: 0.04em;
   cursor: pointer;
+  box-shadow: none;
+}
+
+.offer:hover,
+.offer:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  outline: none;
 }
 
 .offer-key,

@@ -189,17 +189,15 @@ describe('cursor stream', () => {
     assert.ok(Math.abs(bullet.vy) < 40)
     const vx = bullet.vx
     const vy = bullet.vy
-    const relX = bullet.x - state.playerX
-    const relY = bullet.y - state.playerY
+    const x0 = bullet.x
+    const y0 = bullet.y
     state.playerVx = -300
     state.playerVy = 240
     step(state, input({ aimX: 400, aimY: 0, moveX: 0, moveY: 0 }), 1 / 60)
     assert.equal(bullet.vx, vx)
     assert.equal(bullet.vy, vy)
-    const stepX = bullet.x - state.playerX - relX
-    const stepY = bullet.y - state.playerY - relY
-    assert.ok(stepX > 8)
-    assert.ok(Math.abs(stepY) < stepX * 0.2)
+    assert.ok(Math.abs(bullet.x - x0 - vx / 60) < 1.5)
+    assert.ok(Math.abs(bullet.y - y0 - vy / 60) < 1.5)
   })
 
   it('holds the last aim when the cursor sits on the core', () => {

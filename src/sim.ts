@@ -312,8 +312,8 @@ function droneSlot(state: GameState): { x: number; y: number } {
   const bob = Math.sin(state.time * 3.1) * 7
   const sway = Math.cos(state.time * 1.3) * 5
   return {
-    x: state.playerX - 36 * BODY + sway,
-    y: state.playerY - 48 * BODY + bob,
+    x: state.playerX - 52 * BODY + sway,
+    y: state.playerY - 64 * BODY + bob,
   }
 }
 
@@ -420,8 +420,8 @@ export function createGame(best = 0, seed = 1): GameState {
     droneCd: 0,
     droneBurst: 0,
     droneReload: 0.4,
-    droneX: -36 * BODY + 5,
-    droneY: -48 * BODY,
+    droneX: -52 * BODY + 5,
+    droneY: -64 * BODY,
     droneLag: 0,
     droneFace: 0,
     reticleOn: false,
@@ -594,10 +594,8 @@ function moveBullets(state: GameState, input: Input, dt: number, events: StepEve
   for (let i = state.bullets.length - 1; i >= 0; i--) {
     const b = state.bullets[i]
     b.life -= dt
-    // Carry the current drift so the shot stays on a straight line from the core
-    // when the camera turns with a change in direction.
-    b.x += (b.vx + state.playerVx) * dt
-    b.y += (b.vy + state.playerVy) * dt
+    b.x += b.vx * dt
+    b.y += b.vy * dt
     const dxp = b.x - state.playerX
     const dyp = b.y - state.playerY
     if (b.life <= 0 || dxp * dxp + dyp * dyp > maxR2) {

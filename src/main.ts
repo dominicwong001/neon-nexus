@@ -250,8 +250,6 @@ function syncLevel(game: GameState): void {
     button.addEventListener('click', () => pickUpgrade(index))
     offersEl.append(button)
   })
-  const first = offersEl.querySelector('button')
-  if (first instanceof HTMLButtonElement) first.focus()
 }
 
 function pickUpgrade(index: number): void {
