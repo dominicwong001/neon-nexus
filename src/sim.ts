@@ -106,8 +106,8 @@ export interface Mortar {
 }
 
 export interface ReticleMark {
-  x: number
-  y: number
+  offX: number
+  offY: number
   age: number
 }
 
@@ -1238,6 +1238,8 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     state.mortars.splice(i, 1)
   }
   if (state.reticleOn) {
+    state.reticleX = state.playerX + state.reticleOffX
+    state.reticleY = state.playerY + state.reticleOffY
     for (const mark of state.reticles) mark.age += dt
   }
   if (state.droneReload > 0) {
@@ -1250,10 +1252,12 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
       state.reticleOn = false
       return
     }
+    state.reticleOffX = target.x - state.playerX
+    state.reticleOffY = target.y - state.playerY
     state.reticleX = target.x
     state.reticleY = target.y
     state.reticleOn = true
-    state.reticles = spreadReticles(state, target.x, target.y)
+    state.reticles = spreadReticles(state, state.reticleOffX, state.reticleOffY)
     state.droneBurst = droneBurst(rank)
     state.droneCd = 0
   }
@@ -1262,8 +1266,8 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   if (state.droneCd <= 0 && state.mortars.length < 72) {
     const anchor = droneAnchor(state)
     const mark = state.reticles[Math.floor(state.rng() * state.reticles.length)]
-    const aimX = (mark?.x ?? state.reticleX) + (state.rng() - 0.5) * 16
-    const aimY = (mark?.y ?? state.reticleY) + (state.rng() - 0.5) * 16
+    const aimX = state.playerX + (mark?.offX ?? state.reticleOffX) + (state.rng() - 0.5) * 16
+    const aimY = state.playerY + (mark?.offY ?? state.reticleOffY) + (state.rng() - 0.5) * 16
     launchShell(state, anchor.x, anchor.y, aimX, aimY, rank, droneStorm(rank))
     state.droneCd = droneInterval(rank)
   }
@@ -1274,13 +1278,13 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   }
 }
 
-function spreadReticles(state: GameState, x: number, y: number): ReticleMark[] {
+function spreadReticles(state: GameState, offX: number, offY: number): ReticleMark[] {
   const span = 78
-  const marks: ReticleMark[] = [{ x, y, age: 0 }]
+  const marks: ReticleMark[] = [{ offX, offY, age: 0 }]
   for (let i = 0; i < 5; i++) {
     marks.push({
-      x: x + (state.rng() - 0.5) * span * 2,
-      y: y + (state.rng() - 0.5) * span * 2,
+      offX: offX + (state.rng() - 0.5) * span * 2,
+      offY: offY + (state.rng() - 0.5) * span * 2,
       age: 0,
     })
   }
