@@ -160,7 +160,7 @@ function drawShocks(
     ctx.strokeStyle = shock.color
     if (shock.square) {
       const outer = 7 + t * 22
-      const inner = outer - 5
+      const inner = outer - 11
       const bright = Math.min(1, fade * 2.4)
       ctx.globalAlpha = bright
       ctx.lineWidth = 6
