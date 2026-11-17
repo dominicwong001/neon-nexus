@@ -652,31 +652,48 @@ function drawDrone(
     ctx.drawImage(glow, -30, -30, 60, 60)
     ctx.restore()
   }
+  const r = 13
+  const spin = Math.PI / 6
+  const gap = 2
+  ctx.lineJoin = 'miter'
+  ctx.miterLimit = 2
+  ctx.lineCap = 'butt'
+  ctx.lineWidth = 1.6
   ctx.fillStyle = '#05060a'
   ctx.strokeStyle = ink
-  ctx.lineWidth = 1.5
   ctx.beginPath()
-  ctx.moveTo(14, 0)
-  ctx.lineTo(-10, -8)
-  ctx.lineTo(-5, 0)
-  ctx.lineTo(-10, 8)
-  ctx.closePath()
+  polyPath(ctx, 0, 0, r, 6, spin)
   ctx.fill()
-  ctx.stroke()
   ctx.beginPath()
-  ctx.moveTo(-3, -6)
-  ctx.lineTo(-14, -11)
-  ctx.lineTo(-14, -5)
-  ctx.closePath()
-  ctx.moveTo(-3, 6)
-  ctx.lineTo(-14, 11)
-  ctx.lineTo(-14, 5)
-  ctx.closePath()
-  ctx.fill()
+  for (let i = 0; i < 6; i++) {
+    if (i === gap) continue
+    const a0 = spin + (i * Math.PI * 2) / 6
+    const a1 = spin + ((i + 1) * Math.PI * 2) / 6
+    ctx.moveTo(Math.cos(a0) * r, Math.sin(a0) * r)
+    ctx.lineTo(Math.cos(a1) * r, Math.sin(a1) * r)
+  }
   ctx.stroke()
+  const reach = r * Math.cos(Math.PI / 6)
+  for (const edge of [0, 4]) {
+    const aim = spin + (edge + 0.5) * (Math.PI / 3)
+    const nx = Math.cos(aim)
+    const ny = Math.sin(aim)
+    const px = -ny
+    const py = nx
+    const half = 3.4
+    const len = 6.5
+    ctx.beginPath()
+    ctx.moveTo(nx * reach + px * half, ny * reach + py * half)
+    ctx.lineTo(nx * reach - px * half, ny * reach - py * half)
+    ctx.lineTo(nx * (reach + len) - px * half, ny * (reach + len) - py * half)
+    ctx.lineTo(nx * (reach + len) + px * half, ny * (reach + len) + py * half)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+  }
   ctx.beginPath()
-  ctx.arc(1, 0, 1.5, 0, Math.PI * 2)
-  ctx.fillStyle = ink
+  ctx.arc(0, 0, 3.8, 0, Math.PI * 2)
+  ctx.fillStyle = '#ffffff'
   ctx.fill()
   ctx.restore()
 }
