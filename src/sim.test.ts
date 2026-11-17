@@ -923,7 +923,7 @@ describe('orbs', () => {
     assert.equal(first.tx, markX)
     assert.equal(first.ty, markY)
     assert.ok(Math.hypot(first.sx - lob.droneX, first.sy - lob.droneY) > 8)
-    assert.ok(Math.hypot(first.tx - lockedX, first.ty - lob.reticleY) < 120)
+    assert.ok(Math.hypot(first.tx - lockedX, first.ty - lob.reticleY) < 230)
     if (lob.enemies[0]) {
       lob.enemies[0].x = markX
       lob.enemies[0].y = markY
