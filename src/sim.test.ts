@@ -34,6 +34,7 @@ import {
   droneInterval,
   droneReload,
   droneStorm,
+  shellPose,
   screenToWorld,
   step,
   worldToScreen,
@@ -957,20 +958,25 @@ describe('orbs', () => {
     storm.enemies.push(enemy({ x: 180, y: 40, hp: 2000, radius: 16, speed: 0 }))
     for (let n = 0; n < 40; n++) step(storm, input({ aimActive: false }), 1 / 30)
     assert.ok(storm.mortars.length >= 3)
-    let up = 0
-    let down = 0
     let low = Infinity
     let high = 0
     for (const shell of storm.mortars) {
-      const height = Math.abs(shell.arc)
-      if (shell.arc < 0) down += 1
-      else up += 1
-      if (height < low) low = height
-      if (height > high) high = height
+      const travel = Math.hypot(shell.tx - shell.sx, shell.ty - shell.sy)
+      assert.ok(shell.arc > 0)
+      assert.ok(shell.arc > travel * 0.3)
+      assert.ok(shell.arc < travel * 0.52)
+      if (shell.arc < low) low = shell.arc
+      if (shell.arc > high) high = shell.arc
+      for (const mark of [0, 0.35, 0.7]) {
+        const pose = shellPose(shell, mark)
+        const ahead = pose.heading
+        const vx = Math.cos(ahead)
+        const vy = Math.sin(ahead)
+        const forward = (shell.tx - shell.sx) * vx + (shell.ty - shell.sy) * vy
+        assert.ok(forward > 0)
+      }
     }
-    assert.ok(up > 0)
-    assert.ok(down > 0)
-    assert.ok(high - low > 40)
+    assert.ok(high > low)
   })
 
   it('repairs hull when Plate is chosen', () => {

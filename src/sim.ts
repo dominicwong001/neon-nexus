@@ -1319,16 +1319,42 @@ function launchShell(
     ty: landY,
     age: 0,
     flight: Math.min(1.05, 0.34 + travel / 700),
-    arc: shellArc(state),
+    arc: shellArc(state, travel),
     radius: droneBlast(rank),
     damage: droneDamage(rank),
     storm,
   })
 }
 
-function shellArc(state: GameState): number {
-  const height = 86 + state.rng() * 150
-  return (state.rng() < 0.42 ? -1 : 1) * height
+function shellArc(state: GameState, travel: number): number {
+  return travel * (0.32 + state.rng() * 0.18)
+}
+
+export function shellPose(shell: Mortar, p: number): { x: number; y: number; heading: number } {
+  const t = Math.min(1, Math.max(0, p))
+  const dx = shell.tx - shell.sx
+  const dy = shell.ty - shell.sy
+  const perp = arcPerp(dx, dy)
+  const bulge = Math.sin(t * Math.PI) * shell.arc
+  const climb = Math.cos(t * Math.PI) * Math.PI * shell.arc
+  const vx = dx + perp.x * climb
+  const vy = dy + perp.y * climb
+  return {
+    x: shell.sx + dx * t + perp.x * bulge,
+    y: shell.sy + dy * t + perp.y * bulge,
+    heading: Math.atan2(vy, vx),
+  }
+}
+
+function arcPerp(dx: number, dy: number): { x: number; y: number } {
+  let px = -dy
+  let py = dx
+  if (py > 0 || (py === 0 && px < 0)) {
+    px = -px
+    py = -py
+  }
+  const len = Math.hypot(px, py) || 1
+  return { x: px / len, y: py / len }
 }
 
 function explodeShell(state: GameState, shell: Mortar, events: StepEvents): void {

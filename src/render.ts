@@ -1,4 +1,4 @@
-import { BODY, ENEMY_COLOR, TUNING, droneAnchor, droneStorm, fieldColor, fieldRadius, fieldRipple, orbitDiscs, type GameState } from './sim.ts'
+import { BODY, ENEMY_COLOR, TUNING, droneAnchor, droneStorm, fieldColor, fieldRadius, fieldRipple, orbitDiscs, shellPose, type GameState } from './sim.ts'
 
 export interface StickView {
   x: number
@@ -569,14 +569,12 @@ function drawMortars(
 ): void {
   for (const shell of state.mortars) {
     const p = Math.min(1, shell.age / shell.flight)
-    const gx = shell.sx + (shell.tx - shell.sx) * p
-    const gy = shell.sy + (shell.ty - shell.sy) * p
-    const lift = Math.sin(p * Math.PI) * shell.arc
-    const climb = Math.cos(p * Math.PI) * Math.PI * shell.arc
-    const heading = Math.atan2(shell.ty - shell.sy - climb, shell.tx - shell.sx)
+    const pose = shellPose(shell, p)
+    const groundX = shell.sx + (shell.tx - shell.sx) * p
+    const groundY = shell.sy + (shell.ty - shell.sy) * p
     const ink = shell.storm ? '#ff2d3a' : '#ffffff'
     ctx.save()
-    ctx.translate(X(gx), Y(gy))
+    ctx.translate(X(groundX), Y(groundY))
     ctx.globalAlpha = 0.35
     ctx.fillStyle = '#000'
     ctx.beginPath()
@@ -584,9 +582,9 @@ function drawMortars(
     ctx.fill()
     ctx.restore()
     ctx.save()
-    ctx.translate(X(gx), Y(gy) - lift)
-    ctx.rotate(heading)
-    ctx.fillStyle = '#05060a'
+    ctx.translate(X(pose.x), Y(pose.y))
+    ctx.rotate(pose.heading)
+    ctx.fillStyle = ink
     ctx.strokeStyle = ink
     ctx.lineWidth = 1.6
     ctx.beginPath()
