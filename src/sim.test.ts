@@ -28,6 +28,11 @@ import {
   fieldRadius,
   fieldRipple,
   fieldSlow,
+  droneBlast,
+  droneDamage,
+  droneInterval,
+  droneStorm,
+  droneVolley,
   screenToWorld,
   step,
   worldToScreen,
@@ -826,6 +831,64 @@ describe('orbs', () => {
     assert.ok(state.impacts.length >= 1)
     assert.equal(state.enemies.length, 1)
     assert.equal(state.enemies[0]?.hp, HIT)
+  })
+
+  it('offers Drone, then Bulletstorm at rank 5, and shells only burst when they land', () => {
+    const state = createGame(0, 46)
+    state.spawnCd = 999
+    state.fireCd = 10
+    state.mods.orbiter = 6
+    state.mods.field = 6
+    state.mods.ball = 6
+    for (let n = 0; n < 5; n++) {
+      state.xp = state.xpNeed
+      step(state, input({ aimActive: false }), 1 / 60)
+      const offer = state.offers.find((item) => item.id === 'drone')
+      assert.equal(offer?.title, n === 4 ? 'Bulletstorm' : 'Drone')
+      assert.equal(offer?.overdrive, n === 4)
+      chooseUpgrade(state, state.offers.indexOf(offer!))
+    }
+    assert.equal(state.mods.drone, 5)
+    assert.equal(droneStorm(4), false)
+    assert.equal(droneStorm(5), true)
+    assert.equal(droneVolley(1), 1)
+    assert.ok(droneVolley(4) > droneVolley(1))
+    assert.ok(droneInterval(4) < droneInterval(1))
+    assert.ok(droneInterval(5) < droneInterval(4) * 0.25)
+    assert.ok(droneBlast(4) > droneBlast(1))
+    assert.ok(droneBlast(5) > droneBlast(4))
+    assert.ok(droneDamage(1) > 0)
+
+    const lob = createGame(0, 47)
+    lob.spawnCd = 999
+    lob.fireCd = 10
+    lob.invuln = 5
+    lob.mods.drone = 1
+    lob.droneCd = 0
+    lob.reticleX = 220
+    lob.reticleY = 0
+    lob.enemies.push(enemy({ x: 220, y: 0, hp: 400, radius: 16, speed: 0 }))
+    step(lob, input({ aimActive: false }), 1 / 60)
+    assert.equal(lob.enemies[0]?.hp, 400)
+    assert.ok(lob.mortars.length >= 1)
+    const flight = lob.mortars[0]?.flight ?? 1
+    let elapsed = 1 / 60
+    while (elapsed + 1 / 60 < flight) {
+      step(lob, input({ aimActive: false }), 1 / 60)
+      elapsed += 1 / 60
+    }
+    assert.equal(lob.enemies[0]?.hp, 400)
+    step(lob, input({ aimActive: false }), 0.2)
+    assert.ok((lob.enemies[0]?.hp ?? 400) < 400)
+
+    const storm = createGame(0, 48)
+    storm.spawnCd = 999
+    storm.fireCd = 10
+    storm.invuln = 5
+    storm.mods.drone = 5
+    storm.droneCd = 0
+    for (let n = 0; n < 8; n++) step(storm, input({ aimActive: false }), 1 / 30)
+    assert.ok(storm.mortars.length >= 3)
   })
 
   it('repairs hull when Plate is chosen', () => {

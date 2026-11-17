@@ -23,7 +23,7 @@ export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a', '#ff2d3a'] as const
 
 export type EnemyKind = 0 | 1 | 2 | 3
 export type Phase = 'play' | 'dead' | 'level'
-export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'plate' | 'orbiter' | 'field' | 'ball' | 'cache'
+export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'plate' | 'orbiter' | 'field' | 'ball' | 'drone' | 'cache'
 
 export interface Bullet {
   x: number
@@ -91,6 +91,19 @@ export interface Orb {
   pulse: number
 }
 
+export interface Mortar {
+  sx: number
+  sy: number
+  tx: number
+  ty: number
+  age: number
+  flight: number
+  arc: number
+  radius: number
+  damage: number
+  storm: boolean
+}
+
 export interface Mods {
   pulse: number
   caliber: number
@@ -102,6 +115,7 @@ export interface Mods {
   orbiter: number
   field: number
   ball: number
+  drone: number
 }
 
 export interface Ricochet {
@@ -170,10 +184,14 @@ export interface GameState {
   orbitTime: number
   fieldTick: number
   ballCd: number
+  droneCd: number
+  reticleX: number
+  reticleY: number
   mods: Mods
   offers: Offer[]
   bullets: Bullet[]
   balls: Ricochet[]
+  mortars: Mortar[]
   enemies: Enemy[]
   orbs: Orb[]
   particles: Particle[]
@@ -223,6 +241,7 @@ const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
   orbiter: OVERDRIVE,
   field: OVERDRIVE,
   ball: OVERDRIVE,
+  drone: 5,
 }
 
 export const DISC = {
@@ -239,6 +258,45 @@ export const FIELD = {
   color: '#ffffff',
   nullColor: '#ff2d3a',
 } as const
+
+export const DRONE = {
+  stormRank: 5,
+} as const
+
+export function droneStorm(rank: number): boolean {
+  return rank >= DRONE.stormRank
+}
+
+export function droneVolley(rank: number): number {
+  if (rank <= 0 || droneStorm(rank)) return rank > 0 ? 1 : 0
+  return rank
+}
+
+export function droneInterval(rank: number): number {
+  if (droneStorm(rank)) return 0.055
+  const step = Math.max(0, Math.min(rank, DRONE.stormRank - 1) - 1)
+  return Math.max(0.46, 1.05 - step * 0.18)
+}
+
+export function droneBlast(rank: number): number {
+  if (rank <= 0) return 0
+  if (droneStorm(rank)) return 84
+  return 44 + Math.max(0, rank - 1) * 12
+}
+
+export function droneDamage(rank: number): number {
+  if (droneStorm(rank)) return 16
+  return 28 + Math.max(0, rank - 1) * 6
+}
+
+export function droneAnchor(state: GameState): { x: number; y: number } {
+  const bob = Math.sin(state.time * 3.1) * 7
+  const sway = Math.cos(state.time * 1.3) * 5
+  return {
+    x: state.playerX - 36 * BODY + sway,
+    y: state.playerY - 48 * BODY + bob,
+  }
+}
 
 export function fieldOverdrive(rank: number): boolean {
   return rank >= OVERDRIVE
@@ -282,7 +340,7 @@ export function xpNeedFor(level: number): number {
 }
 
 function freshMods(): Mods {
-  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, plate: 0, orbiter: 0, field: 0, ball: 0 }
+  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, plate: 0, orbiter: 0, field: 0, ball: 0, drone: 0 }
 }
 
 export function createGame(best = 0, seed = 1): GameState {
@@ -320,10 +378,14 @@ export function createGame(best = 0, seed = 1): GameState {
     orbitTime: 0,
     fieldTick: 0,
     ballCd: 0.45,
+    droneCd: 0.6,
+    reticleX: 0,
+    reticleY: 0,
     mods: freshMods(),
     offers: [],
     bullets: [],
     balls: [],
+    mortars: [],
     enemies: [],
     orbs: [],
     particles: [],
@@ -401,6 +463,7 @@ function simulate(state: GameState, input: Input, dt: number, events: StepEvents
   strikeOrbits(state, events)
   launchBalls(state, dt)
   moveBalls(state, input, dt, events)
+  updateDrone(state, dt, events)
   moveOrbs(state, input, dt, events)
   touchPlayer(state, events)
   if (state.phase === 'play' && openLevel(state)) {
@@ -1137,6 +1200,127 @@ function strikeOrbits(state: GameState, events: StepEvents): void {
   }
 }
 
+function updateDrone(state: GameState, dt: number, events: StepEvents): void {
+  const rank = state.mods.drone
+  if (rank <= 0) return
+  const storm = droneStorm(rank)
+  aimReticle(state, dt, storm)
+  for (let i = state.mortars.length - 1; i >= 0; i--) {
+    const shell = state.mortars[i]
+    if (!shell) continue
+    shell.age += dt
+    if (shell.age < shell.flight) continue
+    explodeShell(state, shell, events)
+    state.mortars.splice(i, 1)
+  }
+  state.droneCd -= dt
+  if (state.droneCd > 0 || state.mortars.length > 48) return
+  const anchor = droneAnchor(state)
+  if (storm) {
+    launchShell(state, anchor.x, anchor.y, state.reticleX, state.reticleY, rank, true)
+    state.droneCd = droneInterval(rank)
+    return
+  }
+  const volley = droneVolley(rank)
+  const blast = droneBlast(rank)
+  const ang = Math.atan2(state.reticleY - anchor.y, state.reticleX - anchor.x) + Math.PI / 2
+  for (let n = 0; n < volley; n++) {
+    if (state.mortars.length > 48) break
+    const spread = volley === 1 ? 0 : (n - (volley - 1) / 2) * Math.min(18, blast * 0.2)
+    launchShell(
+      state,
+      anchor.x,
+      anchor.y,
+      state.reticleX + Math.cos(ang) * spread,
+      state.reticleY + Math.sin(ang) * spread,
+      rank,
+      false,
+    )
+  }
+  state.droneCd = droneInterval(rank)
+}
+
+function aimReticle(state: GameState, dt: number, storm: boolean): void {
+  if (storm) {
+    const sweep = state.time * 6.4
+    let tx = state.playerX + Math.cos(sweep) * 210
+    let ty = state.playerY + Math.sin(sweep) * 210
+    let best: Enemy | null = null
+    let bestD = 150 * 150
+    for (const enemy of state.enemies) {
+      const dx = enemy.x - tx
+      const dy = enemy.y - ty
+      const d = dx * dx + dy * dy
+      if (d < bestD) {
+        best = enemy
+        bestD = d
+      }
+    }
+    if (best) {
+      tx = best.x
+      ty = best.y
+    }
+    state.reticleX = tx
+    state.reticleY = ty
+    return
+  }
+  let tx = state.playerX + Math.cos(state.aim) * 200
+  let ty = state.playerY + Math.sin(state.aim) * 200
+  let bestD = 720 * 720
+  for (const enemy of state.enemies) {
+    const dx = enemy.x - state.playerX
+    const dy = enemy.y - state.playerY
+    const d = dx * dx + dy * dy
+    if (d < bestD) {
+      tx = enemy.x
+      ty = enemy.y
+      bestD = d
+    }
+  }
+  const ease = 1 - Math.exp(-9 * dt)
+  state.reticleX += (tx - state.reticleX) * ease
+  state.reticleY += (ty - state.reticleY) * ease
+}
+
+function launchShell(
+  state: GameState,
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+  rank: number,
+  storm: boolean,
+): void {
+  const dist = Math.hypot(tx - sx, ty - sy)
+  state.mortars.push({
+    sx,
+    sy,
+    tx,
+    ty,
+    age: 0,
+    flight: Math.min(0.82, 0.32 + dist / 980),
+    arc: 58 + Math.min(64, dist * 0.1),
+    radius: droneBlast(rank),
+    damage: droneDamage(rank),
+    storm,
+  })
+}
+
+function explodeShell(state: GameState, shell: Mortar, events: StepEvents): void {
+  const color = shell.storm ? '#ff2d3a' : '#ffffff'
+  state.shocks.push({ x: shell.tx, y: shell.ty, life: 0.24, max: 0.24, color })
+  burst(state, shell.tx, shell.ty, color, shell.storm ? 4 : 9, 170)
+  for (let j = state.enemies.length - 1; j >= 0; j--) {
+    const enemy = state.enemies[j]
+    if (!enemy) continue
+    const dx = enemy.x - shell.tx
+    const dy = enemy.y - shell.ty
+    const reach = shell.radius + enemy.radius
+    if (dx * dx + dy * dy > reach * reach) continue
+    damageEnemy(state, enemy, events, shell.damage, color)
+  }
+}
+
 function openLevel(state: GameState): boolean {
   if (state.phase !== 'play' || state.xp < state.xpNeed) return false
   state.xp -= state.xpNeed
@@ -1151,7 +1335,8 @@ function rollOffers(state: GameState): Offer[] {
     (id) => state.mods[id] < UPGRADE_MAX[id],
   )
   const picked: UpgradeId[] = []
-  for (const pinned of ['orbiter', 'field', 'ball'] as const) {
+  for (const pinned of ['orbiter', 'field', 'ball', 'drone'] as const) {
+    if (picked.length >= 3) break
     const index = pool.indexOf(pinned)
     if (index >= 0) picked.push(pool.splice(index, 1)[0] ?? pinned)
   }
@@ -1171,6 +1356,16 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
   const rank = state.mods[id] + 1
   const max = UPGRADE_MAX[id]
   const overdrive = rank >= OVERDRIVE && (id === 'orbiter' || id === 'field' || id === 'ball')
+  if (id === 'drone' && droneStorm(rank)) {
+    return {
+      id,
+      title: 'Bulletstorm',
+      detail: 'The drone turns red and never rests. A sweeping reticle calls down a stream of shells that burst as they land.',
+      rank,
+      max,
+      overdrive: true,
+    }
+  }
   if (id === 'orbiter' && overdrive) {
     return {
       id,
@@ -1212,6 +1407,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
     field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen and pierces through hostiles.' },
+    drone: { title: 'Drone', detail: 'A drone hovers by the core and lobs shells. They only explode inside the reticle.' },
   }
   const detail =
     id === 'orbiter' && rank > 1
@@ -1220,7 +1416,9 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
         ? 'The field widens, burns harder, slows more, and pulses faster.'
         : id === 'ball' && rank > 1
           ? 'More balls. They hit harder and stay out longer.'
-          : copy[id].detail
+          : id === 'drone' && rank > 1
+            ? 'More shells in each volley, a quicker trigger, and a wider blast.'
+            : copy[id].detail
   return { id, title: copy[id].title, detail, rank, max, overdrive: false }
 }
 
@@ -1234,6 +1432,7 @@ function applyUpgrade(state: GameState, id: UpgradeId): void {
   if (id === 'orbiter' && state.mods.orbiter === 1) state.orbitTime = 0.35
   if (id === 'field') state.fieldTick = Math.floor(state.time / FIELD.tick)
   if (id === 'ball') state.ballCd = 0.2
+  if (id === 'drone' && state.mods.drone === 1) state.droneCd = 0.35
   if (id !== 'plate') return
   state.hullMax = Math.min(8, state.hullMax + 1)
   state.hull = Math.min(state.hullMax, state.hull + 1)

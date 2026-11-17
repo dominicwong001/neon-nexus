@@ -1,4 +1,4 @@
-import { BODY, ENEMY_COLOR, TUNING, fieldColor, fieldRadius, fieldRipple, orbitDiscs, type GameState } from './sim.ts'
+import { BODY, ENEMY_COLOR, TUNING, droneAnchor, droneBlast, droneStorm, fieldColor, fieldRadius, fieldRipple, orbitDiscs, type GameState } from './sim.ts'
 
 export interface StickView {
   x: number
@@ -42,15 +42,18 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
 
   drawGrid(ctx, state, width, height)
   drawField(ctx, state)
+  drawReticle(ctx, state, X, Y)
   drawShocks(ctx, state, X, Y)
   drawOrbs(ctx, state, X, Y)
   drawParticles(ctx, state, X, Y)
   drawEnemies(ctx, state, X, Y)
   drawBullets(ctx, state, X, Y)
+  drawMortars(ctx, state, X, Y)
   drawBalls(ctx, state, X, Y)
   drawImpacts(ctx, state, X, Y)
   drawOrbiters(ctx, state, X, Y)
   drawPlayer(ctx, state)
+  drawDrone(ctx, state, X, Y)
   drawFloaters(ctx, state, X, Y)
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -485,6 +488,127 @@ function traceCrescent(ctx: CanvasRenderingContext2D, r: number): void {
   ctx.arc(0, 0, r * 0.98, a0, a1)
   ctx.arc(0, 0, r * 0.6, a1 - 0.06, a0 + 0.1, true)
   ctx.closePath()
+}
+
+function drawReticle(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  X: (x: number) => number,
+  Y: (y: number) => number,
+): void {
+  if (state.mods.drone <= 0) return
+  const storm = droneStorm(state.mods.drone)
+  const ink = storm ? '#ff2d3a' : '#ffffff'
+  const radius = droneBlast(state.mods.drone)
+  ctx.save()
+  ctx.translate(X(state.reticleX), Y(state.reticleY))
+  ctx.rotate(state.time * (storm ? 3.4 : 0.8))
+  ctx.strokeStyle = ink
+  ctx.globalAlpha = storm ? 0.9 : 0.72
+  ctx.lineWidth = 1.6
+  ctx.beginPath()
+  ctx.arc(0, 0, radius, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.lineWidth = 2
+  for (let i = 0; i < 4; i++) {
+    ctx.rotate(Math.PI / 2)
+    ctx.beginPath()
+    ctx.moveTo(radius * 0.62, 0)
+    ctx.lineTo(radius * 0.92, 0)
+    ctx.moveTo(radius + 7, -6)
+    ctx.lineTo(radius + 7, 6)
+    ctx.moveTo(radius + 7, 0)
+    ctx.lineTo(radius + 16, 0)
+    ctx.stroke()
+  }
+  ctx.beginPath()
+  ctx.arc(0, 0, 2.2, 0, Math.PI * 2)
+  ctx.fillStyle = ink
+  ctx.fill()
+  ctx.restore()
+}
+
+function drawMortars(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  X: (x: number) => number,
+  Y: (y: number) => number,
+): void {
+  for (const shell of state.mortars) {
+    const p = Math.min(1, shell.age / shell.flight)
+    const gx = shell.sx + (shell.tx - shell.sx) * p
+    const gy = shell.sy + (shell.ty - shell.sy) * p
+    const lift = Math.sin(p * Math.PI) * shell.arc
+    const ink = shell.storm ? '#ff2d3a' : '#ffffff'
+    ctx.save()
+    ctx.translate(X(gx), Y(gy))
+    ctx.globalAlpha = 0.35
+    ctx.fillStyle = '#000'
+    ctx.beginPath()
+    ctx.ellipse(0, 0, 4.5, 2.2, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    ctx.save()
+    ctx.translate(X(gx), Y(gy) - lift)
+    ctx.fillStyle = '#05060a'
+    ctx.strokeStyle = ink
+    ctx.lineWidth = 1.4
+    ctx.beginPath()
+    ctx.arc(0, 0, shell.storm ? 3.2 : 3.8, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    ctx.restore()
+  }
+}
+
+function drawDrone(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  X: (x: number) => number,
+  Y: (y: number) => number,
+): void {
+  if (state.mods.drone <= 0) return
+  const storm = droneStorm(state.mods.drone)
+  const ink = storm ? '#ff2d3a' : '#ffffff'
+  const pose = droneAnchor(state)
+  const face = Math.atan2(state.reticleY - pose.y, state.reticleX - pose.x)
+  ctx.save()
+  ctx.translate(X(pose.x), Y(pose.y))
+  ctx.rotate(face)
+  if (storm) {
+    const glow = glowFor('#ff2d3a')
+    ctx.save()
+    ctx.globalCompositeOperation = 'lighter'
+    ctx.globalAlpha = 0.55
+    ctx.drawImage(glow, -28, -28, 56, 56)
+    ctx.restore()
+  }
+  ctx.fillStyle = '#05060a'
+  ctx.strokeStyle = ink
+  ctx.lineWidth = 1.7
+  ctx.beginPath()
+  ctx.moveTo(16, 0)
+  ctx.lineTo(6, 7)
+  ctx.lineTo(-12, 8)
+  ctx.lineTo(-16, 0)
+  ctx.lineTo(-12, -8)
+  ctx.lineTo(6, -7)
+  ctx.closePath()
+  ctx.fill()
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(-4, 8)
+  ctx.lineTo(-18, 16)
+  ctx.lineTo(-8, 7)
+  ctx.moveTo(-4, -8)
+  ctx.lineTo(-18, -16)
+  ctx.lineTo(-8, -7)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(4, 0, 2.4, 0, Math.PI * 2)
+  ctx.fillStyle = ink
+  ctx.fill()
+  ctx.restore()
 }
 
 function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
