@@ -654,25 +654,14 @@ function drawDrone(
   }
   const r = 13
   const spin = Math.PI / 6
-  const gap = 2
   ctx.lineJoin = 'miter'
   ctx.miterLimit = 2
-  ctx.lineCap = 'butt'
   ctx.lineWidth = 1.6
   ctx.fillStyle = '#05060a'
   ctx.strokeStyle = ink
   ctx.beginPath()
   polyPath(ctx, 0, 0, r, 6, spin)
   ctx.fill()
-  ctx.beginPath()
-  for (let i = 0; i < 6; i++) {
-    if (i === gap) continue
-    const a0 = spin + (i * Math.PI * 2) / 6
-    const a1 = spin + ((i + 1) * Math.PI * 2) / 6
-    ctx.moveTo(Math.cos(a0) * r, Math.sin(a0) * r)
-    ctx.lineTo(Math.cos(a1) * r, Math.sin(a1) * r)
-  }
-  ctx.stroke()
   const reach = r * Math.cos(Math.PI / 6)
   for (const edge of [0, 4]) {
     const aim = spin + (edge + 0.5) * (Math.PI / 3)
@@ -691,6 +680,9 @@ function drawDrone(
     ctx.fill()
     ctx.stroke()
   }
+  ctx.beginPath()
+  polyPath(ctx, 0, 0, r, 6, spin)
+  ctx.stroke()
   ctx.beginPath()
   ctx.arc(0, 0, 3.8, 0, Math.PI * 2)
   ctx.fillStyle = '#ffffff'
