@@ -159,8 +159,8 @@ function drawShocks(
     const fade = Math.max(0, shock.life / shock.max)
     ctx.strokeStyle = shock.color
     if (shock.square) {
-      const outer = 10 + t * 38
-      const inner = outer - 6
+      const outer = 7 + t * 22
+      const inner = outer - 5
       const bright = Math.min(1, fade * 2.4)
       ctx.globalAlpha = bright
       ctx.lineWidth = 6
@@ -512,15 +512,25 @@ function drawReticle(
 ): void {
   if (state.mods.drone <= 0 || !state.reticleOn) return
   const ink = droneStorm(state.mods.drone) ? '#ff2d3a' : '#ffffff'
+  const marks = state.reticles.length > 0 ? state.reticles : [{ offX: state.reticleOffX, offY: state.reticleOffY, age: 1 }]
+  for (const mark of marks) {
+    const fade = Math.min(1, mark.age / 0.32)
+    ctx.save()
+    ctx.translate(X(state.playerX + mark.offX), Y(state.playerY + mark.offY))
+    ctx.scale(0.72 + fade * 0.28, 0.72 + fade * 0.28)
+    ctx.strokeStyle = ink
+    ctx.fillStyle = ink
+    ctx.lineWidth = 1.5
+    ctx.globalAlpha = 0.92 * fade
+    paintReticle(ctx)
+    ctx.restore()
+  }
+}
+
+function paintReticle(ctx: CanvasRenderingContext2D): void {
   const s = 14
   const gap = 4.5
   const tick = 6
-  ctx.save()
-  ctx.translate(X(state.reticleX), Y(state.reticleY))
-  ctx.strokeStyle = ink
-  ctx.fillStyle = ink
-  ctx.lineWidth = 1.5
-  ctx.globalAlpha = 0.92
   ctx.beginPath()
   ctx.moveTo(-s, -s)
   ctx.lineTo(-gap, -s)
@@ -550,7 +560,6 @@ function drawReticle(
   ctx.beginPath()
   ctx.arc(0, 0, 1.7, 0, Math.PI * 2)
   ctx.fill()
-  ctx.restore()
 }
 
 function drawMortars(
@@ -564,6 +573,8 @@ function drawMortars(
     const gx = shell.sx + (shell.tx - shell.sx) * p
     const gy = shell.sy + (shell.ty - shell.sy) * p
     const lift = Math.sin(p * Math.PI) * shell.arc
+    const climb = Math.cos(p * Math.PI) * Math.PI * shell.arc
+    const heading = Math.atan2(shell.ty - shell.sy - climb, shell.tx - shell.sx)
     const ink = shell.storm ? '#ff2d3a' : '#ffffff'
     ctx.save()
     ctx.translate(X(gx), Y(gy))
@@ -575,12 +586,16 @@ function drawMortars(
     ctx.restore()
     ctx.save()
     ctx.translate(X(gx), Y(gy) - lift)
-    ctx.rotate(Math.atan2(shell.ty - shell.sy, shell.tx - shell.sx))
+    ctx.rotate(heading)
     ctx.fillStyle = '#05060a'
     ctx.strokeStyle = ink
     ctx.lineWidth = 1.3
     ctx.beginPath()
-    ctx.rect(-7, -2.1, 14, 4.2)
+    ctx.rect(-8, -2.2, 12, 4.4)
+    ctx.moveTo(4, -2.5)
+    ctx.lineTo(11, 0)
+    ctx.lineTo(4, 2.5)
+    ctx.closePath()
     ctx.fill()
     ctx.stroke()
     ctx.restore()

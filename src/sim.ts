@@ -105,6 +105,12 @@ export interface Mortar {
   storm: boolean
 }
 
+export interface ReticleMark {
+  offX: number
+  offY: number
+  age: number
+}
+
 export interface Mods {
   pulse: number
   caliber: number
@@ -193,6 +199,7 @@ export interface GameState {
   reticleY: number
   reticleOffX: number
   reticleOffY: number
+  reticles: ReticleMark[]
   mods: Mods
   offers: Offer[]
   bullets: Bullet[]
@@ -399,6 +406,7 @@ export function createGame(best = 0, seed = 1): GameState {
     reticleY: 0,
     reticleOffX: 0,
     reticleOffY: 0,
+    reticles: [],
     mods: freshMods(),
     offers: [],
     bullets: [],
@@ -1232,6 +1240,7 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   if (state.reticleOn) {
     state.reticleX = state.playerX + state.reticleOffX
     state.reticleY = state.playerY + state.reticleOffY
+    for (const mark of state.reticles) mark.age += dt
   }
   if (state.droneReload > 0) {
     state.droneReload = Math.max(0, state.droneReload - dt)
@@ -1248,6 +1257,7 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     state.reticleX = target.x
     state.reticleY = target.y
     state.reticleOn = true
+    state.reticles = spreadReticles(state, state.reticleOffX, state.reticleOffY)
     state.droneBurst = droneBurst(rank)
     state.droneCd = 0
   }
@@ -1255,22 +1265,30 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   state.droneCd -= dt
   if (state.droneCd <= 0 && state.mortars.length < 72) {
     const anchor = droneAnchor(state)
-    const span = 54
-    launchShell(
-      state,
-      anchor.x,
-      anchor.y,
-      state.reticleX + (state.rng() - 0.5) * span * 2,
-      state.reticleY + (state.rng() - 0.5) * span * 2,
-      rank,
-      droneStorm(rank),
-    )
+    const mark = state.reticles[Math.floor(state.rng() * state.reticles.length)]
+    const aimX = state.playerX + (mark?.offX ?? state.reticleOffX) + (state.rng() - 0.5) * 28
+    const aimY = state.playerY + (mark?.offY ?? state.reticleOffY) + (state.rng() - 0.5) * 28
+    launchShell(state, anchor.x, anchor.y, aimX, aimY, rank, droneStorm(rank))
     state.droneCd = droneInterval(rank)
   }
   if (state.droneBurst <= 0) {
     state.reticleOn = false
+    state.reticles = []
     state.droneReload = droneReload(rank)
   }
+}
+
+function spreadReticles(state: GameState, offX: number, offY: number): ReticleMark[] {
+  const span = 210
+  const marks: ReticleMark[] = [{ offX, offY, age: 0 }]
+  for (let i = 0; i < 5; i++) {
+    marks.push({
+      offX: offX + (state.rng() - 0.5) * span * 2,
+      offY: offY + (state.rng() - 0.5) * span * 2,
+      age: 0,
+    })
+  }
+  return marks
 }
 
 function richestDroneArea(state: GameState): { x: number; y: number } | null {
@@ -1326,8 +1344,8 @@ function launchShell(
     tx,
     ty,
     age: 0,
-    flight: Math.min(0.82, 0.32 + dist / 980),
-    arc: 58 + Math.min(64, dist * 0.1),
+    flight: Math.min(2.15, 0.9 + dist / 340),
+    arc: 12 + state.rng() * 26,
     radius: droneBlast(rank),
     damage: droneDamage(rank),
     storm,
