@@ -337,6 +337,12 @@ function followDrone(state: GameState, dt: number): void {
   state.droneFace += Math.max(-maxStep, Math.min(maxStep, diff))
 }
 
+function droneAimed(state: GameState): boolean {
+  const want = Math.atan2(state.reticleY - state.droneY, state.reticleX - state.droneX)
+  const diff = Math.atan2(Math.sin(want - state.droneFace), Math.cos(want - state.droneFace))
+  return Math.abs(diff) < 0.1
+}
+
 export function fieldOverdrive(rank: number): boolean {
   return rank >= OVERDRIVE
 }
@@ -1272,6 +1278,7 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     state.droneBurst = droneBurst(rank)
     state.droneCd = 0
   }
+  if (!droneAimed(state)) return
   state.droneBurst = Math.max(0, state.droneBurst - dt)
   state.droneCd -= dt
   if (state.droneCd <= 0 && state.mortars.length < 72) {

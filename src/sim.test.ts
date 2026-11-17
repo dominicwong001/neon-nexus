@@ -899,7 +899,16 @@ describe('orbs', () => {
     assert.equal(lob.reticleOn, true)
     assert.equal(lob.reticleX, 220)
     assert.equal(lob.enemies[0]?.hp, 800)
+    assert.equal(lob.mortars.length, 0)
+    let turned = 0
+    while (lob.mortars.length < 1 && turned < 90) {
+      step(lob, input({ aimActive: false }), 1 / 60)
+      turned += 1
+    }
     assert.ok(lob.mortars.length >= 1)
+    const aim = Math.atan2(lob.reticleY - lob.droneY, lob.reticleX - lob.droneX)
+    const gap = Math.atan2(Math.sin(aim - lob.droneFace), Math.cos(aim - lob.droneFace))
+    assert.ok(Math.abs(gap) < 0.16)
     const first = lob.mortars[0]
     assert.ok(first)
     const lockedX = lob.reticleX
