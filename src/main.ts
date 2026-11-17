@@ -37,12 +37,11 @@ if (!ctx) throw new Error('Canvas unavailable')
 const audio = new AudioBus()
 const keys = new Set<string>()
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-const coarse =
-  window.matchMedia('(pointer: coarse), (any-pointer: coarse)').matches || navigator.maxTouchPoints > 0
+const coarse = window.matchMedia('(hover: none) and (pointer: coarse)').matches
 
 hintEl.textContent = coarse
-  ? 'Left stick drifts · right stick aims · orbs fill the bar'
-  : 'Keys drift · cursor aims · orbs fill the bar'
+  ? 'Stick drifts · touch aims · orbs fill the bar'
+  : 'WASD drifts · cursor aims · orbs fill the bar'
 
 let state = createGame(loadBest(), seed())
 let fast = localStorage.getItem('neon-fast') === '1'
@@ -54,7 +53,7 @@ let pointerY = 0
 let pointerOn = false
 type TouchStick = { id: number; originX: number; originY: number; x: number; y: number }
 let stick: TouchStick | null = null
-let aimStick: TouchStick | null = null
+let aimTouch: number | null = null
 let shownBest = -1
 let shownHull = -1
 let shownHullMax = -1
@@ -105,8 +104,9 @@ function frame(now: number): void {
   last = now
   if (!document.hidden) {
     const move = readMove()
-    const aimInput = readAim()
-    const aim = screenToWorld(width, height, state.playerX, state.playerY, aimInput.x, aimInput.y)
+    const aimScreenX = pointerOn ? pointerX : width / 2 + 150
+    const aimScreenY = pointerOn ? pointerY : height / 2
+    const aim = screenToWorld(width, height, state.playerX, state.playerY, aimScreenX, aimScreenY)
     const events = step(
       state,
       {
@@ -135,7 +135,6 @@ function frame(now: number): void {
       pointerY,
       pointerOn,
       stick: move.stick,
-      aimStick: aimInput.stick,
       reduceMotion,
       fast,
     })
@@ -157,34 +156,20 @@ function readMove(): { x: number; y: number; stick: StickView | null } {
   return { x, y, stick: analog.view }
 }
 
-function readAim(): { x: number; y: number; stick: StickView | null } {
-  if (!aimStick) {
-    return {
-      x: pointerOn ? pointerX : width / 2 + 150,
-      y: pointerOn ? pointerY : height / 2,
-      stick: null,
-    }
-  }
-  const analog = stickVector(aimStick)
-  if (analog.x !== 0 || analog.y !== 0) {
-    pointerX = width / 2 + analog.x * 220
-    pointerY = height / 2 + analog.y * 220
-    pointerOn = true
-  }
-  return {
-    x: pointerOn ? pointerX : width / 2 + 150,
-    y: pointerOn ? pointerY : height / 2,
-    stick: analog.view,
-  }
-}
-
 function stickVector(active: TouchStick): { x: number; y: number; view: StickView } {
   const max = 58
-  const dx = active.x - active.originX
-  const dy = active.y - active.originY
-  const mag = Math.hypot(dx, dy)
+  let dx = active.x - active.originX
+  let dy = active.y - active.originY
+  let mag = Math.hypot(dx, dy)
   const nx = mag > 0 ? dx / mag : 0
   const ny = mag > 0 ? dy / mag : 0
+  if (mag > max) {
+    active.originX = active.x - nx * max
+    active.originY = active.y - ny * max
+    dx = active.x - active.originX
+    dy = active.y - active.originY
+    mag = max
+  }
   const clamped = Math.min(mag, max)
   return {
     x: mag < 8 ? 0 : nx * (clamped / max),
@@ -335,16 +320,20 @@ function onPointerDown(event: PointerEvent): void {
   if (event.target instanceof Element && event.target.closest('button')) return
   event.preventDefault()
   const left = event.clientX < window.innerWidth * 0.5
-  const born = {
-    id: event.pointerId,
-    originX: event.clientX,
-    originY: event.clientY,
-    x: event.clientX,
-    y: event.clientY,
+  if (left && !stick) {
+    stick = {
+      id: event.pointerId,
+      originX: event.clientX,
+      originY: event.clientY,
+      x: event.clientX,
+      y: event.clientY,
+    }
+    return
   }
-  if (left && !stick) stick = born
-  else if (!aimStick) aimStick = born
-  else if (!stick) stick = born
+  aimTouch = event.pointerId
+  pointerX = event.clientX
+  pointerY = event.clientY
+  pointerOn = true
 }
 
 function onPointerMove(event: PointerEvent): void {
@@ -353,9 +342,10 @@ function onPointerMove(event: PointerEvent): void {
       stick.x = event.clientX
       stick.y = event.clientY
     }
-    if (aimStick && event.pointerId === aimStick.id) {
-      aimStick.x = event.clientX
-      aimStick.y = event.clientY
+    if (event.pointerId === aimTouch) {
+      pointerX = event.clientX
+      pointerY = event.clientY
+      pointerOn = true
     }
     return
   }
@@ -366,7 +356,7 @@ function onPointerMove(event: PointerEvent): void {
 
 function onPointerUp(event: PointerEvent): void {
   if (stick && event.pointerId === stick.id) stick = null
-  if (aimStick && event.pointerId === aimStick.id) aimStick = null
+  if (event.pointerId === aimTouch) aimTouch = null
 }
 
 function resize(): void {

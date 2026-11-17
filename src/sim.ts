@@ -1274,7 +1274,6 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     explodeShell(state, shell, events)
     state.mortars.splice(i, 1)
   }
-  followRocketArea(state, dt)
   if (state.droneReload > 0) {
     state.droneReload = Math.max(0, state.droneReload - dt)
     return
@@ -1285,10 +1284,8 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
       state.reticleOn = false
       return
     }
-    if (!state.reticleOn && state.mortars.length === 0 && state.reticleX === 0 && state.reticleY === 0) {
-      state.reticleX = target.x
-      state.reticleY = target.y
-    }
+    state.reticleX = target.x
+    state.reticleY = target.y
     state.reticleOn = true
     state.droneBurst = droneBurst(rank)
     state.droneCd = 0
@@ -1324,25 +1321,6 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   if (state.droneBurst <= 0) {
     state.reticleOn = false
     state.droneReload = droneReload(rank)
-  }
-}
-
-function followRocketArea(state: GameState, dt: number): void {
-  if (!state.reticleOn && state.reticleX === 0 && state.reticleY === 0) return
-  const target = richestDroneArea(state)
-  if (!target) return
-  const dx = target.x - state.reticleX
-  const dy = target.y - state.reticleY
-  const dist = Math.hypot(dx, dy)
-  if (dist < 0.35) return
-  const step = Math.min(dist, 32 * dt)
-  const mx = (dx / dist) * step
-  const my = (dy / dist) * step
-  state.reticleX += mx
-  state.reticleY += my
-  for (const shell of state.mortars) {
-    shell.tx += mx
-    shell.ty += my
   }
 }
 

@@ -15,7 +15,6 @@ export interface View {
   pointerY: number
   pointerOn: boolean
   stick: StickView | null
-  aimStick: StickView | null
   reduceMotion: boolean
   fast: boolean
 }
@@ -62,8 +61,7 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   if (state.phase === 'play') drawAim(ctx, view, sx, sy)
-  if (view.stick && state.phase === 'play') drawStick(ctx, view.stick, '#ffffff')
-  if (view.aimStick && state.phase === 'play') drawStick(ctx, view.aimStick, '#ffffff')
+  if (view.stick && state.phase === 'play') drawStick(ctx, view.stick)
 }
 
 function drawField(ctx: CanvasRenderingContext2D, state: GameState): void {
@@ -787,19 +785,16 @@ function drawAim(ctx: CanvasRenderingContext2D, view: View, sx: number, sy: numb
   ctx.fillRect(x - 1.1, y - 1.1, 2.2, 2.2)
 }
 
-function drawStick(ctx: CanvasRenderingContext2D, stick: StickView, ink: string): void {
+function drawStick(ctx: CanvasRenderingContext2D, stick: StickView): void {
   ctx.beginPath()
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)'
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)'
   ctx.lineWidth = 2
   ctx.arc(stick.ox, stick.oy, 56, 0, Math.PI * 2)
   ctx.stroke()
   ctx.beginPath()
-  ctx.fillStyle = 'rgba(5, 8, 12, 0.85)'
+  ctx.fillStyle = '#ffffff'
   ctx.arc(stick.x, stick.y, 16, 0, Math.PI * 2)
   ctx.fill()
-  ctx.strokeStyle = ink
-  ctx.lineWidth = 2
-  ctx.stroke()
 }
 
 function strokePoly(
