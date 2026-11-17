@@ -1245,7 +1245,7 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   state.droneCd -= dt
   if (state.droneCd <= 0 && state.mortars.length < 72) {
     const anchor = droneAnchor(state)
-    const span = 78
+    const span = 118
     const aimX = state.reticleX + (state.rng() - 0.5) * span * 2
     const aimY = state.reticleY + (state.rng() - 0.5) * span * 2
     launchShell(state, anchor.x, anchor.y, aimX, aimY, rank, droneStorm(rank))
@@ -1258,15 +1258,16 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
 }
 
 function richestDroneArea(state: GameState): { x: number; y: number } | null {
-  const reach = 740
+  const anchor = droneAnchor(state)
+  const reach = 300
   const zone = 96
   let bestScore = -1
   let bestDist = Infinity
   let bestX = 0
   let bestY = 0
   for (const enemy of state.enemies) {
-    const pdx = enemy.x - state.playerX
-    const pdy = enemy.y - state.playerY
+    const pdx = enemy.x - anchor.x
+    const pdy = enemy.y - anchor.y
     const dist = pdx * pdx + pdy * pdy
     if (dist > reach * reach) continue
     let total = 0
@@ -1303,14 +1304,21 @@ function launchShell(
   rank: number,
   storm: boolean,
 ): void {
-  const dist = Math.hypot(tx - sx, ty - sy)
+  const dx = tx - sx
+  const dy = ty - sy
+  const dist = Math.hypot(dx, dy) || 1
+  const maxRange = 300
+  const scale = dist > maxRange ? maxRange / dist : 1
+  const landX = sx + dx * scale
+  const landY = sy + dy * scale
+  const travel = dist * scale
   state.mortars.push({
     sx,
     sy,
-    tx,
-    ty,
+    tx: landX,
+    ty: landY,
     age: 0,
-    flight: Math.min(1.2, 0.4 + dist / 620),
+    flight: Math.min(1.05, 0.34 + travel / 700),
     arc: shellArc(state),
     radius: droneBlast(rank),
     damage: droneDamage(rank),
@@ -1319,7 +1327,7 @@ function launchShell(
 }
 
 function shellArc(state: GameState): number {
-  const height = 4 + state.rng() * 132
+  const height = 86 + state.rng() * 150
   return (state.rng() < 0.42 ? -1 : 1) * height
 }
 
