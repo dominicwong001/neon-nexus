@@ -923,9 +923,7 @@ describe('orbs', () => {
     assert.equal(first.tx, markX)
     assert.equal(first.ty, markY)
     assert.ok(Math.hypot(first.sx - lob.droneX, first.sy - lob.droneY) > 8)
-    const fired = Math.atan2(first.ty - first.sy, first.tx - first.sx)
-    const off = Math.atan2(Math.sin(fired - lob.droneFace), Math.cos(fired - lob.droneFace))
-    assert.ok(Math.abs(off) > 0.4)
+    assert.ok(Math.hypot(first.tx - lockedX, first.ty - lob.reticleY) < 120)
     if (lob.enemies[0]) {
       lob.enemies[0].x = markX
       lob.enemies[0].y = markY

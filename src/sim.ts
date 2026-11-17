@@ -1311,18 +1311,26 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     const sy = anchor.y + tip.x * s + tip.y * c
     const slots = 5
     const slot = shot % slots
-    const facing = Math.atan2(tip.y, tip.x)
-    const ang = state.droneFace + facing + (slot - (slots - 1) / 2) * 0.22
-    const reach = barrel === 0 ? [125, 230, 165, 265, 195] : [150, 210, 140, 250, 180]
-    const dist = reach[slot] ?? 180
-    const shotX = Math.cos(ang)
-    const shotY = Math.sin(ang)
+    const aimX = state.reticleX - anchor.x
+    const aimY = state.reticleY - anchor.y
+    const aimDist = Math.hypot(aimX, aimY) || 1
+    const fx = aimX / aimDist
+    const fy = aimY / aimDist
+    const side = Math.sign(tip.y || 1)
+    const px = -fy * side
+    const py = fx * side
+    const along = [-28, 34, -6, 46, 16][slot] ?? 0
+    const across = [22, 48, 70, 34, 58][slot] ?? 40
+    const tx = state.reticleX + fx * along + px * across
+    const ty = state.reticleY + fy * along + py * across
+    const shotX = tx - sx
+    const shotY = ty - sy
     launchShell(
       state,
       sx,
       sy,
-      sx + shotX * dist,
-      sy + shotY * dist,
+      tx,
+      ty,
       rank,
       droneStorm(rank),
       blasterArcSign(state.droneFace, tip.y, shotX, shotY),
