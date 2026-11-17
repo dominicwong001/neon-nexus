@@ -1276,7 +1276,7 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   state.droneCd -= dt
   if (state.droneCd <= 0 && state.mortars.length < 72) {
     const anchor = droneAnchor(state)
-    const span = 118
+    const span = 136
     const aimX = state.reticleX + (state.rng() - 0.5) * span * 2
     const aimY = state.reticleY + (state.rng() - 0.5) * span * 2
     launchShell(state, anchor.x, anchor.y, aimX, aimY, rank, droneStorm(rank))
