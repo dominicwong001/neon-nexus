@@ -191,6 +191,8 @@ export interface GameState {
   reticleOn: boolean
   reticleX: number
   reticleY: number
+  reticleOffX: number
+  reticleOffY: number
   mods: Mods
   offers: Offer[]
   bullets: Bullet[]
@@ -395,6 +397,8 @@ export function createGame(best = 0, seed = 1): GameState {
     reticleOn: false,
     reticleX: 0,
     reticleY: 0,
+    reticleOffX: 0,
+    reticleOffY: 0,
     mods: freshMods(),
     offers: [],
     bullets: [],
@@ -1225,16 +1229,22 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     explodeShell(state, shell, events)
     state.mortars.splice(i, 1)
   }
+  if (state.reticleOn) {
+    state.reticleX = state.playerX + state.reticleOffX
+    state.reticleY = state.playerY + state.reticleOffY
+  }
   if (state.droneReload > 0) {
     state.droneReload = Math.max(0, state.droneReload - dt)
     return
   }
   if (state.droneBurst <= 0) {
-    const target = nearestDroneTarget(state)
+    const target = richestDroneArea(state)
     if (!target) {
       state.reticleOn = false
       return
     }
+    state.reticleOffX = target.x - state.playerX
+    state.reticleOffY = target.y - state.playerY
     state.reticleX = target.x
     state.reticleY = target.y
     state.reticleOn = true
@@ -1245,7 +1255,7 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   state.droneCd -= dt
   if (state.droneCd <= 0 && state.mortars.length < 72) {
     const anchor = droneAnchor(state)
-    const span = 22
+    const span = 54
     launchShell(
       state,
       anchor.x,
@@ -1263,19 +1273,41 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   }
 }
 
-function nearestDroneTarget(state: GameState): Enemy | null {
-  let best: Enemy | null = null
-  let bestD = 740 * 740
+function richestDroneArea(state: GameState): { x: number; y: number } | null {
+  const reach = 740
+  const zone = 96
+  let bestScore = -1
+  let bestDist = Infinity
+  let bestX = 0
+  let bestY = 0
   for (const enemy of state.enemies) {
-    const dx = enemy.x - state.playerX
-    const dy = enemy.y - state.playerY
-    const d = dx * dx + dy * dy
-    if (d < bestD) {
-      best = enemy
-      bestD = d
+    const pdx = enemy.x - state.playerX
+    const pdy = enemy.y - state.playerY
+    const dist = pdx * pdx + pdy * pdy
+    if (dist > reach * reach) continue
+    let total = 0
+    let sx = 0
+    let sy = 0
+    let count = 0
+    for (const other of state.enemies) {
+      const dx = other.x - enemy.x
+      const dy = other.y - enemy.y
+      if (dx * dx + dy * dy > zone * zone) continue
+      total += Math.max(0, other.hp)
+      sx += other.x
+      sy += other.y
+      count += 1
+    }
+    if (count === 0) continue
+    if (total > bestScore || (total === bestScore && dist < bestDist)) {
+      bestScore = total
+      bestDist = dist
+      bestX = sx / count
+      bestY = sy / count
     }
   }
-  return best
+  if (bestScore < 0) return null
+  return { x: bestX, y: bestY }
 }
 
 function launchShell(

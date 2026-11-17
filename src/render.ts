@@ -159,12 +159,15 @@ function drawShocks(
     const fade = Math.max(0, shock.life / shock.max)
     ctx.strokeStyle = shock.color
     if (shock.square) {
-      const outer = 8 + t * 34
-      const inner = 4 + t * 20
-      ctx.globalAlpha = fade
-      ctx.lineWidth = 4.2
+      const outer = 10 + t * 38
+      const inner = outer - 6
+      const bright = Math.min(1, fade * 2.4)
+      ctx.globalAlpha = bright
+      ctx.lineWidth = 6
       ctx.strokeRect(X(shock.x) - outer, Y(shock.y) - outer, outer * 2, outer * 2)
-      ctx.lineWidth = 1.15
+      ctx.lineWidth = 6
+      ctx.strokeRect(X(shock.x) - outer, Y(shock.y) - outer, outer * 2, outer * 2)
+      ctx.lineWidth = 1.7
       ctx.strokeRect(X(shock.x) - inner, Y(shock.y) - inner, inner * 2, inner * 2)
       continue
     }

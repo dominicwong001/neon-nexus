@@ -913,6 +913,25 @@ describe('orbs', () => {
     assert.equal(lob.enemies[0]?.hp, 800)
     step(lob, input({ aimActive: false }), 0.2)
     assert.ok((lob.enemies[0]?.hp ?? 800) < 800)
+    const followed = lob.reticleX
+    lob.playerX += 36
+    step(lob, input({ aimActive: false }), 1 / 60)
+    assert.ok(Math.abs(lob.reticleX - (followed + 36)) < 1)
+
+    const rich = createGame(0, 49)
+    rich.spawnCd = 999
+    rich.fireCd = 10
+    rich.invuln = 5
+    rich.mods.drone = 1
+    rich.droneReload = 0
+    rich.enemies.push(
+      enemy({ x: 260, y: 0, hp: 400, radius: 16, speed: 0 }),
+      enemy({ x: -180, y: 0, hp: 180, radius: 16, speed: 0 }),
+      enemy({ x: -150, y: 24, hp: 180, radius: 16, speed: 0 }),
+      enemy({ x: -200, y: -20, hp: 180, radius: 16, speed: 0 }),
+    )
+    step(rich, input({ aimActive: false }), 1 / 60)
+    assert.ok(rich.reticleX < 0)
 
     const storm = createGame(0, 48)
     storm.spawnCd = 999
