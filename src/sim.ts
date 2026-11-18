@@ -1200,7 +1200,7 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
       const reach = ball.radius + enemy.radius
       if (dx * dx + dy * dy > reach * reach) continue
       ball.touched.push({ enemy, cd: 0.15 })
-      if (enemy.hp >= 1000 && deflectOffEnemy(ball, enemy)) ball.flex = 1
+      if (thickHull(enemy) && deflectOffEnemy(ball, enemy)) ball.flex = 1
       shoveFromBall(enemy, ball)
       damageEnemy(state, enemy, events, ball.damage, ball.quantum ? '#ff2d3a' : '#8dff4a')
       enemy.hitCd = 0.14
@@ -1239,6 +1239,10 @@ function splitBall(state: GameState, ball: Ricochet): boolean {
     })
   }
   return true
+}
+
+function thickHull(enemy: Enemy): boolean {
+  return enemy.kind === 3 || enemy.hp >= 1000
 }
 
 function deflectOffEnemy(ball: Ricochet, enemy: Enemy): boolean {

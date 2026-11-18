@@ -688,6 +688,35 @@ describe('orbs', () => {
     assert.ok(incoming.vx < 0)
     assert.ok(brute.hp < 1000)
     assert.ok(incoming.x < brute.x)
+
+    const chipped = createGame(0, 11)
+    chipped.spawnCd = 999
+    chipped.fireCd = 10
+    chipped.invuln = 5
+    const wounded = enemy({ x: 36, y: 0, hp: 640, radius: 22, kind: 3, speed: 0 })
+    chipped.enemies.push(wounded)
+    const again = {
+      x: 0,
+      y: 0,
+      vx: 240,
+      vy: 0,
+      life: 2,
+      max: 2,
+      radius: 12,
+      damage: 20,
+      echo: false,
+      quantum: false,
+      knock: 2.2,
+      spin: 0,
+      flex: 0,
+      flexAngle: 0,
+      touched: [],
+    }
+    chipped.balls.push(again)
+    step(chipped, input({ aimActive: false }), 1 / 60)
+    assert.ok(again.vx < 0)
+    assert.ok(again.x < wounded.x)
+    assert.ok(wounded.hp < 640)
   })
 
   it('burns and slows inside a wider Force Field ring', () => {
