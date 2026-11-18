@@ -560,12 +560,14 @@ describe('orbs', () => {
       touched: [],
     })
     const first = enemy({ x: 40, y: 0, hp: 200, radius: 18, kind: 1 })
-    const second = enemy({ x: 110, y: 0, hp: 200, radius: 18, kind: 1 })
-    pierce.enemies.push(first, second)
+    pierce.enemies.push(first)
+    const pebble = pierce.balls[0]
+    assert.ok(pebble)
     run(pierce, input({ aimActive: false }), 0.3)
     assert.ok(first.hp < 200)
-    assert.ok(second.hp < 200)
-    assert.equal(first.hp, second.hp)
+    assert.ok(pebble.vx < 0)
+    assert.ok(pebble.x < first.x)
+    assert.ok(pebble.flex > 0)
     assert.ok(pierce.balls.some((ball) => !ball.echo))
 
     const stuck = createGame(0, 7)
@@ -649,6 +651,7 @@ describe('orbs', () => {
     const echoes = split.balls.filter((ball) => ball.echo)
     assert.equal(split.balls.filter((ball) => !ball.echo).length, 0)
     assert.equal(echoes.length, 2)
+    assert.ok(echoes.every((ball) => ball.vx < 0))
     assert.equal(echoes[0]?.damage, Math.round(40 * 0.45))
     assert.equal(echoes[0]?.max, 2)
     assert.equal(echoes[0]?.life, 2)

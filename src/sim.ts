@@ -1199,7 +1199,7 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
       const reach = ball.radius + enemy.radius
       if (dx * dx + dy * dy > reach * reach) continue
       ball.touched.push({ enemy, cd: 0.15 })
-      if ((enemy.kind === 3 || enemy.hp >= 1000) && deflectOffEnemy(ball, enemy)) ball.flex = 1
+      if (deflectOffEnemy(ball, enemy)) ball.flex = 1
       shoveFromBall(enemy, ball)
       damageEnemy(state, enemy, events, ball.damage, ball.quantum ? '#ff2d3a' : '#8dff4a')
       enemy.hitCd = 0.14
@@ -1241,16 +1241,17 @@ function splitBall(state: GameState, ball: Ricochet): boolean {
 }
 
 function deflectOffEnemy(ball: Ricochet, enemy: Enemy): boolean {
+  const speed = Math.hypot(ball.vx, ball.vy)
+  if (speed < 1) return false
   let dx = ball.x - enemy.x
   let dy = ball.y - enemy.y
-  let dist = Math.hypot(dx, dy)
-  if (dist < 0.01) {
-    dx = ball.vx || 1
-    dy = ball.vy
-    dist = Math.hypot(dx, dy) || 1
+  const dist = Math.hypot(dx, dy)
+  let nx = dist > 0.01 ? dx / dist : -ball.vx / speed
+  let ny = dist > 0.01 ? dy / dist : -ball.vy / speed
+  if (ball.vx * nx + ball.vy * ny > 0) {
+    nx = -ball.vx / speed
+    ny = -ball.vy / speed
   }
-  const nx = dx / dist
-  const ny = dy / dist
   const reach = ball.radius + enemy.radius
   ball.x = enemy.x + nx * reach
   ball.y = enemy.y + ny * reach
@@ -1258,10 +1259,12 @@ function deflectOffEnemy(ball: Ricochet, enemy: Enemy): boolean {
   if (toward < 0) {
     ball.vx -= 2 * toward * nx
     ball.vy -= 2 * toward * ny
-    ball.flexAngle = Math.atan2(ny, nx)
-    return true
+  } else {
+    ball.vx = nx * speed
+    ball.vy = ny * speed
   }
-  return false
+  ball.flexAngle = Math.atan2(ny, nx)
+  return true
 }
 
 function shoveFromBall(enemy: Enemy, ball: Ricochet): void {
@@ -1759,7 +1762,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     return {
       id,
       title: 'Quantum Core',
-      detail: 'Hyper-fast red balls. A hit replaces each one with two smaller balls.',
+      detail: 'Hyper-fast red balls that bounce off every hostile. A hit replaces each one with two smaller balls.',
       rank,
       max,
       overdrive: true,
@@ -1785,7 +1788,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     plate: { title: 'Plate', detail: 'Repair one hull segment and add a spare.' },
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
     field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
-    ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen and pierces through hostiles.' },
+    ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen and bounces off every hostile.' },
     drone: { title: 'Drone', detail: 'A drone fires a rocket barrage. Each rocket plants a reticle where it will land, then reloads.' },
   }
   const detail =
