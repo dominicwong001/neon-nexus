@@ -691,7 +691,7 @@ function drawDrone(
   ctx.stroke()
   ctx.beginPath()
   ctx.arc(0, 0, 3.8, 0, Math.PI * 2)
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = storm ? '#ff2d3a' : '#ffffff'
   ctx.fill()
   ctx.restore()
 }
