@@ -993,6 +993,28 @@ describe('orbs', () => {
     assert.equal(round.droneReload, 0)
     assert.ok(round.droneBurst > 0.2)
 
+    const slide = createGame(0, 55)
+    slide.spawnCd = 999
+    slide.fireCd = 10
+    slide.invuln = 5
+    slide.mods.drone = 1
+    slide.droneReload = 0
+    slide.droneBurst = 1
+    slide.droneCd = 0
+    slide.reticleOn = true
+    slide.reticleX = slide.droneX + 200
+    slide.reticleY = slide.droneY
+    slide.droneFace = 0
+    slide.droneVx = 0
+    slide.droneVy = 240
+    step(slide, input({ aimActive: false, moveY: -1 }), 1 / 60)
+    const shot = slide.mortars[0]
+    assert.ok(shot)
+    const leave = shellPose(shot, 0.02)
+    const along = leave.vx * shot.bx + leave.vy * shot.by
+    const across = Math.abs(leave.vx * -shot.by + leave.vy * shot.bx)
+    assert.ok(along > across)
+
     const storm = createGame(0, 48)
     storm.spawnCd = 999
     storm.fireCd = 10

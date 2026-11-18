@@ -103,6 +103,10 @@ export interface Mortar {
   radius: number
   damage: number
   storm: boolean
+  bx: number
+  by: number
+  dvx: number
+  dvy: number
 }
 
 export interface Mods {
@@ -191,6 +195,8 @@ export interface GameState {
   droneX: number
   droneY: number
   droneLag: number
+  droneVx: number
+  droneVy: number
   droneFace: number
   droneBarrel: number
   droneAreaCd: number
@@ -334,6 +340,8 @@ function droneSlot(state: GameState): { x: number; y: number } {
 
 function followDrone(state: GameState, dt: number): void {
   const slot = droneSlot(state)
+  const prevX = state.droneX
+  const prevY = state.droneY
   const speed = Math.hypot(state.playerVx, state.playerVy)
   const moving = speed > 36
   if (moving) state.droneLag = Math.min(0.2, state.droneLag + dt)
@@ -343,6 +351,13 @@ function followDrone(state: GameState, dt: number): void {
     const k = 1 - Math.exp(-rate * dt)
     state.droneX += (slot.x - state.droneX) * k
     state.droneY += (slot.y - state.droneY) * k
+  }
+  if (dt > 1e-5) {
+    const vx = (state.droneX - prevX) / dt
+    const vy = (state.droneY - prevY) / dt
+    const k = 1 - Math.exp(-12 * dt)
+    state.droneVx += (vx - state.droneVx) * k
+    state.droneVy += (vy - state.droneVy) * k
   }
   const want = state.reticleOn
     ? Math.atan2(state.reticleY - state.droneY, state.reticleX - state.droneX)
@@ -444,6 +459,8 @@ export function createGame(best = 0, seed = 1): GameState {
     droneX: -52 * BODY + 5,
     droneY: -64 * BODY,
     droneLag: 0,
+    droneVx: 0,
+    droneVy: 0,
     droneFace: 0,
     droneBarrel: 0,
     droneAreaCd: 0,
@@ -1310,6 +1327,9 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     const s = Math.sin(state.droneFace)
     const sx = anchor.x + tip.x * c - tip.y * s
     const sy = anchor.y + tip.x * s + tip.y * c
+    const barrelLen = Math.hypot(tip.x, tip.y) || 1
+    const bx = (tip.x * c - tip.y * s) / barrelLen
+    const by = (tip.x * s + tip.y * c) / barrelLen
     const spot = randomMark(state, sx, sy)
     launchShell(
       state,
@@ -1321,6 +1341,8 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
       droneStorm(rank),
       blasterArcSign(state.droneFace, tip.y, spot.x - sx, spot.y - sy),
       spot.fromCenter,
+      bx,
+      by,
     )
     state.droneCd = droneInterval(rank)
   }
@@ -1456,6 +1478,8 @@ function launchShell(
   storm: boolean,
   arcSign: number,
   fromCenter: number,
+  bx: number,
+  by: number,
 ): void {
   const dx = tx - sx
   const dy = ty - sy
@@ -1476,6 +1500,10 @@ function launchShell(
     radius: droneBlast(rank),
     damage: droneDamage(rank),
     storm,
+    bx,
+    by,
+    dvx: state.droneVx,
+    dvy: state.droneVy,
   })
 }
 
@@ -1526,20 +1554,25 @@ function shellArc(state: GameState, travel: number, sign: number, fromCenter: nu
 
 export function shellPose(shell: Mortar, p: number): { x: number; y: number; vx: number; vy: number; heading: number } {
   const t = Math.min(1, Math.max(0, p))
+  const u = 1 - t
   const dx = shell.tx - shell.sx
   const dy = shell.ty - shell.sy
+  const dist = Math.hypot(dx, dy) || 1
+  const launch = Math.min(46, dist * 0.2)
+  const p1x = shell.sx + shell.bx * launch + shell.dvx * shell.flight / 3
+  const p1y = shell.sy + shell.by * launch + shell.dvy * shell.flight / 3
   const perp = arcPerp(dx, dy)
-  const bulge = Math.sin(t * Math.PI) * shell.arc
-  const climb = Math.cos(t * Math.PI) * Math.PI * shell.arc
-  const vx = dx + perp.x * climb
-  const vy = dy + perp.y * climb
-  return {
-    x: shell.sx + dx * t + perp.x * bulge,
-    y: shell.sy + dy * t + perp.y * bulge,
-    vx,
-    vy,
-    heading: Math.atan2(vy, vx),
-  }
+  const pull = Math.min(dist * 0.32, 64)
+  const p2x = shell.tx - (dx / dist) * pull + perp.x * shell.arc
+  const p2y = shell.ty - (dy / dist) * pull + perp.y * shell.arc
+  const x = u * u * u * shell.sx + 3 * u * u * t * p1x + 3 * u * t * t * p2x + t * t * t * shell.tx
+  const y = u * u * u * shell.sy + 3 * u * u * t * p1y + 3 * u * t * t * p2y + t * t * t * shell.ty
+  const tx = 3 * u * u * (p1x - shell.sx) + 6 * u * t * (p2x - p1x) + 3 * t * t * (shell.tx - p2x)
+  const ty = 3 * u * u * (p1y - shell.sy) + 6 * u * t * (p2y - p1y) + 3 * t * t * (shell.ty - p2y)
+  const fade = u * u
+  const hvx = tx - shell.dvx * shell.flight * fade
+  const hvy = ty - shell.dvy * shell.flight * fade
+  return { x, y, vx: hvx, vy: hvy, heading: Math.atan2(hvy, hvx) }
 }
 
 function arcPerp(dx: number, dy: number): { x: number; y: number } {
