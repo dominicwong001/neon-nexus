@@ -1359,7 +1359,8 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
 
 function hopStormArea(state: GameState, force: boolean): void {
   if (!force && state.reticleOn) return
-  const live = richestDroneArea(state)
+  const areas = droneAreas(state)
+  const live = nextStormArea(state, areas, force)
   if (!live) {
     state.droneAreaCd = 1
     return
@@ -1371,6 +1372,20 @@ function hopStormArea(state: GameState, force: boolean): void {
   state.reticleVy = live.vy
   state.reticleOn = true
   state.droneAreaCd = 1
+}
+
+function nextStormArea(
+  state: GameState,
+  areas: { x: number; y: number; vx: number; vy: number }[],
+  force: boolean,
+): { x: number; y: number; vx: number; vy: number } | null {
+  const first = areas[0]
+  if (!first) return null
+  if (!force || !state.reticleOn) return first
+  const elsewhere = areas.find((area) => Math.hypot(area.x - state.reticleX, area.y - state.reticleY) > 120)
+  if (elsewhere) return elsewhere
+  const ang = Math.atan2(state.reticleY - first.y, state.reticleX - first.x) + 2.1
+  return { x: first.x + Math.cos(ang) * 110, y: first.y + Math.sin(ang) * 110, vx: first.vx, vy: first.vy }
 }
 
 function trackLiveAim(state: GameState): boolean {
@@ -1404,20 +1419,18 @@ function holdOffPlayer(state: GameState, x: number, y: number, fromX: number, fr
 }
 
 function richestDroneArea(state: GameState): { x: number; y: number; vx: number; vy: number } | null {
+  return droneAreas(state)[0] ?? null
+}
+
+function droneAreas(state: GameState): { x: number; y: number; vx: number; vy: number; score: number }[] {
   const anchor = droneAnchor(state)
   const reach = 360
   const zone = 96
-  let bestScore = -1
-  let bestDist = Infinity
-  let bestX = 0
-  let bestY = 0
-  let bestVx = 0
-  let bestVy = 0
+  const found: { x: number; y: number; vx: number; vy: number; score: number }[] = []
   for (const enemy of state.enemies) {
     const pdx = enemy.x - anchor.x
     const pdy = enemy.y - anchor.y
-    const dist = pdx * pdx + pdy * pdy
-    if (dist > reach * reach) continue
+    if (pdx * pdx + pdy * pdy > reach * reach) continue
     let total = 0
     let sx = 0
     let sy = 0
@@ -1436,17 +1449,27 @@ function richestDroneArea(state: GameState): { x: number; y: number; vx: number;
       count += 1
     }
     if (count === 0) continue
-    if (total > bestScore || (total === bestScore && dist < bestDist)) {
-      bestScore = total
-      bestDist = dist
-      bestX = sx / count
-      bestY = sy / count
-      bestVx = svx / count
-      bestVy = svy / count
+    const x = sx / count
+    const y = sy / count
+    const dup = found.find((area) => {
+      const dx = area.x - x
+      const dy = area.y - y
+      return dx * dx + dy * dy < zone * zone
+    })
+    if (dup) {
+      if (total > dup.score) {
+        dup.x = x
+        dup.y = y
+        dup.vx = svx / count
+        dup.vy = svy / count
+        dup.score = total
+      }
+      continue
     }
+    found.push({ x, y, vx: svx / count, vy: svy / count, score: total })
   }
-  if (bestScore < 0) return null
-  return { x: bestX, y: bestY, vx: bestVx, vy: bestVy }
+  found.sort((a, b) => b.score - a.score)
+  return found
 }
 
 function launchShell(
