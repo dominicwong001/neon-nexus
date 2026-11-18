@@ -151,6 +151,22 @@ export interface Offer {
   overdrive: boolean
 }
 
+export interface DamageBin {
+  t: number
+  stream: number
+  orbiter: number
+  field: number
+  ball: number
+  drone: number
+}
+
+export interface UpgradeMark {
+  t: number
+  source: DamageSource
+  name: string
+  rank: number
+}
+
 export interface Floater {
   x: number
   y: number
@@ -211,6 +227,8 @@ export interface GameState {
   reticleVy: number
   mods: Mods
   dealt: Record<DamageSource, number>
+  damageBins: DamageBin[]
+  upgradeMarks: UpgradeMark[]
   offers: Offer[]
   bullets: Bullet[]
   balls: Ricochet[]
@@ -478,6 +496,8 @@ export function createGame(best = 0, seed = 1): GameState {
     reticleVy: 0,
     mods: freshMods(),
     dealt: { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0 },
+    damageBins: [],
+    upgradeMarks: [],
     offers: [],
     bullets: [],
     balls: [],
@@ -698,6 +718,35 @@ export function damageReport(state: GameState): { name: string; amount: number }
   return rows
 }
 
+export function sourceLabel(source: DamageSource, rank: number): string {
+  if (source === 'stream') return 'Stream'
+  if (source === 'orbiter') return rank >= OVERDRIVE ? "Guardian's Halo" : 'Sentinel'
+  if (source === 'field') return rank >= OVERDRIVE ? 'Null Zone' : 'Force Field'
+  if (source === 'ball') return rank >= OVERDRIVE ? 'Quantum Core' : 'Bouncy Ball'
+  return droneStorm(rank) ? 'Bulletstorm' : 'Drone'
+}
+
+function noteDamage(state: GameState, source: DamageSource, amount: number): void {
+  if (amount <= 0) return
+  const slot = Math.floor(state.time / 0.5) * 0.5
+  let bin = state.damageBins[state.damageBins.length - 1]
+  if (!bin || bin.t !== slot) {
+    bin = { t: slot, stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0 }
+    state.damageBins.push(bin)
+  }
+  bin[source] += amount
+}
+
+function upgradeSource(id: UpgradeId, rank: number): { source: DamageSource; name: string } | null {
+  if (id === 'pulse') return { source: 'stream', name: 'Pulse' }
+  if (id === 'caliber') return { source: 'stream', name: 'Caliber' }
+  if (id === 'fork') return { source: 'stream', name: 'Fork' }
+  if (id === 'orbiter' || id === 'field' || id === 'ball' || id === 'drone') {
+    return { source: id, name: sourceLabel(id, rank) }
+  }
+  return null
+}
+
 export function orbiterDamage(rank: number): number {
   const dealt = 46 + Math.max(0, rank - 1) * 11
   return rank >= OVERDRIVE ? dealt + 18 : dealt
@@ -775,7 +824,9 @@ function damageEnemy(
   enemy.hitCd = TUNING.hitCooldown
   enemy.flash = 0.08
   const before = Math.max(0, enemy.hp)
-  state.dealt[source] += Math.min(dealt, before)
+  const landed = Math.min(dealt, before)
+  state.dealt[source] += landed
+  noteDamage(state, source, landed)
   enemy.hp -= dealt
   pushFloater(state, enemy.x, enemy.y - enemy.radius * 0.35, String(dealt), color, -68)
   burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 6, 140)
@@ -1840,6 +1891,8 @@ function applyUpgrade(state: GameState, id: UpgradeId): void {
     return
   }
   state.mods[id] += 1
+  const mark = upgradeSource(id, state.mods[id])
+  if (mark) state.upgradeMarks.push({ t: state.time, source: mark.source, name: mark.name, rank: state.mods[id] })
   if (id === 'orbiter' && state.mods.orbiter === 1) state.orbitTime = 0.35
   if (id === 'field') state.fieldTick = Math.floor(state.time / FIELD.tick)
   if (id === 'ball') state.ballCd = 0.2

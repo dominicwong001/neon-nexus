@@ -53,8 +53,25 @@
         <h1>Core lost</h1>
         <p id="final" class="final"></p>
         <ul id="damage" class="damage" aria-label="Damage dealt"></ul>
-        <button id="again" type="button">Reform</button>
+        <div class="end-actions">
+          <button id="advanced" type="button">Advanced</button>
+          <button id="again" type="button">Reform</button>
+        </div>
         <p class="sub">Press R</p>
+      </div>
+    </div>
+    <div id="timeline" class="timeline" hidden>
+      <div class="timeline-window" role="dialog" aria-modal="true" aria-labelledby="timeline-title">
+        <header class="timeline-head">
+          <div>
+            <p class="label">Advanced</p>
+            <h2 id="timeline-title">Damage timeline</h2>
+          </div>
+          <button id="timeline-close" type="button">Close</button>
+        </header>
+        <p class="timeline-note">Each line is one weapon. Diamonds mark an upgrade. The dashed line is total damage.</p>
+        <canvas id="timeline-chart" aria-label="Damage dealt over time"></canvas>
+        <ul id="timeline-legend" class="timeline-legend"></ul>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

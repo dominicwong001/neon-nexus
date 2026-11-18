@@ -371,6 +371,119 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
+.end-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.end-actions button {
+  flex: 1 1 7.5rem;
+}
+
+.timeline {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.62);
+  overflow: auto;
+}
+
+.timeline[hidden] {
+  display: none;
+}
+
+.timeline-window {
+  width: min(94vw, 880px);
+  padding: 1rem 1rem 1.15rem;
+  background: rgba(0, 0, 0, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 0 32px rgba(255, 255, 255, 0.18),
+    inset 0 0 24px rgba(255, 255, 255, 0.04);
+}
+
+.timeline-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  text-align: left;
+}
+
+.timeline-head h2 {
+  margin: 0.15rem 0 0;
+  font-size: clamp(1.05rem, 3vw, 1.35rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.timeline-note {
+  margin: 0.75rem 0 0;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+#timeline-chart {
+  display: block;
+  width: 100%;
+  height: min(42vh, 300px);
+  margin-top: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.timeline-legend {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.45rem 0.9rem;
+  margin: 0.85rem 0 0;
+  padding: 0;
+}
+
+.timeline-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.timeline-legend i {
+  width: 1.15rem;
+  height: 3px;
+  flex: none;
+}
+
+.timeline-legend .swatch-total {
+  background: repeating-linear-gradient(90deg, #9dffb0 0 6px, transparent 6px 10px);
+}
+
+.timeline-legend span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-legend b {
+  margin-left: auto;
+  color: #fff;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .card button {
   min-width: 9rem;
   min-height: 44px;

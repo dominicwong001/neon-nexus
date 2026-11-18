@@ -1372,6 +1372,47 @@ describe('orbs', () => {
     assert.equal(state.hull, 4)
     assert.equal(state.mods.plate, 1)
     assert.equal(state.phase, 'play')
+    assert.equal(state.upgradeMarks.length, 0)
+  })
+
+  it('bins damage by time and marks weapon upgrades', () => {
+    const state = createGame(0, 71)
+    state.spawnCd = 999
+    state.fireCd = 0
+    state.invuln = 5
+    state.time = 4.2
+    state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, hp: 500, radius: 22 }))
+    step(state, input(), 1 / 60)
+    assert.ok(state.damageBins.length >= 1)
+    assert.equal(state.damageBins[0]?.t, 4)
+    const binned = state.damageBins.reduce(
+      (sum, bin) => sum + bin.stream + bin.orbiter + bin.field + bin.ball + bin.drone,
+      0,
+    )
+    const dealt = state.dealt.stream + state.dealt.orbiter + state.dealt.field + state.dealt.ball + state.dealt.drone
+    assert.equal(binned, dealt)
+    assert.ok(dealt > 0)
+
+    state.phase = 'level'
+    state.time = 12
+    state.offers = [{ id: 'drone', title: 'Drone', detail: '', rank: 1, max: 5, overdrive: false }]
+    chooseUpgrade(state, 0)
+    assert.deepEqual(state.upgradeMarks[0], { t: 12, source: 'drone', name: 'Drone', rank: 1 })
+
+    state.phase = 'level'
+    state.time = 40
+    state.mods.drone = 4
+    state.offers = [{ id: 'drone', title: 'Drone', detail: '', rank: 5, max: 5, overdrive: false }]
+    chooseUpgrade(state, 0)
+    assert.equal(state.upgradeMarks[1]?.name, 'Bulletstorm')
+    assert.equal(state.upgradeMarks[1]?.rank, 5)
+    assert.equal(state.upgradeMarks[1]?.t, 40)
+
+    state.phase = 'level'
+    state.offers = [{ id: 'pulse', title: 'Pulse', detail: '', rank: 1, max: 5, overdrive: false }]
+    chooseUpgrade(state, 0)
+    assert.equal(state.upgradeMarks[2]?.source, 'stream')
+    assert.equal(state.upgradeMarks[2]?.name, 'Pulse')
   })
 })
 

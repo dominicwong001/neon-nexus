@@ -9,7 +9,9 @@ import {
   createGame,
   damageReport,
   screenToWorld,
+  sourceLabel,
   step,
+  type DamageSource,
   type GameState,
 } from './sim.ts'
 
@@ -23,6 +25,11 @@ const overlay = must<HTMLElement>('#overlay')
 const finalEl = must<HTMLElement>('#final')
 const damageEl = must<HTMLElement>('#damage')
 const againBtn = must<HTMLButtonElement>('#again')
+const advancedBtn = must<HTMLButtonElement>('#advanced')
+const timelineEl = must<HTMLElement>('#timeline')
+const timelineClose = must<HTMLButtonElement>('#timeline-close')
+const timelineChart = must<HTMLCanvasElement>('#timeline-chart')
+const timelineLegend = must<HTMLElement>('#timeline-legend')
 const xpEl = must<HTMLElement>('#xp')
 const xpFill = must<HTMLElement>('#xp-fill')
 const xpLabel = must<HTMLElement>('#xp-label')
@@ -88,6 +95,11 @@ document.addEventListener('visibilitychange', () => {
   else audio.resume()
 })
 againBtn.addEventListener('click', reform)
+advancedBtn.addEventListener('click', openTimeline)
+timelineClose.addEventListener('click', closeTimeline)
+timelineEl.addEventListener('click', (event) => {
+  if (event.target === timelineEl) closeTimeline()
+})
 muteBtn.addEventListener('click', () => {
   audio.toggle()
   syncAudioButton()
@@ -293,7 +305,210 @@ function pickUpgrade(index: number): void {
   shownHull = -1
 }
 
+const SERIES: { source: DamageSource; color: string }[] = [
+  { source: 'stream', color: '#ffffff' },
+  { source: 'orbiter', color: '#7ecbff' },
+  { source: 'field', color: '#c9a6ff' },
+  { source: 'ball', color: '#ffd166' },
+  { source: 'drone', color: '#ff5d73' },
+]
+const TOTAL_COLOR = '#9dffb0'
+
+function openTimeline(): void {
+  if (state.phase !== 'dead') return
+  timelineEl.hidden = false
+  paintTimeline(state)
+  requestAnimationFrame(() => {
+    if (!timelineEl.hidden) paintTimeline(state)
+  })
+  timelineClose.focus()
+}
+
+function closeTimeline(): void {
+  timelineEl.hidden = true
+  if (state.phase === 'dead') againBtn.focus()
+}
+
+function paintTimeline(game: GameState): void {
+  const chart = timelineChart.getContext('2d')
+  if (!chart) return
+  const widthCss = Math.max(280, timelineChart.clientWidth || timelineChart.parentElement?.clientWidth || 640)
+  const heightCss = Math.max(180, timelineChart.clientHeight || 280)
+  const ratio = Math.min(window.devicePixelRatio || 1, 2)
+  timelineChart.width = Math.round(widthCss * ratio)
+  timelineChart.height = Math.round(heightCss * ratio)
+  chart.setTransform(ratio, 0, 0, ratio, 0, 0)
+  chart.clearRect(0, 0, widthCss, heightCss)
+  chart.fillStyle = '#07080c'
+  chart.fillRect(0, 0, widthCss, heightCss)
+
+  const owned = SERIES.filter(
+    (series) =>
+      series.source === 'stream' ||
+      rankOf(game, series.source) > 0 ||
+      game.dealt[series.source] > 0 ||
+      game.upgradeMarks.some((mark) => mark.source === series.source),
+  )
+  const samples = damageSamples(game)
+  const duration = Math.max(game.time, samples[samples.length - 1]?.t ?? 0, 1)
+  const peak = samples.reduce((max, sample) => Math.max(max, sample.total), 0)
+  const yMax = niceCeiling(peak)
+  const pad = { left: 52, right: 16, top: 16, bottom: 28 }
+  const plotW = Math.max(1, widthCss - pad.left - pad.right)
+  const plotH = Math.max(1, heightCss - pad.top - pad.bottom)
+  const xOf = (t: number) => pad.left + (t / duration) * plotW
+  const yOf = (value: number) => pad.top + (1 - value / yMax) * plotH
+
+  chart.strokeStyle = 'rgba(255, 255, 255, 0.14)'
+  chart.fillStyle = 'rgba(255, 255, 255, 0.55)'
+  chart.font = '11px Oxanium, sans-serif'
+  chart.lineWidth = 1
+  chart.textAlign = 'right'
+  chart.textBaseline = 'middle'
+  for (let i = 0; i <= 4; i++) {
+    const value = (yMax * i) / 4
+    const y = yOf(value)
+    chart.beginPath()
+    chart.moveTo(pad.left, y)
+    chart.lineTo(widthCss - pad.right, y)
+    chart.stroke()
+    chart.fillText(formatDamage(value), pad.left - 8, y)
+  }
+  chart.textAlign = 'center'
+  chart.textBaseline = 'top'
+  const ticks = duration <= 8 ? 4 : 5
+  for (let i = 0; i <= ticks; i++) {
+    const t = (duration * i) / ticks
+    const x = xOf(t)
+    chart.fillText(`${t < 10 ? t.toFixed(1) : Math.round(t)}s`, x, heightCss - pad.bottom + 8)
+  }
+
+  const drawLine = (color: string, read: (sample: (typeof samples)[number]) => number, dashed: boolean) => {
+    chart.beginPath()
+    samples.forEach((sample, index) => {
+      const x = xOf(sample.t)
+      const y = yOf(read(sample))
+      if (index === 0) chart.moveTo(x, y)
+      else chart.lineTo(x, y)
+    })
+    chart.strokeStyle = color
+    chart.lineWidth = dashed ? 2.4 : 2
+    chart.setLineDash(dashed ? [7, 5] : [])
+    chart.stroke()
+    chart.setLineDash([])
+  }
+
+  for (const series of owned) drawLine(series.color, (sample) => sample[series.source], false)
+  drawLine(TOTAL_COLOR, (sample) => sample.total, true)
+
+  chart.font = '10px Oxanium, sans-serif'
+  chart.textAlign = 'center'
+  chart.textBaseline = 'bottom'
+  const labeled = new Map<DamageSource, number>()
+  for (const mark of game.upgradeMarks) {
+    const series = owned.find((item) => item.source === mark.source)
+    if (!series) continue
+    const x = xOf(Math.min(mark.t, duration))
+    const y = yOf(valueAt(samples, mark.source, mark.t))
+    chart.save()
+    chart.translate(x, y)
+    chart.rotate(Math.PI / 4)
+    chart.fillStyle = series.color
+    chart.strokeStyle = '#05060a'
+    chart.lineWidth = 1.5
+    chart.fillRect(-4, -4, 8, 8)
+    chart.strokeRect(-4, -4, 8, 8)
+    chart.restore()
+    const previous = labeled.get(mark.source) ?? -Infinity
+    if (x - previous < 36) continue
+    labeled.set(mark.source, x)
+    chart.fillStyle = series.color
+    chart.fillText(`${mark.name} ${mark.rank}`, x, y - 8)
+  }
+
+  timelineLegend.replaceChildren()
+  for (const series of owned) {
+    timelineLegend.append(legendItem(series.color, sourceLabel(series.source, rankOf(game, series.source)), game.dealt[series.source], false))
+  }
+  const total = owned.reduce((sum, series) => sum + game.dealt[series.source], 0)
+  timelineLegend.append(legendItem(TOTAL_COLOR, 'Total', total, true))
+}
+
+function rankOf(game: GameState, source: DamageSource): number {
+  if (source === 'stream') return Math.max(game.mods.pulse, game.mods.caliber, game.mods.fork)
+  return game.mods[source]
+}
+
+function legendItem(color: string, name: string, amount: number, total: boolean): HTMLLIElement {
+  const item = document.createElement('li')
+  const swatch = document.createElement('i')
+  if (total) swatch.className = 'swatch-total'
+  else swatch.style.background = color
+  const label = document.createElement('span')
+  label.textContent = name
+  const value = document.createElement('b')
+  value.textContent = formatDamage(amount)
+  item.append(swatch, label, value)
+  return item
+}
+
+type DamageSample = Record<DamageSource, number> & { t: number; total: number }
+
+function damageSamples(game: GameState): DamageSample[] {
+  const acc: Record<DamageSource, number> = { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0 }
+  const samples: DamageSample[] = []
+  const push = (t: number) => {
+    samples.push({
+      t,
+      stream: acc.stream,
+      orbiter: acc.orbiter,
+      field: acc.field,
+      ball: acc.ball,
+      drone: acc.drone,
+      total: acc.stream + acc.orbiter + acc.field + acc.ball + acc.drone,
+    })
+  }
+  push(0)
+  for (const bin of game.damageBins) {
+    acc.stream += bin.stream
+    acc.orbiter += bin.orbiter
+    acc.field += bin.field
+    acc.ball += bin.ball
+    acc.drone += bin.drone
+    push(bin.t)
+    push(Math.min(game.time, bin.t + 0.5))
+  }
+  const end = Math.max(game.time, 0)
+  if (samples[samples.length - 1].t < end) push(end)
+  return samples
+}
+
+function valueAt(samples: DamageSample[], source: DamageSource, t: number): number {
+  let value = 0
+  for (const sample of samples) {
+    if (sample.t > t + 0.0001) break
+    value = sample[source]
+  }
+  return value
+}
+
+function niceCeiling(value: number): number {
+  if (value <= 0) return 4
+  const padded = value * 1.08
+  const pow = 10 ** Math.floor(Math.log10(padded))
+  const unit = padded / pow
+  const step = unit <= 1 ? 1 : unit <= 2 ? 2 : unit <= 5 ? 5 : 10
+  return step * pow
+}
+
+function formatDamage(value: number): string {
+  if (value >= 1000) return `${Math.round(value).toLocaleString('en-US')}`
+  if (Number.isInteger(value)) return String(value)
+  return value.toFixed(1)
+}
+
 function reform(): void {
+  closeTimeline()
   state = createGame(Math.max(state.best, loadBest()), seed())
   overlay.hidden = true
   levelEl.hidden = true
@@ -313,6 +528,10 @@ function onKeyDown(event: KeyboardEvent): void {
   keys.add(key)
   audio.ensure()
   if (event.repeat) return
+  if (key === 'escape' && !timelineEl.hidden) {
+    closeTimeline()
+    return
+  }
   if (state.phase === 'level' && (key === '1' || key === '2' || key === '3')) {
     pickUpgrade(Number(key) - 1)
     return
@@ -372,6 +591,7 @@ function onPointerUp(event: PointerEvent): void {
 }
 
 function resize(): void {
+  if (!timelineEl.hidden) paintTimeline(state)
   width = Math.max(1, window.innerWidth)
   height = Math.max(1, window.innerHeight)
   dpr = Math.min(window.devicePixelRatio || 1, fast ? 1 : 2)
