@@ -1549,7 +1549,7 @@ function shellArc(state: GameState, travel: number, sign: number, fromCenter: nu
   const reach = Math.min(1, travel / 260)
   const base = 26 + reach * 10 + ring * ring * 6
   const jitter = (state.rng() - 0.5) * 4
-  return sign * (base + jitter) * 1.1
+  return sign * (base + jitter) * 1.2
 }
 
 export function shellPose(shell: Mortar, p: number): { x: number; y: number; vx: number; vy: number; heading: number } {
