@@ -144,7 +144,7 @@ describe('drift', () => {
     const state = createGame(0, 4)
     state.spawnCd = 999
     run(state, input({ moveX: 1, aimActive: false }), 10)
-    assert.ok(state.playerX > 2400)
+    assert.ok(state.playerX > TUNING.maxSpeed * 7)
     assert.ok(Number.isFinite(state.playerX))
   })
 
@@ -1177,6 +1177,49 @@ describe('orbs', () => {
       }
     }
     assert.ok(closest > 0.5)
+
+    const nearCrowd = createGame(0, 60)
+    nearCrowd.spawnCd = 999
+    nearCrowd.fireCd = 10
+    nearCrowd.invuln = 5
+    nearCrowd.mods.drone = 1
+    nearCrowd.droneReload = 0
+    nearCrowd.droneBurst = 2.2
+    nearCrowd.droneCd = 0
+    nearCrowd.droneFace = 0
+    nearCrowd.reticleOn = true
+    nearCrowd.reticleX = nearCrowd.playerX + 280
+    nearCrowd.reticleY = nearCrowd.playerY
+    nearCrowd.enemies.push(enemy({ x: nearCrowd.playerX + 70, y: nearCrowd.playerY, hp: 9000, radius: 14, speed: 0 }))
+    const farCrowd = createGame(0, 60)
+    farCrowd.spawnCd = 999
+    farCrowd.fireCd = 10
+    farCrowd.invuln = 5
+    farCrowd.mods.drone = 1
+    farCrowd.droneReload = 0
+    farCrowd.droneBurst = 2.2
+    farCrowd.droneCd = 0
+    farCrowd.droneFace = 0
+    farCrowd.reticleOn = true
+    farCrowd.reticleX = farCrowd.playerX + 280
+    farCrowd.reticleY = farCrowd.playerY
+    farCrowd.enemies.push(enemy({ x: farCrowd.reticleX, y: farCrowd.reticleY, hp: 9000, radius: 14, speed: 0 }))
+    const reachOf = (state: ReturnType<typeof createGame>) => {
+      let reach = 0
+      for (let n = 0; n < 100; n++) {
+        const before = state.mortars.length
+        step(state, input({ aimActive: false }), 1 / 60)
+        if (state.mortars.length <= before) continue
+        const shell = state.mortars[state.mortars.length - 1]
+        if (!shell) continue
+        reach = Math.max(reach, Math.hypot(shell.tx - state.reticleX, shell.ty - state.reticleY))
+      }
+      return reach
+    }
+    const tight = reachOf(nearCrowd)
+    const wide = reachOf(farCrowd)
+    assert.ok(tight < 80)
+    assert.ok(wide > tight + 30)
   })
 
   it('repairs hull when Plate is chosen', () => {

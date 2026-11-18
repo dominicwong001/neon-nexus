@@ -3,7 +3,7 @@ export const BODY = 0.7
 
 export const TUNING = {
   thrust: 12,
-  maxSpeed: 300,
+  maxSpeed: 210,
   drag: 6.5,
   bulletSpeed: 980,
   fireInterval: 0.28,
@@ -243,10 +243,10 @@ export interface StepEvents {
 }
 
 const KIND = [
-  { radius: 14 * BODY, hp: 100, speed: 100, spin: 2.8 },
-  { radius: 22 * BODY, hp: 200, speed: 44, spin: 1.15 },
-  { radius: 20 * BODY, hp: 300, speed: 48, spin: 0.8 },
-  { radius: 40 * BODY, hp: 1000, speed: 31, spin: 0.55 },
+  { radius: 14 * BODY, hp: 100, speed: 70, spin: 2.8 },
+  { radius: 22 * BODY, hp: 200, speed: 31, spin: 1.15 },
+  { radius: 20 * BODY, hp: 300, speed: 34, spin: 0.8 },
+  { radius: 40 * BODY, hp: 1000, speed: 22, spin: 0.55 },
 ] as const
 
 export const OVERDRIVE = 6
@@ -1585,7 +1585,19 @@ function launchShell(
 }
 
 function aimSpread(state: GameState): number {
-  const dist = Math.hypot(state.reticleX - state.playerX, state.reticleY - state.playerY)
+  const aim = Math.hypot(state.reticleX - state.playerX, state.reticleY - state.playerY)
+  let foe = Infinity
+  for (const enemy of state.enemies) {
+    const dx = enemy.x - state.playerX
+    const dy = enemy.y - state.playerY
+    const dist = Math.hypot(dx, dy)
+    if (dist > 420) continue
+    const rx = enemy.x - state.reticleX
+    const ry = enemy.y - state.reticleY
+    if (rx * rx + ry * ry > 260 * 260 && dist > 150) continue
+    foe = Math.min(foe, dist)
+  }
+  const dist = foe < Infinity ? Math.min(aim, foe) : aim
   return Math.min(168, Math.max(58, dist * 0.46))
 }
 
