@@ -485,6 +485,10 @@ function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void 
     ctx.fillStyle = '#05060a'
     ctx.fill()
     ctx.strokeStyle = ink
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.lineWidth = Math.max(1.35, r * 0.05)
+    ctx.stroke()
     ctx.lineCap = 'butt'
     traceBladeEdge(ctx, r)
     ctx.lineWidth = Math.max(2.8, r * 0.16)
@@ -521,11 +525,8 @@ function traceCrescent(ctx: CanvasRenderingContext2D, r: number): void {
 }
 
 function traceBladeEdge(ctx: CanvasRenderingContext2D, r: number): void {
-  const a0 = -0.32
-  const a1 = 1.1
-  const width = Math.max(2.8, r * 0.16)
   ctx.beginPath()
-  ctx.arc(0, 0, r * 0.98 + width * 0.35, a0, a1)
+  ctx.arc(0, 0, r * 0.98, -0.32, 1.1)
 }
 
 function drawReticle(
