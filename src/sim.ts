@@ -193,6 +193,7 @@ export interface GameState {
   droneLag: number
   droneFace: number
   droneBarrel: number
+  droneAreaCd: number
   reticleOn: boolean
   reticleX: number
   reticleY: number
@@ -442,6 +443,7 @@ export function createGame(best = 0, seed = 1): GameState {
     droneLag: 0,
     droneFace: 0,
     droneBarrel: 0,
+    droneAreaCd: 0,
     reticleOn: false,
     reticleX: 0,
     reticleY: 0,
@@ -1276,7 +1278,7 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     explodeShell(state, shell, events)
     state.mortars.splice(i, 1)
   }
-  if (droneStorm(rank)) slideStormArea(state, dt)
+  if (droneStorm(rank)) hopStormArea(state, dt)
   if (state.droneReload > 0) {
     state.droneReload = Math.max(0, state.droneReload - dt)
     return
@@ -1303,14 +1305,15 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     const tips = droneBlasterTips()
     const barrel = state.droneBarrel % tips.length
     const tip = tips[barrel] ?? { x: 0, y: 0 }
-    const spot = areaCircle(state.droneBarrel)
     state.droneBarrel += 1
     const c = Math.cos(state.droneFace)
     const s = Math.sin(state.droneFace)
     const sx = anchor.x + tip.x * c - tip.y * s
     const sy = anchor.y + tip.x * s + tip.y * c
-    const tx = state.reticleX + Math.cos(spot.angle) * spot.radius
-    const ty = state.reticleY + Math.sin(spot.angle) * spot.radius
+    const spotAngle = state.rng() * Math.PI * 2
+    const spotRadius = Math.sqrt(state.rng()) * 150
+    const tx = state.reticleX + Math.cos(spotAngle) * spotRadius
+    const ty = state.reticleY + Math.sin(spotAngle) * spotRadius
     const shotX = tx - sx
     const shotY = ty - sy
     launchShell(
@@ -1322,27 +1325,25 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
       rank,
       droneStorm(rank),
       blasterArcSign(state.droneFace, tip.y, shotX, shotY),
-      spot.radius,
+      spotRadius,
     )
     state.droneCd = droneInterval(rank)
   }
   if (state.droneBurst <= 0) {
-    state.reticleOn = false
+    if (!droneStorm(rank)) state.reticleOn = false
     state.droneReload = droneReload(rank)
   }
 }
 
-function slideStormArea(state: GameState, dt: number): void {
-  if (!state.reticleOn && state.reticleX === 0 && state.reticleY === 0) return
+function hopStormArea(state: GameState, dt: number): void {
+  state.droneAreaCd = Math.max(0, state.droneAreaCd - dt)
+  if (state.droneAreaCd > 0) return
   const live = richestDroneArea(state)
   if (!live) return
-  const dx = live.x - state.reticleX
-  const dy = live.y - state.reticleY
-  const dist = Math.hypot(dx, dy)
-  if (dist < 0.4) return
-  const step = Math.min(dist, 90 * dt)
-  state.reticleX += (dx / dist) * step
-  state.reticleY += (dy / dist) * step
+  state.reticleX = live.x
+  state.reticleY = live.y
+  state.reticleOn = true
+  state.droneAreaCd = 3
 }
 
 function richestDroneArea(state: GameState): { x: number; y: number } | null {
@@ -1426,24 +1427,6 @@ function blasterArcSign(face: number, side: number, shotX: number, shotY: number
   const outwardX = -Math.sin(face) * Math.sign(side || 1)
   const outwardY = Math.cos(face) * Math.sign(side || 1)
   return px * outwardX + py * outwardY >= 0 ? 1 : -1
-}
-
-function areaCircle(index: number): { radius: number; angle: number } {
-  const outer = 150
-  const cycle = 37
-  const n = ((index % cycle) + cycle) % cycle
-  if (n === 0) return { radius: 0, angle: 0 }
-  let left = n - 1
-  let ring = 1
-  while (left >= ring * 6) {
-    left -= ring * 6
-    ring += 1
-  }
-  const count = ring * 6
-  return {
-    radius: (ring / 3) * outer,
-    angle: ((left + 0.5) / count) * Math.PI * 2 + ring * 0.37,
-  }
 }
 
 function shellArc(state: GameState, travel: number, sign: number, fromCenter: number): number {
