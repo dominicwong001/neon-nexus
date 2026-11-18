@@ -701,6 +701,14 @@ function drawDrone(
   ctx.beginPath()
   polyPath(ctx, 0, 0, r, 6, spin)
   ctx.stroke()
+  const nose = r * Math.cos(Math.PI / 6)
+  ctx.beginPath()
+  ctx.moveTo(nose + 8, 0)
+  ctx.lineTo(nose - 1.5, 5.4)
+  ctx.lineTo(nose - 1.5, -5.4)
+  ctx.closePath()
+  ctx.fillStyle = ink
+  ctx.fill()
   ctx.beginPath()
   ctx.arc(0, 0, 3.8, 0, Math.PI * 2)
   ctx.fillStyle = storm ? '#ff2d3a' : '#ffffff'

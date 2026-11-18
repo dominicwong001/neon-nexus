@@ -678,7 +678,8 @@ function pushFloater(state: GameState, x: number, y: number, text: string, color
 }
 
 export function orbiterDamage(rank: number): number {
-  return 31 + Math.max(0, rank - 1) * 8
+  const dealt = 46 + Math.max(0, rank - 1) * 11
+  return rank >= OVERDRIVE ? dealt + 18 : dealt
 }
 
 export function ballCount(rank: number): number {
@@ -1199,7 +1200,7 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
       const reach = ball.radius + enemy.radius
       if (dx * dx + dy * dy > reach * reach) continue
       ball.touched.push({ enemy, cd: 0.15 })
-      if (deflectOffEnemy(ball, enemy)) ball.flex = 1
+      if (enemy.hp >= 1000 && deflectOffEnemy(ball, enemy)) ball.flex = 1
       shoveFromBall(enemy, ball)
       damageEnemy(state, enemy, events, ball.damage, ball.quantum ? '#ff2d3a' : '#8dff4a')
       enemy.hitCd = 0.14
@@ -1774,7 +1775,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     return {
       id,
       title: 'Quantum Core',
-      detail: 'Hyper-fast red balls that bounce off every hostile. A hit replaces each one with two smaller balls.',
+      detail: 'Hyper-fast red balls. They bounce off hostiles with 1000 hull or more, and a hit replaces each one with two smaller balls.',
       rank,
       max,
       overdrive: true,
@@ -1800,7 +1801,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     plate: { title: 'Plate', detail: 'Repair one hull segment and add a spare.' },
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
     field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
-    ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen and bounces off every hostile.' },
+    ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off hostiles with 1000 hull or more and flies through the rest.' },
     drone: { title: 'Drone', detail: 'A drone fires a rocket barrage. Each rocket plants a reticle where it will land, then reloads.' },
   }
   const detail =
