@@ -1424,7 +1424,7 @@ function crowdNearAim(state: GameState): boolean {
 
 function richestDroneArea(state: GameState): { x: number; y: number; vx: number; vy: number } | null {
   const anchor = droneAnchor(state)
-  const reach = 300
+  const reach = 360
   const zone = 96
   let bestScore = -1
   let bestDist = Infinity
@@ -1484,7 +1484,7 @@ function launchShell(
   const dx = tx - sx
   const dy = ty - sy
   const dist = Math.hypot(dx, dy) || 1
-  const maxRange = 300
+  const maxRange = 360
   const scale = dist > maxRange ? maxRange / dist : 1
   const landX = sx + dx * scale
   const landY = sy + dy * scale
@@ -1509,7 +1509,7 @@ function launchShell(
 
 function randomMark(state: GameState, sx: number, sy: number): { x: number; y: number; fromCenter: number } {
   const outer = DRONE.spread
-  const maxRange = 296
+  const maxRange = 352
   for (let n = 0; n < 10; n++) {
     const angle = unit(state) * Math.PI * 2
     const fromCenter = Math.sqrt(unit(state)) * outer
@@ -1549,7 +1549,7 @@ function shellArc(state: GameState, travel: number, sign: number, fromCenter: nu
   const reach = Math.min(1, travel / 260)
   const base = 26 + reach * 10 + ring * ring * 6
   const jitter = (state.rng() - 0.5) * 4
-  return sign * (base + jitter)
+  return sign * (base + jitter) * 1.1
 }
 
 export function shellPose(shell: Mortar, p: number): { x: number; y: number; vx: number; vy: number; heading: number } {

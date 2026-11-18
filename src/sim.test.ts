@@ -1054,8 +1054,8 @@ describe('orbs', () => {
       const height = Math.abs(shell.arc)
       if (shell.arc < 0) down += 1
       else up += 1
-      assert.ok(height >= 22)
-      assert.ok(height <= 48)
+      assert.ok(height >= 24)
+      assert.ok(height <= 54)
       if (near && travel < Math.hypot(near.tx - near.sx, near.ty - near.sy)) near = shell
       if (far && travel > Math.hypot(far.tx - far.sx, far.ty - far.sy)) far = shell
       for (const mark of [0, 0.35, 0.7]) {
@@ -1090,7 +1090,7 @@ describe('orbs', () => {
       }
     }
     assert.ok(lands.length >= 16)
-    const onArc = lands.filter((mark) => mark.d > 294).length
+    const onArc = lands.filter((mark) => mark.d > 356).length
     assert.ok(onArc <= 2)
     let closest = Infinity
     for (let i = 0; i < lands.length; i++) {
