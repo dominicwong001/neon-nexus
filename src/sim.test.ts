@@ -434,23 +434,25 @@ describe('orbs', () => {
     assert.ok(third < first * 3)
   })
 
-  it('always includes one of the four main abilities', () => {
+  it('shows at least three abilities whenever they are still available', () => {
     const state = createGame(0, 90)
     state.spawnCd = 999
     state.fireCd = 10
     const mains = new Set(['orbiter', 'field', 'ball', 'drone'])
     const seen = new Set<string>()
-    for (let n = 0; n < 20; n++) {
+    for (let n = 0; n < 12; n++) {
       state.xp = state.xpNeed
       step(state, input({ aimActive: false }), 1 / 60)
+      const shown = state.offers.filter((offer) => mains.has(offer.id))
       assert.equal(state.offers.length, 3)
+      assert.ok(shown.length >= 3)
       assert.equal(state.offers.some((offer) => offer.id === 'drone'), true)
-      assert.equal(state.offers.some((offer) => mains.has(offer.id)), true)
-      for (const offer of state.offers) {
-        if (mains.has(offer.id)) seen.add(offer.id)
-      }
-      const skip = state.offers.findIndex((offer) => !mains.has(offer.id))
-      chooseUpgrade(state, skip >= 0 ? skip : 0)
+      for (const offer of shown) seen.add(offer.id)
+      const other = state.offers
+        .map((offer, index) => ({ offer, index }))
+        .filter(({ offer }) => offer.id !== 'drone')
+        .sort((a, b) => a.offer.rank - b.offer.rank)[0]
+      chooseUpgrade(state, other?.index ?? 0)
     }
     assert.ok(seen.size >= 3)
   })

@@ -1712,23 +1712,20 @@ function rollOffers(state: GameState): Offer[] {
     (id) => state.mods[id] < UPGRADE_MAX[id],
   )
   const picked: UpgradeId[] = []
-  const droneIndex = pool.indexOf('drone')
-  if (droneIndex >= 0) {
-    picked.push('drone')
-    pool.splice(droneIndex, 1)
+  const take = (id: Exclude<UpgradeId, 'cache'>) => {
+    const index = pool.indexOf(id)
+    if (index < 0) return
+    picked.push(id)
+    pool.splice(index, 1)
   }
-  const signature = pool.filter((id) => (SIGNATURE as readonly string[]).includes(id))
-  if (picked.length === 0 && signature.length > 0) {
-    const id = signature[Math.floor(state.rng() * signature.length)]
-    const index = id ? pool.indexOf(id) : -1
-    if (id && index >= 0) {
-      picked.push(id)
-      pool.splice(index, 1)
-    }
+  take('drone')
+  const abilities = pool.filter((id) => (SIGNATURE as readonly string[]).includes(id))
+  while (picked.length < 3 && abilities.length > 0) {
+    const id = abilities.splice(Math.floor(state.rng() * abilities.length), 1)[0]
+    if (id) take(id)
   }
   while (picked.length < 3 && pool.length > 0) {
-    const index = Math.floor(state.rng() * pool.length)
-    const id = pool.splice(index, 1)[0]
+    const id = pool.splice(Math.floor(state.rng() * pool.length), 1)[0]
     if (id) picked.push(id)
   }
   while (picked.length < 3) picked.push('cache')
