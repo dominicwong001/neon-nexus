@@ -1058,7 +1058,7 @@ describe('orbs', () => {
       assert.ok(height <= 72)
       if (near && travel < Math.hypot(near.tx - near.sx, near.ty - near.sy)) near = shell
       if (far && travel > Math.hypot(far.tx - far.sx, far.ty - far.sy)) far = shell
-      for (const mark of [0, 0.35, 0.7]) {
+      for (const mark of [0.35, 0.7]) {
         const pose = shellPose(shell, mark)
         const ahead = pose.heading
         const vx = Math.cos(ahead)

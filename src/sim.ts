@@ -298,8 +298,7 @@ export function droneReload(rank: number): number {
 }
 
 export function droneInterval(rank: number): number {
-  if (droneStorm(rank)) return 0.026
-  const step = Math.max(0, Math.min(rank, DRONE.stormRank - 1) - 1)
+  const step = Math.max(0, Math.min(rank, DRONE.stormRank) - 1)
   return Math.max(0.05, 0.16 - step * 0.034)
 }
 
@@ -322,8 +321,9 @@ export function droneBlasterTips(): { x: number; y: number }[] {
   const r = 13
   const spin = Math.PI / 6
   const reach = r * Math.cos(Math.PI / 6) + 6.5
+  const wider = 0.24
   return [0, 4].map((edge) => {
-    const aim = spin + (edge + 0.5) * (Math.PI / 3)
+    const aim = spin + (edge + 0.5) * (Math.PI / 3) + (edge === 0 ? wider : -wider)
     return { x: Math.cos(aim) * reach, y: Math.sin(aim) * reach }
   })
 }
