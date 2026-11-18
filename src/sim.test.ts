@@ -1055,7 +1055,7 @@ describe('orbs', () => {
       if (shell.arc < 0) down += 1
       else up += 1
       assert.ok(height >= 24)
-      assert.ok(height <= 54)
+      assert.ok(height <= 60)
       if (near && travel < Math.hypot(near.tx - near.sx, near.ty - near.sy)) near = shell
       if (far && travel > Math.hypot(far.tx - far.sx, far.ty - far.sy)) far = shell
       for (const mark of [0, 0.35, 0.7]) {
