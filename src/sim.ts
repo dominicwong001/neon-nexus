@@ -279,7 +279,6 @@ export const FIELD = {
 
 export const DRONE = {
   stormRank: 5,
-  spread: 104,
 } as const
 
 export function droneStorm(rank: number): boolean {
