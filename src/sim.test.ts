@@ -1022,6 +1022,37 @@ describe('orbs', () => {
     assert.ok(down > 0)
     assert.ok(near && far)
     assert.ok(Math.hypot(near.tx - near.sx, near.ty - near.sy) <= Math.hypot(far.tx - far.sx, far.ty - far.sy))
+
+    const farAim = createGame(0, 53)
+    farAim.spawnCd = 999
+    farAim.fireCd = 10
+    farAim.invuln = 5
+    farAim.mods.drone = 5
+    farAim.droneCd = 0
+    farAim.droneReload = 0
+    farAim.enemies.push(enemy({ x: 240, y: 0, hp: 9000, radius: 16, speed: 0 }))
+    const lands: { x: number; y: number; d: number }[] = []
+    for (let n = 0; n < 180 && lands.length < 24; n++) {
+      const before = farAim.mortars.length
+      step(farAim, input({ aimActive: false }), 1 / 60)
+      if (farAim.mortars.length > before) {
+        const shell = farAim.mortars[farAim.mortars.length - 1]
+        if (shell) lands.push({ x: shell.tx, y: shell.ty, d: Math.hypot(shell.tx - shell.sx, shell.ty - shell.sy) })
+      }
+    }
+    assert.ok(lands.length >= 16)
+    const onArc = lands.filter((mark) => mark.d > 294).length
+    assert.ok(onArc <= 2)
+    let closest = Infinity
+    for (let i = 0; i < lands.length; i++) {
+      for (let j = i + 1; j < lands.length; j++) {
+        const a = lands[i]
+        const b = lands[j]
+        if (!a || !b) continue
+        closest = Math.min(closest, Math.hypot(a.x - b.x, a.y - b.y))
+      }
+    }
+    assert.ok(closest > 0.5)
   })
 
   it('repairs hull when Plate is chosen', () => {

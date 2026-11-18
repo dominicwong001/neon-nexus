@@ -103,6 +103,7 @@ export interface Mortar {
   radius: number
   damage: number
   storm: boolean
+  spin: number
 }
 
 export interface Mods {
@@ -1310,22 +1311,17 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     const s = Math.sin(state.droneFace)
     const sx = anchor.x + tip.x * c - tip.y * s
     const sy = anchor.y + tip.x * s + tip.y * c
-    const spotAngle = state.rng() * Math.PI * 2
-    const spotRadius = Math.sqrt(state.rng()) * 150
-    const tx = state.reticleX + Math.cos(spotAngle) * spotRadius
-    const ty = state.reticleY + Math.sin(spotAngle) * spotRadius
-    const shotX = tx - sx
-    const shotY = ty - sy
+    const spot = randomMark(state, sx, sy)
     launchShell(
       state,
       sx,
       sy,
-      tx,
-      ty,
+      spot.x,
+      spot.y,
       rank,
       droneStorm(rank),
-      blasterArcSign(state.droneFace, tip.y, shotX, shotY),
-      spotRadius,
+      blasterArcSign(state.droneFace, tip.y, spot.x - sx, spot.y - sy),
+      spot.fromCenter,
     )
     state.droneCd = droneInterval(rank)
   }
@@ -1414,7 +1410,33 @@ function launchShell(
     radius: droneBlast(rank),
     damage: droneDamage(rank),
     storm,
+    spin: unit(state) * Math.PI * 0.5,
   })
+}
+
+function randomMark(state: GameState, sx: number, sy: number): { x: number; y: number; fromCenter: number } {
+  const outer = 150
+  const maxRange = 296
+  for (let n = 0; n < 10; n++) {
+    const angle = unit(state) * Math.PI * 2
+    const fromCenter = Math.sqrt(unit(state)) * outer
+    const x = state.reticleX + Math.cos(angle) * fromCenter
+    const y = state.reticleY + Math.sin(angle) * fromCenter
+    if (Math.hypot(x - sx, y - sy) <= maxRange) return { x, y, fromCenter }
+  }
+  const dx = state.reticleX - sx
+  const dy = state.reticleY - sy
+  const dist = Math.hypot(dx, dy) || 1
+  const reach = Math.min(dist, maxRange)
+  return { x: sx + (dx / dist) * reach, y: sy + (dy / dist) * reach, fromCenter: 0 }
+}
+
+function unit(state: GameState): number {
+  let x = Math.floor(state.rng() * 4294967296)
+  x = Math.imul(x ^ (x >>> 16), 0x7feb352d)
+  x = Math.imul(x ^ (x >>> 15), 0x846ca68b)
+  x ^= x >>> 16
+  return (x >>> 0) / 4294967296
 }
 
 function blasterArcSign(face: number, side: number, shotX: number, shotY: number): number {
