@@ -1222,9 +1222,9 @@ describe('orbs', () => {
     nearCrowd.droneCd = 0
     nearCrowd.droneFace = 0
     nearCrowd.reticleOn = true
-    nearCrowd.reticleX = nearCrowd.playerX + 280
+    nearCrowd.reticleX = nearCrowd.playerX + 100
     nearCrowd.reticleY = nearCrowd.playerY
-    nearCrowd.enemies.push(enemy({ x: nearCrowd.playerX + 70, y: nearCrowd.playerY, hp: 9000, radius: 14, speed: 0 }))
+    nearCrowd.enemies.push(enemy({ x: nearCrowd.reticleX, y: nearCrowd.reticleY, hp: 9000, radius: 14, speed: 0 }))
     const farCrowd = createGame(0, 60)
     farCrowd.spawnCd = 999
     farCrowd.fireCd = 10
@@ -1254,6 +1254,59 @@ describe('orbs', () => {
     const wide = reachOf(farCrowd)
     assert.ok(tight < 80)
     assert.ok(wide > tight + 30)
+
+    const turning = createGame(0, 61)
+    turning.spawnCd = 999
+    turning.fireCd = 10
+    turning.invuln = 5
+    turning.mods.drone = 5
+    turning.droneReload = 0
+    turning.droneBurst = 3
+    turning.droneCd = 0
+    turning.droneFace = Math.PI
+    turning.reticleOn = true
+    turning.reticleX = turning.droneX + 220
+    turning.reticleY = turning.droneY
+    turning.enemies.push(enemy({ x: turning.reticleX, y: turning.reticleY, hp: 9000, radius: 16, speed: 0 }))
+    for (let n = 0; n < 40; n++) step(turning, input({ aimActive: false }), 1 / 60)
+    assert.ok(turning.mortars.length >= 3)
+    const want = Math.atan2(turning.reticleY - turning.droneY, turning.reticleX - turning.droneX)
+    const still = Math.atan2(Math.sin(want - turning.droneFace), Math.cos(want - turning.droneFace))
+    assert.ok(Math.abs(still) > 0.4)
+
+    const away = createGame(0, 62)
+    away.spawnCd = 999
+    away.fireCd = 10
+    away.invuln = 5
+    away.mods.drone = 5
+    away.droneReload = 0
+    away.droneBurst = 4
+    away.droneCd = 0
+    away.droneFace = 0
+    away.reticleOn = true
+    away.reticleX = away.playerX + 260
+    away.reticleY = away.playerY
+    away.droneAreaHot = true
+    away.droneAreaCd = 4
+    away.droneMarkX = away.droneX
+    away.droneMarkY = away.droneY
+    away.enemies.push(
+      enemy({ x: away.reticleX, y: away.reticleY, hp: 9000, radius: 16, speed: 0 }),
+      enemy({ x: away.playerX, y: away.playerY + 30, hp: 9000, radius: 16, speed: 220 }),
+    )
+    const marks: { x: number; y: number }[] = []
+    for (let n = 0; n < 70; n++) {
+      step(away, input({ moveX: -1, aimActive: false }), 1 / 60)
+      const shell = away.mortars[away.mortars.length - 1]
+      if (shell && shell.age === 0) marks.push({ x: shell.tx, y: shell.ty })
+    }
+    const ys = marks.map((mark) => mark.y).sort((a, b) => a - b)
+    const mid = ys[ys.length >> 1] ?? 0
+    let side = 0
+    for (const y of ys) side = Math.max(side, Math.abs(y - mid))
+    assert.ok(marks.length >= 8)
+    assert.ok(side > 24)
+    assert.ok(away.playerX < 0)
   })
 
   it('counts damage from the stream and each ability', () => {

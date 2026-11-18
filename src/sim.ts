@@ -1368,10 +1368,8 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
       const left = Math.hypot(state.droneX - state.droneMarkX, state.droneY - state.droneMarkY)
       if (state.droneAreaCd <= 0 || left > 220 || !stormAreaLive(state)) {
         hopStormArea(state, true)
-        return
       }
     }
-    if (!droneAimed(state)) return
   } else if (!roundOpen && !droneAimed(state)) return
   state.droneBurst = Math.max(0, state.droneBurst - dt)
   state.droneCd -= dt
@@ -1614,37 +1612,30 @@ function launchShell(
 }
 
 function aimSpread(state: GameState): number {
-  const aim = Math.hypot(state.reticleX - state.playerX, state.reticleY - state.playerY)
-  let foe = Infinity
-  for (const enemy of state.enemies) {
-    const dx = enemy.x - state.playerX
-    const dy = enemy.y - state.playerY
-    const dist = Math.hypot(dx, dy)
-    if (dist > 420) continue
-    const rx = enemy.x - state.reticleX
-    const ry = enemy.y - state.reticleY
-    if (rx * rx + ry * ry > 260 * 260 && dist > 150) continue
-    foe = Math.min(foe, dist)
-  }
-  const dist = foe < Infinity ? Math.min(aim, foe) : aim
+  const dist = Math.hypot(state.reticleX - state.playerX, state.reticleY - state.playerY)
   return Math.min(168, Math.max(58, dist * 0.46))
 }
 
 function randomMark(state: GameState, sx: number, sy: number): { x: number; y: number; fromCenter: number } {
   const outer = aimSpread(state)
   const maxRange = 352
-  for (let n = 0; n < 10; n++) {
-    const angle = unit(state) * Math.PI * 2
-    const fromCenter = Math.sqrt(unit(state)) * outer
+  const angle = unit(state) * Math.PI * 2
+  let fromCenter = Math.sqrt(unit(state)) * outer
+  for (let n = 0; n < 6; n++) {
     const x = state.reticleX + Math.cos(angle) * fromCenter
     const y = state.reticleY + Math.sin(angle) * fromCenter
     if (Math.hypot(x - sx, y - sy) <= maxRange) return { x, y, fromCenter }
+    fromCenter *= 0.72
   }
-  const dx = state.reticleX - sx
-  const dy = state.reticleY - sy
+  const x = state.reticleX + Math.cos(angle) * fromCenter
+  const y = state.reticleY + Math.sin(angle) * fromCenter
+  const dx = x - sx
+  const dy = y - sy
   const dist = Math.hypot(dx, dy) || 1
   const reach = Math.min(dist, maxRange)
-  return { x: sx + (dx / dist) * reach, y: sy + (dy / dist) * reach, fromCenter: 0 }
+  const landX = sx + (dx / dist) * reach
+  const landY = sy + (dy / dist) * reach
+  return { x: landX, y: landY, fromCenter: Math.hypot(landX - state.reticleX, landY - state.reticleY) }
 }
 
 function unit(state: GameState): number {
