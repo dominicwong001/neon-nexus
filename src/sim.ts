@@ -1507,8 +1507,13 @@ function launchShell(
   })
 }
 
+function aimSpread(state: GameState): number {
+  const dist = Math.hypot(state.reticleX - state.playerX, state.reticleY - state.playerY)
+  return Math.min(168, Math.max(58, dist * 0.46))
+}
+
 function randomMark(state: GameState, sx: number, sy: number): { x: number; y: number; fromCenter: number } {
-  const outer = DRONE.spread
+  const outer = aimSpread(state)
   const maxRange = 352
   for (let n = 0; n < 10; n++) {
     const angle = unit(state) * Math.PI * 2
@@ -1545,9 +1550,9 @@ function blasterArcSign(face: number, side: number, shotX: number, shotY: number
 }
 
 function shellArc(state: GameState, travel: number, sign: number, fromCenter: number): number {
-  const ring = Math.min(1, fromCenter / DRONE.spread)
+  const ring = Math.min(1, fromCenter / aimSpread(state))
   const reach = Math.min(1, travel / 260)
-  const base = (26 + reach * 10 + ring * ring * 6) * 1.2
+  const base = (26 + reach * 10 + ring * ring * 6) * 1.4
   const vary = 0.8 + state.rng() * 0.4
   return sign * base * vary
 }
