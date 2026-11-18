@@ -1041,6 +1041,30 @@ describe('orbs', () => {
     }
     assert.ok(Math.hypot(moving.reticleX - parkedX, moving.reticleY - parkedY) > 160)
 
+    const quiet = createGame(0, 59)
+    quiet.spawnCd = 999
+    quiet.fireCd = 10
+    quiet.invuln = 5
+    quiet.mods.drone = 5
+    quiet.droneReload = 0
+    quiet.droneCd = 0
+    quiet.enemies.push(enemy({ x: 180, y: 30, hp: 2000, radius: 16, speed: 0 }))
+    for (let n = 0; n < 40; n++) step(quiet, input({ aimActive: false }), 1 / 30)
+    assert.ok(quiet.mortars.length >= 1)
+    quiet.enemies.length = 0
+    for (let n = 0; n < 40; n++) {
+      step(quiet, input({ aimActive: false }), 1 / 30)
+      assert.ok(quiet.mortars.every((shell) => shell.age > 0))
+    }
+    assert.equal(quiet.reticleOn, false)
+    quiet.enemies.push(enemy({ x: 200, y: -20, hp: 2000, radius: 16, speed: 0 }))
+    let resumed = false
+    for (let n = 0; n < 50; n++) {
+      step(quiet, input({ aimActive: false }), 1 / 30)
+      if (quiet.mortars.some((shell) => shell.age === 0)) resumed = true
+    }
+    assert.equal(resumed, true)
+
     const slide = createGame(0, 55)
     slide.spawnCd = 999
     slide.fireCd = 10

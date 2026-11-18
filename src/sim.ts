@@ -1314,6 +1314,11 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     state.droneReload = Math.max(0, state.droneReload - dt)
     return
   }
+  if (storm && !enemiesInDroneRange(state)) {
+    state.reticleOn = false
+    state.droneAreaHot = false
+    return
+  }
   if (state.droneBurst <= 0) {
     if (!state.reticleOn) return
     state.droneBurst = droneBurst(rank)
@@ -1430,6 +1435,17 @@ function stormSpot(
     ang += 1.05
   }
   return { x: state.reticleX + minShift, y: state.reticleY }
+}
+
+function enemiesInDroneRange(state: GameState): boolean {
+  const anchor = droneAnchor(state)
+  const reach = 360
+  for (const enemy of state.enemies) {
+    const dx = enemy.x - anchor.x
+    const dy = enemy.y - anchor.y
+    if (dx * dx + dy * dy <= reach * reach) return true
+  }
+  return false
 }
 
 function stormAreaLive(state: GameState): boolean {
