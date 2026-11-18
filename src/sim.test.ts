@@ -919,7 +919,7 @@ describe('orbs', () => {
     if (lob.enemies[0]) lob.enemies[0].x = 40
     lob.playerX += 36
     step(lob, input({ aimActive: false }), 1 / 60)
-    assert.ok(Math.abs(lob.reticleX - lockedX) > 20)
+    assert.equal(lob.reticleX, lockedX)
     assert.equal(first.tx, markX)
     assert.equal(first.ty, markY)
     assert.ok(Math.hypot(first.sx - lob.droneX, first.sy - lob.droneY) > 8)
@@ -974,6 +974,24 @@ describe('orbs', () => {
     step(ahead, input({ aimActive: false }), 1 / 60)
     assert.ok(ahead.reticleX < 180)
     assert.ok(ahead.reticleX > 90)
+
+    const round = createGame(0, 54)
+    round.spawnCd = 999
+    round.fireCd = 10
+    round.invuln = 5
+    round.mods.drone = 1
+    round.droneReload = 0
+    round.droneBurst = 0.6
+    round.droneCd = 0.02
+    round.reticleOn = true
+    round.reticleX = round.droneX + 180
+    round.reticleY = round.droneY
+    round.droneFace = 0
+    const started = round.mortars.length
+    for (let n = 0; n < 20; n++) step(round, input({ aimActive: false }), 1 / 60)
+    assert.ok(round.mortars.length > started)
+    assert.equal(round.droneReload, 0)
+    assert.ok(round.droneBurst > 0.2)
 
     const storm = createGame(0, 48)
     storm.spawnCd = 999

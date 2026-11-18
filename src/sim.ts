@@ -273,6 +273,7 @@ export const FIELD = {
 
 export const DRONE = {
   stormRank: 5,
+  spread: 104,
 } as const
 
 export function droneStorm(rank: number): boolean {
@@ -1282,16 +1283,9 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     explodeShell(state, shell, events)
     state.mortars.splice(i, 1)
   }
-  if (droneStorm(rank)) hopStormArea(state, dt)
-  else {
-    const tracking = trackLiveAim(state)
-    if (!tracking && state.droneBurst <= 0) state.reticleOn = false
-  }
-  if (state.reticleOn && state.droneBurst > 0 && !crowdNearAim(state)) {
-    state.droneBurst = 0
-    state.reticleOn = droneStorm(rank)
-    state.droneReload = droneReload(rank)
-    return
+  if (state.droneBurst <= 0) {
+    if (droneStorm(rank)) hopStormArea(state, dt)
+    else if (!trackLiveAim(state)) state.reticleOn = false
   }
   if (state.droneReload > 0) {
     state.droneReload = Math.max(0, state.droneReload - dt)
@@ -1302,7 +1296,8 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     state.droneBurst = droneBurst(rank)
     state.droneCd = 0
   }
-  if (!droneAimed(state)) return
+  const roundOpen = state.droneBurst < droneBurst(rank) - 1e-4 || state.droneCd > 0
+  if (!roundOpen && !droneAimed(state)) return
   state.droneBurst = Math.max(0, state.droneBurst - dt)
   state.droneCd -= dt
   if (state.droneCd <= 0 && state.mortars.length < 72) {
@@ -1485,7 +1480,7 @@ function launchShell(
 }
 
 function randomMark(state: GameState, sx: number, sy: number): { x: number; y: number; fromCenter: number } {
-  const outer = 150
+  const outer = DRONE.spread
   const maxRange = 296
   for (let n = 0; n < 10; n++) {
     const angle = unit(state) * Math.PI * 2
@@ -1522,7 +1517,7 @@ function blasterArcSign(face: number, side: number, shotX: number, shotY: number
 }
 
 function shellArc(state: GameState, travel: number, sign: number, fromCenter: number): number {
-  const ring = Math.min(1, fromCenter / 150)
+  const ring = Math.min(1, fromCenter / DRONE.spread)
   const reach = Math.min(1, travel / 260)
   const base = 26 + reach * 10 + ring * ring * 6
   const jitter = (state.rng() - 0.5) * 4
