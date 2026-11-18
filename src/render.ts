@@ -699,14 +699,16 @@ function drawDrone(
   ctx.beginPath()
   polyPath(ctx, 0, 0, r, 6, spin)
   ctx.stroke()
-  const nose = r * Math.cos(Math.PI / 6)
+  const ax = Math.cos(spin) * r
+  const ay = Math.sin(spin) * r
   ctx.beginPath()
-  ctx.moveTo(nose + 8, 0)
-  ctx.lineTo(nose - 1.5, 5.4)
-  ctx.lineTo(nose - 1.5, -5.4)
+  ctx.moveTo(ax + 9, 0)
+  ctx.lineTo(ax, ay)
+  ctx.lineTo(ax, -ay)
   ctx.closePath()
-  ctx.fillStyle = ink
+  ctx.fillStyle = '#05060a'
   ctx.fill()
+  ctx.stroke()
   ctx.beginPath()
   ctx.arc(0, 0, 3.8, 0, Math.PI * 2)
   ctx.fillStyle = storm ? '#ff2d3a' : '#ffffff'
