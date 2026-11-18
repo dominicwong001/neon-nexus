@@ -993,6 +993,28 @@ describe('orbs', () => {
     assert.equal(round.droneReload, 0)
     assert.ok(round.droneBurst > 0.2)
 
+    const shift = createGame(0, 56)
+    shift.spawnCd = 999
+    shift.fireCd = 10
+    shift.invuln = 5
+    shift.mods.drone = 5
+    shift.droneReload = 0
+    shift.droneBurst = 3
+    shift.droneCd = 0.02
+    shift.droneAreaCd = 1
+    shift.reticleOn = true
+    shift.reticleX = shift.droneX + 200
+    shift.reticleY = shift.droneY
+    shift.droneFace = 0
+    shift.enemies.push(
+      enemy({ x: shift.reticleX, y: shift.reticleY, hp: 40, radius: 16, speed: 0 }),
+      enemy({ x: shift.droneX, y: shift.droneY - 220, hp: 900, radius: 16, speed: 0 }),
+    )
+    for (let n = 0; n < 30; n++) step(shift, input({ aimActive: false }), 1 / 60)
+    assert.ok(shift.reticleX > shift.droneX + 80)
+    for (let n = 0; n < 50; n++) step(shift, input({ aimActive: false }), 1 / 60)
+    assert.ok(shift.reticleY < shift.droneY - 40)
+
     const slide = createGame(0, 55)
     slide.spawnCd = 999
     slide.fireCd = 10
