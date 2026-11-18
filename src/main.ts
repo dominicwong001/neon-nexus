@@ -7,6 +7,7 @@ import { render, type StickView } from './render.ts'
 import {
   chooseUpgrade,
   createGame,
+  damageReport,
   screenToWorld,
   step,
   type GameState,
@@ -20,6 +21,7 @@ const liveEl = must<HTMLElement>('#live')
 const flashEl = must<HTMLElement>('#flash')
 const overlay = must<HTMLElement>('#overlay')
 const finalEl = must<HTMLElement>('#final')
+const damageEl = must<HTMLElement>('#damage')
 const againBtn = must<HTMLButtonElement>('#again')
 const xpEl = must<HTMLElement>('#xp')
 const xpFill = must<HTMLElement>('#xp-fill')
@@ -216,6 +218,16 @@ function syncHud(game: GameState, now: number): void {
   if (game.phase === 'dead' && !deathShown) {
     deathShown = true
     finalEl.textContent = `Reached level ${game.level}`
+    damageEl.replaceChildren()
+    for (const row of damageReport(game)) {
+      const item = document.createElement('li')
+      const name = document.createElement('span')
+      name.textContent = row.name
+      const amount = document.createElement('span')
+      amount.textContent = String(row.amount)
+      item.append(name, amount)
+      damageEl.append(item)
+    }
     overlay.hidden = false
     againBtn.focus()
   }

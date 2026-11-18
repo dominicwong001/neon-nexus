@@ -24,6 +24,7 @@ export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a', '#ff2d3a'] as const
 export type EnemyKind = 0 | 1 | 2 | 3
 export type Phase = 'play' | 'dead' | 'level'
 export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'plate' | 'orbiter' | 'field' | 'ball' | 'drone' | 'cache'
+export type DamageSource = 'stream' | 'orbiter' | 'field' | 'ball' | 'drone'
 
 export interface Bullet {
   x: number
@@ -209,6 +210,7 @@ export interface GameState {
   reticleVx: number
   reticleVy: number
   mods: Mods
+  dealt: Record<DamageSource, number>
   offers: Offer[]
   bullets: Bullet[]
   balls: Ricochet[]
@@ -475,6 +477,7 @@ export function createGame(best = 0, seed = 1): GameState {
     reticleVx: 0,
     reticleVy: 0,
     mods: freshMods(),
+    dealt: { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0 },
     offers: [],
     bullets: [],
     balls: [],
@@ -677,6 +680,24 @@ function pushFloater(state: GameState, x: number, y: number, text: string, color
   if (state.floaters.length > 36) state.floaters.shift()
 }
 
+export function damageReport(state: GameState): { name: string; amount: number }[] {
+  const rows: { name: string; amount: number }[] = [{ name: 'Stream', amount: state.dealt.stream }]
+  if (state.mods.orbiter > 0) {
+    rows.push({ name: state.mods.orbiter >= OVERDRIVE ? "Guardian's Halo" : 'Sentinel', amount: state.dealt.orbiter })
+  }
+  if (state.mods.field > 0) {
+    rows.push({ name: state.mods.field >= OVERDRIVE ? 'Null Zone' : 'Force Field', amount: state.dealt.field })
+  }
+  if (state.mods.ball > 0) {
+    rows.push({ name: state.mods.ball >= OVERDRIVE ? 'Quantum Core' : 'Bouncy Ball', amount: state.dealt.ball })
+  }
+  if (state.mods.drone > 0) {
+    rows.push({ name: droneStorm(state.mods.drone) ? 'Bulletstorm' : 'Drone', amount: state.dealt.drone })
+  }
+  rows.sort((a, b) => b.amount - a.amount)
+  return rows
+}
+
 export function orbiterDamage(rank: number): number {
   const dealt = 46 + Math.max(0, rank - 1) * 11
   return rank >= OVERDRIVE ? dealt + 18 : dealt
@@ -749,9 +770,12 @@ function damageEnemy(
   events: StepEvents,
   dealt = HIT * (1 + state.mods.caliber),
   color = '#ffffff',
+  source: DamageSource = 'stream',
 ): void {
   enemy.hitCd = TUNING.hitCooldown
   enemy.flash = 0.08
+  const before = Math.max(0, enemy.hp)
+  state.dealt[source] += Math.min(dealt, before)
   enemy.hp -= dealt
   pushFloater(state, enemy.x, enemy.y - enemy.radius * 0.35, String(dealt), color, -68)
   burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 6, 140)
@@ -1097,7 +1121,7 @@ function pulseField(state: GameState, events: StepEvents): void {
     const dx = enemy.x - state.playerX
     const dy = enemy.y - state.playerY
     if (dx * dx + dy * dy > (radius + enemy.radius) ** 2) continue
-    damageEnemy(state, enemy, events, dealt, fieldColor(rank))
+    damageEnemy(state, enemy, events, dealt, fieldColor(rank), 'field')
   }
 }
 
@@ -1202,7 +1226,7 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
       ball.touched.push({ enemy, cd: 0.15 })
       if (thickHull(enemy) && deflectOffEnemy(ball, enemy)) ball.flex = 1
       shoveFromBall(enemy, ball)
-      damageEnemy(state, enemy, events, ball.damage, ball.quantum ? '#ff2d3a' : '#8dff4a')
+      damageEnemy(state, enemy, events, ball.damage, ball.quantum ? '#ff2d3a' : '#8dff4a', 'ball')
       enemy.hitCd = 0.14
       if (splitBall(state, ball)) {
         state.balls.splice(i, 1)
@@ -1297,7 +1321,7 @@ function strikeOrbits(state: GameState, events: StepEvents): void {
       enemy.orbitCd = 0.42
       shoveFromDisc(state, enemy, disc.x, disc.y, orbiterShove(state.mods.orbiter))
       spawnImpact(state, disc.x, disc.y)
-      damageEnemy(state, enemy, events, orbiterDamage(state.mods.orbiter))
+      damageEnemy(state, enemy, events, orbiterDamage(state.mods.orbiter), '#ffffff', 'orbiter')
     }
   }
 }
@@ -1696,7 +1720,7 @@ function explodeShell(state: GameState, shell: Mortar, events: StepEvents): void
     const dy = enemy.y - shell.ty
     const reach = shell.radius + enemy.radius
     if (dx * dx + dy * dy > reach * reach) continue
-    damageEnemy(state, enemy, events, shell.damage, color)
+    damageEnemy(state, enemy, events, shell.damage, color, 'drone')
   }
 }
 

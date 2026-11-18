@@ -34,6 +34,7 @@ import {
   droneInterval,
   droneReload,
   droneStorm,
+  damageReport,
   shellPose,
   screenToWorld,
   step,
@@ -1253,6 +1254,59 @@ describe('orbs', () => {
     const wide = reachOf(farCrowd)
     assert.ok(tight < 80)
     assert.ok(wide > tight + 30)
+  })
+
+  it('counts damage from the stream and each ability', () => {
+    const state = createGame(0, 70)
+    state.spawnCd = 999
+    state.fireCd = 0
+    state.invuln = 5
+    state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, hp: 500, radius: 22 }))
+    step(state, input(), 1 / 60)
+    assert.ok(state.dealt.stream >= HIT)
+    state.mods.field = 1
+    state.fieldTick = -1
+    state.enemies.push(enemy({ x: 20, y: 0, hp: 400, radius: 10, speed: 0 }))
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.ok(state.dealt.field >= fieldDamage(1))
+    state.mods.orbiter = 6
+    state.orbitTime = 0.8
+    state.time = 0.5
+    const disc = orbitDiscs(state)[0]
+    assert.ok(disc)
+    state.enemies.push(enemy({ x: disc.x, y: disc.y, hp: 800, radius: 12, speed: 0 }))
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(state.dealt.orbiter, orbiterDamage(6))
+    state.mods.ball = 1
+    state.fireCd = 10
+    state.balls.push({
+      x: 400,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      life: 2,
+      max: 2,
+      radius: 12,
+      damage: 20,
+      echo: false,
+      quantum: false,
+      knock: 0,
+      spin: 0,
+      flex: 0,
+      flexAngle: 0,
+      touched: [],
+    })
+    state.enemies.push(enemy({ x: 400, y: 0, hp: 80, radius: 16, speed: 0 }))
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(state.dealt.ball, 20)
+    state.mods.drone = 5
+    const report = damageReport(state)
+    assert.equal(report.some((row) => row.name === 'Stream' && row.amount === state.dealt.stream), true)
+    assert.equal(report.some((row) => row.name === "Guardian's Halo"), true)
+    assert.equal(report.some((row) => row.name === 'Force Field'), true)
+    assert.equal(report.some((row) => row.name === 'Bouncy Ball'), true)
+    assert.equal(report.some((row) => row.name === 'Bulletstorm' && row.amount === 0), true)
+    assert.ok(report[0] && report[0].amount >= (report[1]?.amount ?? 0))
   })
 
   it('repairs hull when Plate is chosen', () => {

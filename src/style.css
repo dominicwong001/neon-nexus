@@ -343,8 +343,32 @@ h1 {
 }
 
 .final {
-  margin-bottom: 1rem;
+  margin-bottom: 0.85rem;
   line-height: 1.5;
+}
+
+.damage {
+  list-style: none;
+  margin: 0 0 1.1rem;
+  padding: 0;
+  text-align: left;
+}
+
+.damage li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.38rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.damage li span:last-child {
+  color: #fff;
+  font-variant-numeric: tabular-nums;
 }
 
 .card button {
