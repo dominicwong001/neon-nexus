@@ -3,7 +3,7 @@ export const BODY = 0.7
 
 export const TUNING = {
   thrust: 12,
-  maxSpeed: 210,
+  maxSpeed: 300,
   drag: 6.5,
   bulletSpeed: 980,
   fireInterval: 0.28,
