@@ -1012,12 +1012,10 @@ describe('orbs', () => {
     for (const shell of storm.mortars) {
       const travel = Math.hypot(shell.tx - shell.sx, shell.ty - shell.sy)
       const height = Math.abs(shell.arc)
-      const low = travel * 0.015
-      const high = travel * 0.635
       if (shell.arc < 0) down += 1
       else up += 1
-      assert.ok(height + 0.001 >= low)
-      assert.ok(height <= high + 0.001)
+      assert.ok(height >= 22)
+      assert.ok(height <= 48)
       if (near && travel < Math.hypot(near.tx - near.sx, near.ty - near.sy)) near = shell
       if (far && travel > Math.hypot(far.tx - far.sx, far.ty - far.sy)) far = shell
       for (const mark of [0, 0.35, 0.7]) {

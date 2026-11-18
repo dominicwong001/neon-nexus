@@ -531,7 +531,6 @@ function drawReticle(
     const ink = shell.storm ? '#ff2d3a' : '#ffffff'
     ctx.save()
     ctx.translate(X(shell.tx), Y(shell.ty))
-    ctx.rotate(shell.spin)
     ctx.strokeStyle = ink
     ctx.fillStyle = ink
     ctx.lineWidth = 1.25

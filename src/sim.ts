@@ -103,7 +103,6 @@ export interface Mortar {
   radius: number
   damage: number
   storm: boolean
-  spin: number
 }
 
 export interface Mods {
@@ -1482,7 +1481,6 @@ function launchShell(
     radius: droneBlast(rank),
     damage: droneDamage(rank),
     storm,
-    spin: unit(state) * Math.PI * 0.5,
   })
 }
 
@@ -1525,8 +1523,10 @@ function blasterArcSign(face: number, side: number, shotX: number, shotY: number
 
 function shellArc(state: GameState, travel: number, sign: number, fromCenter: number): number {
   const ring = Math.min(1, fromCenter / 150)
-  const scale = 0.015 + ring * ring * 0.14 + state.rng() * (0.02 + ring * 0.46)
-  return sign * travel * scale
+  const reach = Math.min(1, travel / 260)
+  const base = 26 + reach * 10 + ring * ring * 6
+  const jitter = (state.rng() - 0.5) * 4
+  return sign * (base + jitter)
 }
 
 export function shellPose(shell: Mortar, p: number): { x: number; y: number; vx: number; vy: number; heading: number } {
