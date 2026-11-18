@@ -338,6 +338,7 @@ function paintTimeline(game: GameState): void {
   timelineChart.width = Math.round(widthCss * ratio)
   timelineChart.height = Math.round(heightCss * ratio)
   chart.setTransform(ratio, 0, 0, ratio, 0, 0)
+  chart.imageSmoothingEnabled = true
   chart.clearRect(0, 0, widthCss, heightCss)
   chart.fillStyle = '#07080c'
   chart.fillRect(0, 0, widthCss, heightCss)
@@ -384,16 +385,32 @@ function paintTimeline(game: GameState): void {
   }
 
   const drawLine = (color: string, read: (sample: (typeof samples)[number]) => number, dashed: boolean) => {
-    chart.beginPath()
-    samples.forEach((sample, index) => {
+    const points: { x: number; y: number }[] = []
+    for (const sample of samples) {
       const x = xOf(sample.t)
       const y = yOf(read(sample))
-      if (index === 0) chart.moveTo(x, y)
-      else chart.lineTo(x, y)
-    })
+      const last = points[points.length - 1]
+      if (last && Math.abs(last.x - x) < 0.4 && Math.abs(last.y - y) < 0.4) continue
+      points.push({ x, y })
+    }
+    if (points.length === 0) return
+    chart.beginPath()
+    chart.moveTo(points[0].x, points[0].y)
+    if (points.length === 1) {
+      chart.lineTo(points[0].x + 0.01, points[0].y)
+    } else {
+      for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1]
+        const curr = points[i]
+        const span = curr.x - prev.x
+        chart.bezierCurveTo(prev.x + span * 0.5, prev.y, curr.x - span * 0.5, curr.y, curr.x, curr.y)
+      }
+    }
     chart.strokeStyle = color
-    chart.lineWidth = dashed ? 2.4 : 2
-    chart.setLineDash(dashed ? [7, 5] : [])
+    chart.lineWidth = dashed ? 3.25 : 3
+    chart.lineCap = 'round'
+    chart.lineJoin = 'round'
+    chart.setLineDash(dashed ? [8, 6] : [])
     chart.stroke()
     chart.setLineDash([])
   }
@@ -442,12 +459,20 @@ function rankOf(game: GameState, source: DamageSource): number {
 function legendItem(color: string, name: string, amount: number, total: boolean): HTMLLIElement {
   const item = document.createElement('li')
   const swatch = document.createElement('i')
+  swatch.setAttribute('aria-hidden', 'true')
+  swatch.style.color = color
   if (total) swatch.className = 'swatch-total'
   else swatch.style.background = color
   const label = document.createElement('span')
+  label.className = 'legend-name'
   label.textContent = name
-  const value = document.createElement('b')
-  value.textContent = formatDamage(amount)
+  const value = document.createElement('span')
+  value.className = 'legend-amount'
+  const figure = document.createElement('b')
+  figure.textContent = formatDamage(amount)
+  const unit = document.createElement('small')
+  unit.textContent = 'damage'
+  value.append(figure, unit)
   item.append(swatch, label, value)
   return item
 }
@@ -475,8 +500,8 @@ function damageSamples(game: GameState): DamageSample[] {
     acc.field += bin.field
     acc.ball += bin.ball
     acc.drone += bin.drone
-    push(bin.t)
-    push(Math.min(game.time, bin.t + 0.5))
+    const at = Math.min(Math.max(game.time, 0), bin.t + 0.5)
+    if (at > samples[samples.length - 1].t) push(at)
   }
   const end = Math.max(game.time, 0)
   if (samples[samples.length - 1].t < end) push(end)
