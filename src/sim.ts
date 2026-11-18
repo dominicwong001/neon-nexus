@@ -1547,9 +1547,9 @@ function blasterArcSign(face: number, side: number, shotX: number, shotY: number
 function shellArc(state: GameState, travel: number, sign: number, fromCenter: number): number {
   const ring = Math.min(1, fromCenter / DRONE.spread)
   const reach = Math.min(1, travel / 260)
-  const base = 26 + reach * 10 + ring * ring * 6
-  const jitter = (state.rng() - 0.5) * 4
-  return sign * (base + jitter) * 1.3
+  const base = (26 + reach * 10 + ring * ring * 6) * 1.2
+  const vary = 0.8 + state.rng() * 0.4
+  return sign * base * vary
 }
 
 export function shellPose(shell: Mortar, p: number): { x: number; y: number; vx: number; vy: number; heading: number } {
