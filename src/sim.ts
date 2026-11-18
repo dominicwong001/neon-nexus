@@ -198,6 +198,8 @@ export interface GameState {
   reticleOn: boolean
   reticleX: number
   reticleY: number
+  reticleVx: number
+  reticleVy: number
   mods: Mods
   offers: Offer[]
   bullets: Bullet[]
@@ -448,6 +450,8 @@ export function createGame(best = 0, seed = 1): GameState {
     reticleOn: false,
     reticleX: 0,
     reticleY: 0,
+    reticleVx: 0,
+    reticleVy: 0,
     mods: freshMods(),
     offers: [],
     bullets: [],
@@ -1280,21 +1284,22 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     state.mortars.splice(i, 1)
   }
   if (droneStorm(rank)) hopStormArea(state, dt)
+  else {
+    const tracking = trackLiveAim(state)
+    if (!tracking && state.droneBurst <= 0) state.reticleOn = false
+  }
+  if (state.reticleOn && state.droneBurst > 0 && !crowdNearAim(state)) {
+    state.droneBurst = 0
+    state.reticleOn = droneStorm(rank)
+    state.droneReload = droneReload(rank)
+    return
+  }
   if (state.droneReload > 0) {
     state.droneReload = Math.max(0, state.droneReload - dt)
     return
   }
   if (state.droneBurst <= 0) {
-    const target = richestDroneArea(state)
-    if (!target) {
-      state.reticleOn = false
-      return
-    }
-    if (!droneStorm(rank) || (state.reticleX === 0 && state.reticleY === 0)) {
-      state.reticleX = target.x
-      state.reticleY = target.y
-    }
-    state.reticleOn = true
+    if (!state.reticleOn) return
     state.droneBurst = droneBurst(rank)
     state.droneCd = 0
   }
@@ -1325,24 +1330,83 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     )
     state.droneCd = droneInterval(rank)
   }
-  if (state.droneBurst <= 0) {
-    if (!droneStorm(rank)) state.reticleOn = false
-    state.droneReload = droneReload(rank)
-  }
+  if (state.droneBurst <= 0) state.droneReload = droneReload(rank)
 }
 
 function hopStormArea(state: GameState, dt: number): void {
+  if (state.reticleOn) {
+    state.reticleX += state.reticleVx * dt
+    state.reticleY += state.reticleVy * dt
+    holdAimOffPlayer(state)
+  }
   state.droneAreaCd = Math.max(0, state.droneAreaCd - dt)
-  if (state.droneAreaCd > 0) return
+  const lost = state.reticleOn && !crowdNearAim(state)
+  if (state.droneAreaCd > 0 && !lost) return
   const live = richestDroneArea(state)
-  if (!live) return
-  state.reticleX = live.x
-  state.reticleY = live.y
+  if (!live) {
+    if (lost) state.reticleOn = false
+    return
+  }
+  const spot = leadPoint(state, live)
+  state.reticleX = spot.x
+  state.reticleY = spot.y
+  state.reticleVx = live.vx
+  state.reticleVy = live.vy
   state.reticleOn = true
   state.droneAreaCd = 3
 }
 
-function richestDroneArea(state: GameState): { x: number; y: number } | null {
+function trackLiveAim(state: GameState): boolean {
+  const live = richestDroneArea(state)
+  if (!live) return false
+  const spot = leadPoint(state, live)
+  state.reticleX = spot.x
+  state.reticleY = spot.y
+  state.reticleVx = live.vx
+  state.reticleVy = live.vy
+  state.reticleOn = true
+  return true
+}
+
+function leadPoint(state: GameState, live: { x: number; y: number; vx: number; vy: number }): { x: number; y: number } {
+  const anchor = droneAnchor(state)
+  const dist = Math.hypot(live.x - anchor.x, live.y - anchor.y)
+  const flight = Math.min(0.85, 0.34 + dist / 700)
+  return holdOffPlayer(state, live.x + live.vx * flight, live.y + live.vy * flight, live.x, live.y)
+}
+
+function holdAimOffPlayer(state: GameState): void {
+  const held = holdOffPlayer(state, state.reticleX, state.reticleY, state.reticleX - state.reticleVx, state.reticleY - state.reticleVy)
+  state.reticleX = held.x
+  state.reticleY = held.y
+}
+
+function holdOffPlayer(state: GameState, x: number, y: number, fromX: number, fromY: number): { x: number; y: number } {
+  const px = x - state.playerX
+  const py = y - state.playerY
+  const pd = Math.hypot(px, py)
+  if (pd >= 72) return { x, y }
+  const ox = fromX - state.playerX
+  const oy = fromY - state.playerY
+  const od = Math.hypot(ox, oy) || 1
+  return { x: state.playerX + (ox / od) * 72, y: state.playerY + (oy / od) * 72 }
+}
+
+function crowdNearAim(state: GameState): boolean {
+  const reach = 168
+  const reach2 = reach * reach
+  for (const enemy of state.enemies) {
+    const dx = enemy.x - state.reticleX
+    const dy = enemy.y - state.reticleY
+    if (dx * dx + dy * dy <= reach2) return true
+    const px = enemy.x + enemy.vx * 0.7 - state.reticleX
+    const py = enemy.y + enemy.vy * 0.7 - state.reticleY
+    if (px * px + py * py <= reach2) return true
+  }
+  return false
+}
+
+function richestDroneArea(state: GameState): { x: number; y: number; vx: number; vy: number } | null {
   const anchor = droneAnchor(state)
   const reach = 300
   const zone = 96
@@ -1350,6 +1414,8 @@ function richestDroneArea(state: GameState): { x: number; y: number } | null {
   let bestDist = Infinity
   let bestX = 0
   let bestY = 0
+  let bestVx = 0
+  let bestVy = 0
   for (const enemy of state.enemies) {
     const pdx = enemy.x - anchor.x
     const pdy = enemy.y - anchor.y
@@ -1358,6 +1424,8 @@ function richestDroneArea(state: GameState): { x: number; y: number } | null {
     let total = 0
     let sx = 0
     let sy = 0
+    let svx = 0
+    let svy = 0
     let count = 0
     for (const other of state.enemies) {
       const dx = other.x - enemy.x
@@ -1366,6 +1434,8 @@ function richestDroneArea(state: GameState): { x: number; y: number } | null {
       total += Math.max(0, other.hp)
       sx += other.x
       sy += other.y
+      svx += other.vx
+      svy += other.vy
       count += 1
     }
     if (count === 0) continue
@@ -1374,10 +1444,12 @@ function richestDroneArea(state: GameState): { x: number; y: number } | null {
       bestDist = dist
       bestX = sx / count
       bestY = sy / count
+      bestVx = svx / count
+      bestVy = svy / count
     }
   }
   if (bestScore < 0) return null
-  return { x: bestX, y: bestY }
+  return { x: bestX, y: bestY, vx: bestVx, vy: bestVy }
 }
 
 function launchShell(

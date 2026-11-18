@@ -676,7 +676,7 @@ function drawDrone(
     const ny = tip.y / len
     const px = -ny
     const py = nx
-    const half = 3.4
+    const half = 5.8
     const base = len - 6.5
     ctx.beginPath()
     ctx.moveTo(nx * base + px * half, ny * base + py * half)

@@ -919,7 +919,7 @@ describe('orbs', () => {
     if (lob.enemies[0]) lob.enemies[0].x = 40
     lob.playerX += 36
     step(lob, input({ aimActive: false }), 1 / 60)
-    assert.equal(lob.reticleX, lockedX)
+    assert.ok(Math.abs(lob.reticleX - lockedX) > 20)
     assert.equal(first.tx, markX)
     assert.equal(first.ty, markY)
     assert.ok(Math.hypot(first.sx - lob.droneX, first.sy - lob.droneY) > 8)
@@ -964,6 +964,17 @@ describe('orbs', () => {
     step(rich, input({ aimActive: false }), 1 / 60)
     assert.ok(rich.reticleX < 0)
 
+    const ahead = createGame(0, 50)
+    ahead.spawnCd = 999
+    ahead.fireCd = 10
+    ahead.invuln = 5
+    ahead.mods.drone = 1
+    ahead.droneReload = 0
+    ahead.enemies.push(enemy({ x: 220, y: 0, hp: 500, radius: 16, speed: 90, vx: -110, vy: 0 }))
+    step(ahead, input({ aimActive: false }), 1 / 60)
+    assert.ok(ahead.reticleX < 180)
+    assert.ok(ahead.reticleX > 90)
+
     const storm = createGame(0, 48)
     storm.spawnCd = 999
     storm.fireCd = 10
@@ -987,9 +998,9 @@ describe('orbs', () => {
     assert.ok(tail.droneX > parked + 40)
     const yaw = createGame(0, 52)
     yaw.mods.drone = 1
-    yaw.reticleOn = true
-    yaw.reticleX = yaw.droneX
-    yaw.reticleY = yaw.droneY - 240
+    yaw.spawnCd = 999
+    yaw.fireCd = 10
+    yaw.enemies.push(enemy({ x: yaw.droneX, y: yaw.droneY - 240, hp: 400, radius: 16, speed: 0 }))
     yaw.droneFace = 0
     for (let n = 0; n < 8; n++) step(yaw, input({ aimActive: false }), 1 / 60)
     assert.ok(yaw.droneFace < -0.2)
