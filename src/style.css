@@ -294,6 +294,12 @@ button:focus-visible {
   font-size: 0.66rem;
 }
 
+.offer-rank {
+  text-transform: none;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
+}
+
 .offer-title {
   color: #fff;
   font-size: 1.05rem;

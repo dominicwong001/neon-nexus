@@ -287,7 +287,8 @@ function syncLevel(game: GameState): void {
     detail.textContent = offer.detail
     const rank = document.createElement('span')
     rank.className = 'offer-rank'
-    rank.textContent = offer.overdrive ? 'Overdrive' : offer.id === 'cache' ? 'Bonus' : `Rank ${offer.rank} of ${offer.max}`
+    rank.textContent =
+      offer.id === 'cache' ? 'Bonus' : `lvl ${offer.rank - 1} --> lvl ${offer.rank}/${offer.max}`
     button.append(keyEl, title, detail, rank)
     button.addEventListener('click', () => pickUpgrade(index))
     offersEl.append(button)
