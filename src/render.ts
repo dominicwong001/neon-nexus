@@ -598,7 +598,7 @@ function drawMortars(
     const groundX = shell.sx + (shell.tx - shell.sx) * p
     const groundY = shell.sy + (shell.ty - shell.sy) * p
     const heading = pose.heading
-    const ink = '#ffffff'
+    const ink = shell.storm ? '#ff2d3a' : '#ffffff'
     if (!lean) {
     const steps = 8
     ctx.save()
@@ -637,12 +637,12 @@ function drawMortars(
     ctx.rotate(heading)
     ctx.fillStyle = '#05060a'
     ctx.strokeStyle = ink
-    ctx.lineWidth = 1.7
+    ctx.lineWidth = 1.55
     ctx.lineJoin = 'round'
     ctx.beginPath()
-    ctx.moveTo(22, 0)
-    ctx.lineTo(-12, -5.4)
-    ctx.lineTo(-12, 5.4)
+    ctx.moveTo(19, 0)
+    ctx.lineTo(-10, -4.6)
+    ctx.lineTo(-10, 4.6)
     ctx.closePath()
     ctx.fill()
     ctx.stroke()

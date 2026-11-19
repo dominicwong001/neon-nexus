@@ -922,13 +922,16 @@ describe('orbs', () => {
     assert.ok(droneInterval(4) < droneInterval(1))
     assert.ok(droneInterval(5) < droneInterval(4))
     assert.ok(droneInterval(1) > 0.4)
+    assert.ok(droneInterval(1) < 0.55)
     assert.equal(droneVolley(1), 2)
     assert.ok(droneVolley(5) > droneVolley(4))
     assert.ok(droneVolley(4) > droneVolley(1))
     assert.ok(droneBlast(4) > droneBlast(1))
     assert.ok(droneBlast(5) > droneBlast(4))
     assert.ok(droneDamage(1) > 0)
+    assert.ok(droneDamage(1) < 11)
     assert.ok(droneDamage(5) > droneDamage(4))
+    assert.ok(droneDamage(5) < droneDamage(1) + 12)
 
     const lob = createGame(0, 47)
     lob.spawnCd = 999

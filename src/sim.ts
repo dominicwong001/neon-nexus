@@ -327,7 +327,7 @@ export function droneVolley(rank: number): number {
 
 export function droneInterval(rank: number): number {
   const step = Math.max(0, Math.min(rank, DRONE.stormRank) - 1)
-  return Math.max(0.28, 0.62 - step * 0.06)
+  return Math.max(0.2, 0.46 - step * 0.055)
 }
 
 export function droneBlast(rank: number): number {
@@ -338,7 +338,7 @@ export function droneBlast(rank: number): number {
 
 export function droneDamage(rank: number): number {
   if (rank <= 0) return 0
-  return 11 + Math.max(0, rank - 1) * 3
+  return 7 + Math.max(0, rank - 1) * 2
 }
 
 export function droneAnchor(state: GameState): { x: number; y: number } {
@@ -1433,7 +1433,8 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     const anchor = droneAnchor(state)
     const tips = droneBlasterTips()
     const count = droneVolley(rank)
-    const gap = 0.34
+    const span = Math.min(2.15, 0.92 + Math.max(0, count - 2) * 0.3)
+    const gap = count <= 1 ? 0 : span / (count - 1)
     for (let i = 0; i < count && state.mortars.length < 72; i++) {
       const barrel = state.droneBarrel % tips.length
       const tip = tips[barrel] ?? { x: 0, y: 0 }
@@ -1445,7 +1446,7 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
       const barrelLen = Math.hypot(tip.x, tip.y) || 1
       const bx0 = (tip.x * c - tip.y * s) / barrelLen
       const by0 = (tip.x * s + tip.y * c) / barrelLen
-      const offset = (i - (count - 1) / 2) * gap
+      const offset = (i - (count - 1) / 2) * gap + (unit(state) - 0.5) * 0.16
       const turn = Math.cos(offset)
       const sway = Math.sin(offset)
       const bx = bx0 * turn - by0 * sway
