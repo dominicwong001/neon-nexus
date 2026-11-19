@@ -32,6 +32,7 @@ import {
   droneDamage,
   droneBurst,
   droneInterval,
+  droneVolley,
   droneReload,
   droneStorm,
   damageReport,
@@ -920,6 +921,10 @@ describe('orbs', () => {
     assert.ok(droneReload(5) < 0.6)
     assert.ok(droneInterval(4) < droneInterval(1))
     assert.ok(droneInterval(5) < droneInterval(4))
+    assert.ok(droneInterval(1) > 0.4)
+    assert.equal(droneVolley(1), 2)
+    assert.ok(droneVolley(5) > droneVolley(4))
+    assert.ok(droneVolley(4) > droneVolley(1))
     assert.ok(droneBlast(4) > droneBlast(1))
     assert.ok(droneBlast(5) > droneBlast(4))
     assert.ok(droneDamage(1) > 0)
@@ -1194,8 +1199,10 @@ describe('orbs', () => {
       const before = farAim.mortars.length
       step(farAim, input({ aimActive: false }), 1 / 60)
       if (farAim.mortars.length > before) {
-        const shell = farAim.mortars[farAim.mortars.length - 1]
-        if (shell) lands.push({ x: shell.tx, y: shell.ty, d: Math.hypot(shell.tx - shell.sx, shell.ty - shell.sy) })
+        for (let i = before; i < farAim.mortars.length && lands.length < 24; i++) {
+          const shell = farAim.mortars[i]
+          if (shell) lands.push({ x: shell.tx, y: shell.ty, d: Math.hypot(shell.tx - shell.sx, shell.ty - shell.sy) })
+        }
       }
     }
     assert.ok(lands.length >= 16)
@@ -1295,10 +1302,14 @@ describe('orbs', () => {
       enemy({ x: away.playerX, y: away.playerY + 30, hp: 9000, radius: 16, speed: 220 }),
     )
     const marks: { x: number; y: number }[] = []
+    const seen = new Set<object>()
     for (let n = 0; n < 70; n++) {
       step(away, input({ moveX: -1, aimActive: false }), 1 / 60)
-      const shell = away.mortars[away.mortars.length - 1]
-      if (shell && shell.age === 0) marks.push({ x: shell.tx, y: shell.ty })
+      for (const shell of away.mortars) {
+        if (shell.age !== 0 || seen.has(shell)) continue
+        seen.add(shell)
+        marks.push({ x: shell.tx, y: shell.ty })
+      }
     }
     const ys = marks.map((mark) => mark.y).sort((a, b) => a - b)
     const mid = ys[ys.length >> 1] ?? 0

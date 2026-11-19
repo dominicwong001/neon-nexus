@@ -320,9 +320,14 @@ export function droneReload(rank: number): number {
   return Math.max(1.05, 2.05 - Math.max(0, rank - 1) * 0.24)
 }
 
+export function droneVolley(rank: number): number {
+  if (rank <= 0) return 0
+  return rank + 1
+}
+
 export function droneInterval(rank: number): number {
   const step = Math.max(0, Math.min(rank, DRONE.stormRank) - 1)
-  return Math.max(0.05, 0.16 - step * 0.034)
+  return Math.max(0.28, 0.62 - step * 0.06)
 }
 
 export function droneBlast(rank: number): number {
@@ -1427,30 +1432,39 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
   if (state.droneCd <= 0 && state.mortars.length < 72) {
     const anchor = droneAnchor(state)
     const tips = droneBlasterTips()
-    const barrel = state.droneBarrel % tips.length
-    const tip = tips[barrel] ?? { x: 0, y: 0 }
-    state.droneBarrel += 1
-    const c = Math.cos(state.droneFace)
-    const s = Math.sin(state.droneFace)
-    const sx = anchor.x + tip.x * c - tip.y * s
-    const sy = anchor.y + tip.x * s + tip.y * c
-    const barrelLen = Math.hypot(tip.x, tip.y) || 1
-    const bx = (tip.x * c - tip.y * s) / barrelLen
-    const by = (tip.x * s + tip.y * c) / barrelLen
-    const spot = randomMark(state, sx, sy)
-    launchShell(
-      state,
-      sx,
-      sy,
-      spot.x,
-      spot.y,
-      rank,
-      droneStorm(rank),
-      blasterArcSign(state.droneFace, tip.y, spot.x - sx, spot.y - sy),
-      spot.fromCenter,
-      bx,
-      by,
-    )
+    const count = droneVolley(rank)
+    const gap = 0.34
+    for (let i = 0; i < count && state.mortars.length < 72; i++) {
+      const barrel = state.droneBarrel % tips.length
+      const tip = tips[barrel] ?? { x: 0, y: 0 }
+      state.droneBarrel += 1
+      const c = Math.cos(state.droneFace)
+      const s = Math.sin(state.droneFace)
+      const sx = anchor.x + tip.x * c - tip.y * s
+      const sy = anchor.y + tip.x * s + tip.y * c
+      const barrelLen = Math.hypot(tip.x, tip.y) || 1
+      const bx0 = (tip.x * c - tip.y * s) / barrelLen
+      const by0 = (tip.x * s + tip.y * c) / barrelLen
+      const offset = (i - (count - 1) / 2) * gap
+      const turn = Math.cos(offset)
+      const sway = Math.sin(offset)
+      const bx = bx0 * turn - by0 * sway
+      const by = bx0 * sway + by0 * turn
+      const spot = randomMark(state, sx, sy)
+      launchShell(
+        state,
+        sx,
+        sy,
+        spot.x,
+        spot.y,
+        rank,
+        droneStorm(rank),
+        blasterArcSign(state.droneFace, tip.y, spot.x - sx, spot.y - sy),
+        spot.fromCenter,
+        bx,
+        by,
+      )
+    }
     state.droneCd = droneInterval(rank)
     if (storm && !state.droneAreaHot) {
       state.droneAreaHot = true
@@ -1822,7 +1836,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     return {
       id,
       title: 'Bulletstorm',
-      detail: 'The drone turns red. Each rocket plants its own reticle, and the reload is barely a breath.',
+      detail: 'The drone turns red. Each volley is a wide fan of rockets, and the wait between them is short.',
       rank,
       max,
       overdrive: true,
@@ -1869,7 +1883,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
     field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off hostiles with 1000 hull or more and flies through the rest.' },
-    drone: { title: 'Drone', detail: 'A drone fires a rocket barrage. Each rocket plants a reticle where it will land, then reloads.' },
+    drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
   }
   const detail =
     id === 'orbiter' && rank > 1
@@ -1879,7 +1893,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
         : id === 'ball' && rank > 1
           ? 'More balls. They hit harder and stay out longer.'
           : id === 'drone' && rank > 1
-            ? 'A longer barrage, quicker rockets, a wider blast, and a shorter reload.'
+            ? 'More rockets in each fan, a wider blast, and a shorter wait between volleys.'
             : copy[id].detail
   return { id, title: copy[id].title, detail, rank, max, overdrive: false }
 }

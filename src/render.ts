@@ -370,13 +370,13 @@ function drawBalls(
   Y: (y: number) => number,
 ): void {
   if (state.balls.length === 0) return
-  const white = lean ? null : glowFor('#ffffff')
-  const red = lean ? null : glowFor('#ff2d3a')
+  const white = glowFor('#ffffff')
+  const red = glowFor('#ff2d3a')
   for (const ball of state.balls) {
     const x = X(ball.x)
     const y = Y(ball.y)
     const sheet = ball.quantum ? red : white
-    const glowSize = ball.radius * 3.2
+    const glowSize = ball.radius * (ball.quantum ? 7.4 : 6.2)
     const flex = ball.flex
     const squish = Math.max(0, (flex - 0.58) / 0.42)
     const stretch = flex > 0 && flex < 0.7 ? Math.sin(((0.7 - flex) / 0.7) * Math.PI) : 0
@@ -387,13 +387,13 @@ function drawBalls(
     ctx.rotate(ball.flexAngle)
     ctx.scale(along, across)
     ctx.rotate(-ball.flexAngle)
-    if (!lean && sheet) {
     ctx.globalCompositeOperation = 'lighter'
-    ctx.globalAlpha = 0.72
+    ctx.globalAlpha = ball.quantum ? 0.95 : 0.82
     ctx.drawImage(sheet, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
+    ctx.globalAlpha = 0.4
+    ctx.drawImage(sheet, -glowSize, -glowSize, glowSize * 2, glowSize * 2)
     ctx.globalCompositeOperation = 'source-over'
     ctx.globalAlpha = 1
-    }
     ctx.rotate(ball.spin)
     drawEnergyBall(ctx, ball.radius, ball.quantum)
     ctx.restore()
@@ -598,7 +598,7 @@ function drawMortars(
     const groundX = shell.sx + (shell.tx - shell.sx) * p
     const groundY = shell.sy + (shell.ty - shell.sy) * p
     const heading = pose.heading
-    const ink = shell.storm ? '#ff2d3a' : '#ffffff'
+    const ink = '#ffffff'
     if (!lean) {
     const steps = 8
     ctx.save()
@@ -635,13 +635,14 @@ function drawMortars(
     ctx.save()
     ctx.translate(X(pose.x), Y(pose.y))
     ctx.rotate(heading)
-    ctx.fillStyle = ink
+    ctx.fillStyle = '#05060a'
     ctx.strokeStyle = ink
-    ctx.lineWidth = 1.2
+    ctx.lineWidth = 1.7
+    ctx.lineJoin = 'round'
     ctx.beginPath()
-    ctx.moveTo(18, 0)
-    ctx.lineTo(-9, -3.4)
-    ctx.lineTo(-9, 3.4)
+    ctx.moveTo(22, 0)
+    ctx.lineTo(-12, -5.4)
+    ctx.lineTo(-12, 5.4)
     ctx.closePath()
     ctx.fill()
     ctx.stroke()
