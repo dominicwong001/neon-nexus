@@ -571,8 +571,8 @@ describe('orbs', () => {
       const piece = bits[i]
       assert.ok(piece)
       assert.equal(piece.immortal, true)
-      assert.ok(piece.speed * piece.orbitCd < 320)
-      assert.ok(piece.speed * piece.orbitCd > 120)
+      assert.ok(piece.speed * piece.orbitCd < 420)
+      assert.ok(piece.speed * piece.orbitCd > 200)
       assert.equal(piece.phase, 54)
     }
     const chip = bits[0]

@@ -920,7 +920,7 @@ function shatterHex(state: GameState, enemy: Enemy): void {
   const span = enemy.radius
   const outset = span / Math.sqrt(3)
   const speed = 360
-  const flight = 240 / speed
+  const flight = 340 / speed
   for (let i = 0; i < 6; i++) {
     const bisector = -Math.PI / 2 + (i + 0.5) * (Math.PI / 3)
     state.enemies.push({
