@@ -309,7 +309,7 @@ function drawEnemies(
     ctx.strokeStyle = ENEMY_COLOR[e.kind]
     ctx.lineWidth = (e.kind === 3 ? 3.1 : 2) * BODY
     ctx.beginPath()
-    if (e.kind === 0) polyPath(ctx, 0, 0, e.radius, 3, -Math.PI / 2)
+    if (e.kind === 0 || e.ballistic) polyPath(ctx, 0, 0, e.radius, 3, -Math.PI / 2)
     else if (e.kind === 1) polyPath(ctx, 0, 0, e.radius, 4, Math.PI / 4)
     else if (e.kind === 3) polyPath(ctx, 0, 0, e.radius, 6, -Math.PI / 2)
     else ctx.arc(0, 0, e.radius, 0, Math.PI * 2)

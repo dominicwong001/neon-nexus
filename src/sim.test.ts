@@ -91,6 +91,8 @@ function enemy(over: Partial<Enemy> = {}): Enemy {
     phase: 0,
     speed: 120,
     generation: 0,
+    immortal: false,
+    ballistic: false,
     ...over,
   }
 }
@@ -224,23 +226,24 @@ describe('hostiles', () => {
     assert.equal(state.floaters.some((floater) => floater.text.startsWith('+')), false)
   })
 
-  it('splits a circle into smaller circles that do not split again', () => {
+  it('splits a circle into normal circles that split once more', () => {
     const state = createGame(0, 19)
     state.spawnCd = 50
-    state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, radius: 20, kind: 2, hp: 1, generation: 0 }))
+    state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, radius: 28, kind: 2, hp: 1, generation: 0 }))
     const events = step(state, input(), 1 / 60)
     assert.equal(events.kills, 1)
     assert.equal(state.enemies.length, 2)
     for (const child of state.enemies) {
       assert.equal(child.kind, 2)
-      assert.equal(child.hp, 100)
+      assert.equal(child.hp, 300)
       assert.equal(child.generation, 1)
-      assert.ok(child.radius < 20)
+      assert.ok(child.radius < 28)
     }
     const child = state.enemies[0]
     assert.ok(child)
     state.enemies.splice(0, state.enemies.length, child)
     state.xpNeed = 999
+    child.hp = 1
     child.x = state.playerX + TUNING.muzzle
     child.y = state.playerY
     child.vx = 0
@@ -253,8 +256,22 @@ describe('hostiles', () => {
     }
     assert.equal(state.enemies.includes(child), false)
     assert.equal(state.kills, kills + 1)
-    assert.equal(state.enemies.filter((e) => e.generation === 0).length, 0)
-    assert.ok(state.enemies.every((e) => e.generation === 1))
+    assert.equal(state.enemies.length, 2)
+    assert.ok(state.enemies.every((e) => e.generation === 2 && e.kind === 2))
+    const speck = state.enemies[0]
+    assert.ok(speck)
+    speck.hp = 1
+    speck.x = state.playerX + TUNING.muzzle + 24
+    speck.y = state.playerY
+    speck.vx = 0
+    speck.vy = 0
+    speck.hitCd = 0
+    state.enemies.splice(0, state.enemies.length, speck)
+    for (let i = 0; i < 40 && state.enemies.includes(speck); i++) {
+      step(state, input({ aimX: state.playerX + 200, aimY: state.playerY }), 1 / 60)
+    }
+    assert.equal(state.enemies.includes(speck), false)
+    assert.equal(state.enemies.length, 0)
   })
 
   it('needs two hits to break a block', () => {
@@ -450,6 +467,51 @@ describe('orbs', () => {
     step(late, input({ viewRadius: 400, aimActive: false }), 1 / 60)
     assert.ok(late.enemies.length > early.enemies.length)
     assert.ok(late.spawnCd < early.spawnCd)
+  })
+
+  it('hardens late shapes and throws hex pieces that cannot break', () => {
+    const state = createGame(0, 23)
+    state.fireCd = 10
+    state.time = 56
+    state.level = 8
+    const best = [0, 0, 0, 0]
+    const pace = [0, 0, 0, 0]
+    const size = [0, 0, 0, 0]
+    for (let n = 0; n < 50; n++) {
+      state.spawnCd = 0
+      state.enemies.length = 0
+      step(state, input({ viewRadius: 400, aimActive: false }), 1 / 60)
+      for (const hostile of state.enemies) {
+        if (hostile.ballistic) continue
+        best[hostile.kind] = Math.max(best[hostile.kind] ?? 0, hostile.hp)
+        pace[hostile.kind] = Math.max(pace[hostile.kind] ?? 0, hostile.speed)
+        size[hostile.kind] = Math.max(size[hostile.kind] ?? 0, hostile.radius)
+      }
+    }
+    assert.ok((best[1] ?? 0) >= 1000)
+    assert.ok((best[0] ?? 0) >= 250)
+    assert.ok((pace[0] ?? 0) > 110)
+    assert.ok((size[2] ?? 0) > 20)
+
+    state.spawnCd = 999
+    state.fireCd = 0
+    state.enemies.length = 0
+    state.bullets.length = 0
+    state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, kind: 3, hp: 1, radius: 28, speed: 0 }))
+    step(state, input({ aimActive: false }), 1 / 60)
+    const bits = state.enemies.filter((hostile) => hostile.immortal && hostile.ballistic)
+    assert.equal(bits.length, 6)
+    const chip = bits[0]
+    assert.ok(chip)
+    chip.x = TUNING.muzzle
+    chip.y = 0
+    chip.vx = 0
+    chip.vy = 0
+    chip.hitCd = 0
+    state.fireCd = 0
+    step(state, input(), 1 / 60)
+    assert.equal(chip.hp, 1)
+    assert.equal(state.enemies.includes(chip), true)
   })
 
   it('shows at least three abilities whenever they are still available', () => {

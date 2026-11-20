@@ -50,6 +50,8 @@ export interface Enemy {
   phase: number
   speed: number
   generation: number
+  immortal: boolean
+  ballistic: boolean
 }
 
 export interface Particle {
@@ -826,6 +828,11 @@ function damageEnemy(
   color = '#ffffff',
   source: DamageSource = 'stream',
 ): void {
+  if (enemy.immortal) {
+    enemy.hitCd = TUNING.hitCooldown
+    enemy.flash = 0.08
+    return
+  }
   enemy.hitCd = TUNING.hitCooldown
   enemy.flash = 0.08
   const before = Math.max(0, enemy.hp)
@@ -854,16 +861,19 @@ function damageEnemy(
   })
   burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 14, 280)
   dropOrb(state, enemy)
-  if (enemy.kind === 2 && enemy.generation === 0) splitCircle(state, enemy)
+  if (enemy.kind === 2 && enemy.generation < 2) splitCircle(state, enemy)
+  if (enemy.kind === 3 && lateGame(state)) shatterHex(state, enemy)
   const idx = state.enemies.indexOf(enemy)
   if (idx >= 0) state.enemies.splice(idx, 1)
 }
 
 function splitCircle(state: GameState, enemy: Enemy): void {
   const heading = Math.hypot(enemy.vx, enemy.vy) > 8 ? Math.atan2(enemy.vy, enemy.vx) : state.rng() * Math.PI * 2
+  const generation = enemy.generation + 1
+  const normal = generation === 1
   for (const side of [-1, 1]) {
     const a = heading + side * 0.9
-    const radius = Math.max(9 * BODY, enemy.radius * 0.55)
+    const radius = normal ? KIND[2].radius : Math.max(8 * BODY, enemy.radius * 0.55)
     const speed = enemy.speed
     state.enemies.push({
       x: enemy.x + Math.cos(a) * enemy.radius * 0.75,
@@ -872,7 +882,7 @@ function splitCircle(state: GameState, enemy: Enemy): void {
       vy: Math.sin(a) * speed * 0.55,
       radius,
       kind: 2,
-      hp: 100,
+      hp: normal ? KIND[2].hp : 90,
       hitCd: TUNING.hitCooldown,
       flash: 0,
       orbitCd: 0.2,
@@ -880,24 +890,55 @@ function splitCircle(state: GameState, enemy: Enemy): void {
       angle: enemy.angle + side,
       phase: enemy.phase + side,
       speed,
-      generation: 1,
+      generation,
+      immortal: false,
+      ballistic: false,
     })
   }
+}
+
+function shatterHex(state: GameState, enemy: Enemy): void {
+  const pieces = 6
+  for (let i = 0; i < pieces; i++) {
+    const a = enemy.angle + (i / pieces) * Math.PI * 2 + state.rng() * 0.2
+    const speed = 320 + state.rng() * 140
+    state.enemies.push({
+      x: enemy.x + Math.cos(a) * enemy.radius * 0.7,
+      y: enemy.y + Math.sin(a) * enemy.radius * 0.7,
+      vx: Math.cos(a) * speed,
+      vy: Math.sin(a) * speed,
+      radius: Math.max(5.5 * BODY, enemy.radius * 0.2),
+      kind: 3,
+      hp: 1,
+      hitCd: 0.15,
+      flash: 0,
+      orbitCd: 0,
+      spin: (state.rng() < 0.5 ? -1 : 1) * 7,
+      angle: a,
+      phase: a,
+      speed: speed,
+      generation: 0,
+      immortal: true,
+      ballistic: true,
+    })
+  }
+}
+
+function lateGame(state: GameState): boolean {
+  return state.heat >= 6 || state.level >= 7
 }
 
 function spawn(state: GameState, input: Input, dt: number): void {
   state.spawnCd -= dt
   if (state.spawnCd > 0) return
-  const pace = Math.max(0, state.time) * 0.01 + Math.max(0, state.level - 1) * 0.035
-  const interval = Math.max(0.12, 0.78 - pace)
+  const late = lateGame(state)
+  const pace = Math.max(0, state.time) * 0.012 + Math.max(0, state.level - 1) * 0.04
+  const interval = Math.max(late ? 0.07 : 0.12, 0.62 - pace)
   state.spawnCd += interval
-  const cap = Math.min(84, 36 + state.heat * 3)
+  const cap = Math.min(late ? 140 : 80, 34 + state.heat * 6 + state.level * 3)
   if (state.enemies.length >= cap) return
-  const wave = 1 + Math.floor(state.heat / 4) + (state.level >= 6 ? 1 : 0)
-  for (let n = 0; n < wave && state.enemies.length < cap; n++) {
-    if (n > 0 && state.rng() > 0.8) continue
-    spawnOne(state, input.viewRadius)
-  }
+  const wave = (late ? 5 : 2) + Math.floor(state.heat / 3)
+  for (let n = 0; n < wave && state.enemies.length < cap; n++) spawnOne(state, input.viewRadius)
 }
 
 function spawnOne(state: GameState, viewRadius: number): void {
@@ -908,24 +949,43 @@ function spawnOne(state: GameState, viewRadius: number): void {
   else if (roll > 0.4) kind = 1
   const spec = KIND[kind]
   const ang = state.rng() * Math.PI * 2
-  const dist = Math.max(200, viewRadius) + 90 + state.rng() * 180
+  const late = lateGame(state)
+  const dist = Math.max(late ? 120 : 200, viewRadius) + (late ? 16 : 70) + state.rng() * (late ? 90 : 160)
   const heatScale = 1 + state.heat * 0.012
+  let hp: number = spec.hp
+  let radius = spec.radius
+  let speed = spec.speed * heatScale
+  if (late && kind === 0) {
+    hp = spec.hp * 3
+    speed *= 1.85
+    radius *= 1.3
+  } else if (late && kind === 1) {
+    hp = spec.hp * 6
+    radius *= 1.35
+  } else if (late && kind === 2) {
+    hp = Math.round(spec.hp * 1.5)
+    radius *= 1.8
+  } else if (late && kind === 3) {
+    radius *= 1.18
+  }
   state.enemies.push({
     x: state.playerX + Math.cos(ang) * dist,
     y: state.playerY + Math.sin(ang) * dist,
     vx: 0,
     vy: 0,
-    radius: spec.radius,
+    radius,
     kind,
-    hp: spec.hp,
+    hp,
     hitCd: 0,
     flash: 0,
     orbitCd: 0,
     spin: spec.spin * (state.rng() < 0.5 ? -1 : 1),
     angle: state.rng() * Math.PI * 2,
     phase: state.rng() * Math.PI * 2,
-    speed: spec.speed * heatScale,
+    speed,
     generation: 0,
+    immortal: false,
+    ballistic: false,
   })
 }
 
@@ -944,11 +1004,13 @@ function moveEnemies(state: GameState, input: Input, dt: number): void {
       state.enemies.splice(j, 1)
       continue
     }
-    const inside = state.mods.field > 0 && dist < fieldRadius(state.mods.field) + e.radius
-    const speed = e.speed * (inside ? fieldSlow(state.mods.field) : 1)
-    const steer = 1 - Math.exp(-3.1 * dt)
-    e.vx += ((dx / dist) * speed - e.vx) * steer
-    e.vy += ((dy / dist) * speed - e.vy) * steer
+    if (!e.ballistic) {
+      const inside = state.mods.field > 0 && dist < fieldRadius(state.mods.field) + e.radius
+      const speed = e.speed * (inside ? fieldSlow(state.mods.field) : 1)
+      const steer = 1 - Math.exp(-3.1 * dt)
+      e.vx += ((dx / dist) * speed - e.vx) * steer
+      e.vy += ((dy / dist) * speed - e.vy) * steer
+    }
     e.x += e.vx * dt
     e.y += e.vy * dt
     e.angle += e.spin * dt
