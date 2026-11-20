@@ -23,8 +23,8 @@ export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a', '#ff2d3a'] as const
 
 export type EnemyKind = 0 | 1 | 2 | 3
 export type Phase = 'play' | 'dead' | 'level'
-export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'regen' | 'orbiter' | 'field' | 'ball' | 'drone' | 'cache'
-export type DamageSource = 'stream' | 'orbiter' | 'field' | 'ball' | 'drone'
+export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'regen' | 'ion' | 'orbiter' | 'field' | 'ball' | 'drone' | 'tesla' | 'cache'
+export type DamageSource = 'stream' | 'orbiter' | 'field' | 'ball' | 'drone' | 'tesla'
 
 export interface Bullet {
   x: number
@@ -122,10 +122,21 @@ export interface Mods {
   fork: number
   greed: number
   regen: number
+  ion: number
   orbiter: number
   field: number
   ball: number
   drone: number
+  tesla: number
+}
+
+export interface Bolt {
+  life: number
+  max: number
+  reactor: boolean
+  paths: { x: number; y: number }[][]
+  x: number
+  y: number
 }
 
 export interface Ricochet {
@@ -162,6 +173,7 @@ export interface DamageBin {
   field: number
   ball: number
   drone: number
+  tesla: number
 }
 
 export interface UpgradeMark {
@@ -229,6 +241,7 @@ export interface GameState {
   reticleY: number
   reticleVx: number
   reticleVy: number
+  teslaCd: number
   mods: Mods
   dealt: Record<DamageSource, number>
   damageBins: DamageBin[]
@@ -237,6 +250,7 @@ export interface GameState {
   bullets: Bullet[]
   balls: Ricochet[]
   mortars: Mortar[]
+  bolts: Bolt[]
   enemies: Enemy[]
   orbs: Orb[]
   particles: Particle[]
@@ -283,10 +297,12 @@ const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
   fork: 2,
   greed: 3,
   regen: 3,
+  ion: 1,
   orbiter: OVERDRIVE,
   field: OVERDRIVE,
   ball: OVERDRIVE,
   drone: 5,
+  tesla: 5,
 }
 
 export const DISC = {
@@ -310,6 +326,32 @@ export const DRONE = {
 
 export function droneStorm(rank: number): boolean {
   return rank >= DRONE.stormRank
+}
+
+export const TESLA = {
+  evolveRank: 5,
+} as const
+
+export function arcReactor(mods: Mods): boolean {
+  return mods.tesla >= TESLA.evolveRank && mods.ion >= 1
+}
+
+export function teslaBolts(rank: number, reactor: boolean): number {
+  if (rank <= 0) return 0
+  if (reactor) return rank + 1
+  return rank
+}
+
+export function teslaDamage(rank: number, reactor: boolean): number {
+  if (rank <= 0) return 0
+  const dealt = 140 + Math.max(0, rank - 1) * 40
+  return reactor ? Math.round(dealt * 1.3) : dealt
+}
+
+export function teslaInterval(rank: number, reactor: boolean): number {
+  if (rank <= 0) return 0
+  const wait = Math.max(0.62, 1.4 - Math.max(0, rank - 1) * 0.18)
+  return reactor ? Math.max(0.28, wait * 0.48) : wait
 }
 
 export function droneBurst(rank: number): number {
@@ -455,7 +497,7 @@ export function orbGain(value: number, rank: number): number {
 }
 
 function freshMods(): Mods {
-  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, regen: 0, orbiter: 0, field: 0, ball: 0, drone: 0 }
+  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, regen: 0, ion: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0 }
 }
 
 export function createGame(best = 0, seed = 1): GameState {
@@ -512,14 +554,16 @@ export function createGame(best = 0, seed = 1): GameState {
     reticleY: 0,
     reticleVx: 0,
     reticleVy: 0,
+    teslaCd: 0.45,
     mods: freshMods(),
-    dealt: { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0 },
+    dealt: { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0 },
     damageBins: [],
     upgradeMarks: [],
     offers: [],
     bullets: [],
     balls: [],
     mortars: [],
+    bolts: [],
     enemies: [],
     orbs: [],
     particles: [],
@@ -598,6 +642,7 @@ function simulate(state: GameState, input: Input, dt: number, events: StepEvents
   launchBalls(state, dt)
   moveBalls(state, input, dt, events)
   updateDrone(state, dt, events)
+  updateTesla(state, dt, events)
   moveOrbs(state, input, dt, events)
   touchPlayer(state, events)
   if (state.phase === 'play' && openLevel(state)) {
@@ -735,15 +780,19 @@ export function damageReport(state: GameState): { name: string; amount: number }
   if (state.mods.drone > 0) {
     rows.push({ name: droneStorm(state.mods.drone) ? 'Bulletstorm' : 'Drone', amount: state.dealt.drone })
   }
+  if (state.mods.tesla > 0 || state.dealt.tesla > 0) {
+    rows.push({ name: arcReactor(state.mods) ? 'Arc Reactor' : 'Tesla Coil', amount: state.dealt.tesla })
+  }
   rows.sort((a, b) => b.amount - a.amount)
   return rows
 }
 
-export function sourceLabel(source: DamageSource, rank: number): string {
+export function sourceLabel(source: DamageSource, rank: number, evolved = false): string {
   if (source === 'stream') return 'Stream'
   if (source === 'orbiter') return rank >= OVERDRIVE ? "Guardian's Halo" : 'Sentinel'
   if (source === 'field') return rank >= OVERDRIVE ? 'Null Zone' : 'Force Field'
   if (source === 'ball') return rank >= OVERDRIVE ? 'Quantum Core' : 'Bouncy Ball'
+  if (source === 'tesla') return evolved ? 'Arc Reactor' : 'Tesla Coil'
   return droneStorm(rank) ? 'Bulletstorm' : 'Drone'
 }
 
@@ -752,19 +801,21 @@ function noteDamage(state: GameState, source: DamageSource, amount: number): voi
   const slot = Math.floor(state.time / 0.5) * 0.5
   let bin = state.damageBins[state.damageBins.length - 1]
   if (!bin || bin.t !== slot) {
-    bin = { t: slot, stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0 }
+    bin = { t: slot, stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0 }
     state.damageBins.push(bin)
   }
   bin[source] += amount
 }
 
-function upgradeSource(id: UpgradeId, rank: number): { source: DamageSource; name: string } | null {
+function upgradeSource(state: GameState, id: UpgradeId, rank: number): { source: DamageSource; name: string } | null {
   if (id === 'pulse') return { source: 'stream', name: 'Pulse' }
   if (id === 'caliber') return { source: 'stream', name: 'Caliber' }
   if (id === 'fork') return { source: 'stream', name: 'Fork' }
   if (id === 'orbiter' || id === 'field' || id === 'ball' || id === 'drone') {
     return { source: id, name: sourceLabel(id, rank) }
   }
+  if (id === 'tesla') return { source: 'tesla', name: sourceLabel('tesla', rank, arcReactor(state.mods)) }
+  if (id === 'ion') return { source: 'tesla', name: 'Ion Cell' }
   return null
 }
 
@@ -1953,6 +2004,118 @@ function explodeShell(state: GameState, shell: Mortar, events: StepEvents): void
   }
 }
 
+function updateTesla(state: GameState, dt: number, events: StepEvents): void {
+  const rank = state.mods.tesla
+  if (rank <= 0) return
+  state.teslaCd -= dt
+  if (state.teslaCd > 0) return
+  const reactor = arcReactor(state.mods)
+  const targets = teslaTargets(state, teslaBolts(rank, reactor))
+  if (targets.length === 0) {
+    state.teslaCd = 0.2
+    return
+  }
+  state.teslaCd = teslaInterval(rank, reactor)
+  const ink = reactor ? '#e9fbff' : '#8fe4ff'
+  burst(state, state.playerX, state.playerY - 16 * BODY, ink, reactor ? 8 : 4, 140)
+  for (const enemy of targets) callBolt(state, enemy, events, reactor)
+}
+
+function teslaTargets(state: GameState, count: number): Enemy[] {
+  const pool = state.enemies.filter((enemy) => !enemy.immortal && !enemy.ballistic)
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(state.rng() * (i + 1))
+    const swap = pool[i]
+    const other = pool[j]
+    if (swap && other) {
+      pool[i] = other
+      pool[j] = swap
+    }
+  }
+  return pool.slice(0, count)
+}
+
+function callBolt(state: GameState, enemy: Enemy, events: StepEvents, reactor: boolean): void {
+  const dealt = teslaDamage(state.mods.tesla, reactor)
+  const ink = reactor ? '#e9fbff' : '#9adfff'
+  const sky = {
+    x: enemy.x + (state.rng() - 0.5) * 70,
+    y: enemy.y - (300 + state.rng() * 90),
+  }
+  const paths = [lightningPath(state, sky, enemy, reactor ? 46 : 34)]
+  if (reactor) {
+    const mid = paths[0]?.[3]
+    if (mid) {
+      const spur = {
+        x: mid.x + (state.rng() - 0.5) * 90,
+        y: mid.y + (state.rng() - 0.5) * 70,
+      }
+      paths.push(lightningPath(state, mid, spur, 16))
+    }
+  }
+  const taken = new Set<Enemy>([enemy])
+  damageEnemy(state, enemy, events, dealt, ink, 'tesla')
+  shockArc(state, enemy.x, enemy.y, reactor)
+  if (reactor) {
+    let from = enemy
+    let hopDamage = Math.round(dealt * 0.62)
+    for (let hop = 0; hop < 3 && hopDamage > 0; hop++) {
+      const next = nearestArc(state, from, taken, 210)
+      if (!next) break
+      taken.add(next)
+      paths.push(lightningPath(state, from, next, 22))
+      damageEnemy(state, next, events, hopDamage, ink, 'tesla')
+      shockArc(state, next.x, next.y, true)
+      from = next
+      hopDamage = Math.round(hopDamage * 0.62)
+    }
+  }
+  if (state.bolts.length > 28) state.bolts.shift()
+  state.bolts.push({ life: 0.2, max: 0.2, reactor, paths, x: enemy.x, y: enemy.y })
+}
+
+function nearestArc(state: GameState, from: Enemy, taken: Set<Enemy>, range: number): Enemy | null {
+  let best: Enemy | null = null
+  let bestD = range
+  for (const enemy of state.enemies) {
+    if (taken.has(enemy) || enemy.immortal || enemy.ballistic) continue
+    const dist = Math.hypot(enemy.x - from.x, enemy.y - from.y)
+    if (dist < bestD) {
+      best = enemy
+      bestD = dist
+    }
+  }
+  return best
+}
+
+function shockArc(state: GameState, x: number, y: number, reactor: boolean): void {
+  const color = reactor ? '#d7f7ff' : '#67d6ff'
+  state.shocks.push({ x, y, life: 0.28, max: 0.28, color })
+  burst(state, x, y, color, reactor ? 14 : 10, reactor ? 280 : 220)
+}
+
+function lightningPath(
+  state: GameState,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  jag: number,
+): { x: number; y: number }[] {
+  const points = [{ x: from.x, y: from.y }]
+  const steps = 6
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps
+    const px = from.x + (to.x - from.x) * t
+    const py = from.y + (to.y - from.y) * t
+    const nx = -(to.y - from.y)
+    const ny = to.x - from.x
+    const len = Math.hypot(nx, ny) || 1
+    const kick = (state.rng() - 0.5) * jag * Math.sin(t * Math.PI)
+    points.push({ x: px + (nx / len) * kick, y: py + (ny / len) * kick })
+  }
+  points.push({ x: to.x, y: to.y })
+  return points
+}
+
 function openLevel(state: GameState): boolean {
   if (state.phase !== 'play' || state.xp < state.xpNeed) return false
   state.xp -= state.xpNeed
@@ -1977,6 +2140,10 @@ function rollOffers(state: GameState): Offer[] {
     }
   }
   const picked: UpgradeId[] = pool.slice(0, 3)
+  if (state.mods.tesla < UPGRADE_MAX.tesla && !picked.includes('tesla')) {
+    if (picked.length < 3) picked.push('tesla')
+    else picked[picked.length - 1] = 'tesla'
+  }
   while (picked.length < 3) picked.push('cache')
   return picked.map((id) => describeOffer(state, id))
 }
@@ -1988,6 +2155,16 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
   const rank = state.mods[id] + 1
   const max = UPGRADE_MAX[id]
   const overdrive = rank >= OVERDRIVE && (id === 'orbiter' || id === 'field' || id === 'ball')
+  if (id === 'tesla' && rank >= TESLA.evolveRank && state.mods.ion >= 1) {
+    return {
+      id,
+      title: 'Arc Reactor',
+      detail: 'Supercharged bolts fall faster and chain-arc through nearby hostiles.',
+      rank,
+      max,
+      overdrive: true,
+    }
+  }
   if (id === 'drone' && droneStorm(rank)) {
     return {
       id,
@@ -2036,10 +2213,18 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     fork: { title: 'Fork', detail: 'Two streams sit on the reticle. The next rank adds a third, still tight on the aim.' },
     greed: { title: 'Greed', detail: 'Every orb pays a bonus, and bigger orbs pay a little more.' },
     regen: { title: 'Regeneration', detail: 'Each level restores one health. Ranks restore more.' },
+    ion: { title: 'Ion Cell', detail: 'The coil’s matching charge. Tesla Coil becomes Arc Reactor at level 5.' },
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
     field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off giant circles and any hostile whose hull is 1000 or more, no matter how much health is left.' },
     drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
+    tesla: {
+      title: 'Tesla Coil',
+      detail:
+        rank >= TESLA.evolveRank
+          ? 'More bolts, harder hits, and a shorter wait. Ion Cell turns this into Arc Reactor.'
+          : 'Lightning falls on random hostiles. Each rank adds bolts, damage, and strike speed.',
+    },
   }
   const detail =
     id === 'orbiter' && rank > 1
@@ -2048,9 +2233,11 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
         ? 'The field widens, burns harder, slows more, and pulses faster.'
         : id === 'ball' && rank > 1
           ? 'More balls. They hit harder and stay out longer.'
-          : id === 'drone' && rank > 1
-            ? 'More rockets in each fan, a wider blast, and a shorter wait between volleys.'
-            : id === 'regen' && rank > 1
+            : id === 'drone' && rank > 1
+              ? 'More rockets in each fan, a wider blast, and a shorter wait between volleys.'
+              : id === 'tesla' && rank > 1 && rank < TESLA.evolveRank
+                ? 'More bolts strike at once. They hit harder and fall sooner.'
+                : id === 'regen' && rank > 1
               ? 'Each level restores more health.'
               : copy[id].detail
   return { id, title: copy[id].title, detail, rank, max, overdrive: false }
@@ -2063,12 +2250,13 @@ function applyUpgrade(state: GameState, id: UpgradeId): void {
     return
   }
   state.mods[id] += 1
-  const mark = upgradeSource(id, state.mods[id])
+  const mark = upgradeSource(state, id, state.mods[id])
   if (mark) state.upgradeMarks.push({ t: state.time, source: mark.source, name: mark.name, rank: state.mods[id] })
   if (id === 'orbiter' && state.mods.orbiter === 1) state.orbitTime = 0.35
   if (id === 'field') state.fieldTick = Math.floor(state.time / FIELD.tick)
   if (id === 'ball') state.ballCd = 0.2
   if (id === 'drone' && state.mods.drone === 1) state.droneReload = 0.25
+  if (id === 'tesla' && state.mods.tesla === 1) state.teslaCd = 0.2
 }
 
 function spawnImpact(state: GameState, x: number, y: number): void {
@@ -2142,6 +2330,12 @@ function decayFx(state: GameState, dt: number): void {
     const damp = Math.exp(-2.2 * dt)
     p.vx *= damp
     p.vy *= damp
+  }
+  for (let i = state.bolts.length - 1; i >= 0; i--) {
+    const bolt = state.bolts[i]
+    if (!bolt) continue
+    bolt.life -= dt
+    if (bolt.life <= 0) state.bolts.splice(i, 1)
   }
   for (let i = state.shocks.length - 1; i >= 0; i--) {
     state.shocks[i].life -= dt

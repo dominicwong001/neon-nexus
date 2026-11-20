@@ -59,6 +59,7 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
   drawOrbiters(ctx, state, X, Y)
   drawPlayer(ctx, state)
   drawDrone(ctx, state, X, Y)
+  drawBolts(ctx, state, X, Y)
   drawFloaters(ctx, state, X, Y)
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -435,6 +436,66 @@ function drawEnergyBall(ctx: CanvasRenderingContext2D, r: number, red: boolean):
   ctx.arc(ex, ey, r * 0.11, 0, Math.PI * 2)
   ctx.fillStyle = ink
   ctx.fill()
+}
+
+function drawBolts(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  X: (x: number) => number,
+  Y: (y: number) => number,
+): void {
+  if (state.bolts.length === 0) return
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  if (!lean) ctx.globalCompositeOperation = 'lighter'
+  for (const bolt of state.bolts) {
+    const fade = Math.max(0, bolt.life / bolt.max)
+    const flicker = 0.62 + 0.38 * Math.abs(Math.sin((bolt.max - bolt.life) * 80 + bolt.x))
+    for (const path of bolt.paths) {
+      if (path.length < 2) continue
+      ctx.beginPath()
+      const first = path[0]
+      if (!first) continue
+      ctx.moveTo(X(first.x), Y(first.y))
+      for (let i = 1; i < path.length; i++) {
+        const point = path[i]
+        if (point) ctx.lineTo(X(point.x), Y(point.y))
+      }
+      if (!lean) {
+        ctx.globalAlpha = fade * 0.55 * flicker
+        ctx.strokeStyle = '#3ec8ff'
+        ctx.lineWidth = bolt.reactor ? 10 : 6.5
+        ctx.stroke()
+        if (bolt.reactor) {
+          ctx.globalAlpha = fade * 0.4 * flicker
+          ctx.strokeStyle = '#ff4ad8'
+          ctx.lineWidth = 4
+          ctx.stroke()
+        }
+      }
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.globalAlpha = Math.min(1, fade * flicker)
+      ctx.strokeStyle = '#f7feff'
+      ctx.lineWidth = bolt.reactor ? 2.2 : 1.6
+      ctx.stroke()
+      if (!lean) ctx.globalCompositeOperation = 'lighter'
+    }
+    ctx.globalAlpha = fade
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.arc(X(bolt.x), Y(bolt.y), bolt.reactor ? 5.5 : 3.6, 0, Math.PI * 2)
+    ctx.fill()
+    if (!lean) {
+      ctx.globalAlpha = fade * 0.35
+      ctx.strokeStyle = bolt.reactor ? '#9af6ff' : '#7ad7ff'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(X(bolt.x), Y(bolt.y), bolt.reactor ? 18 : 12, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+  }
+  ctx.restore()
 }
 
 function drawFloaters(

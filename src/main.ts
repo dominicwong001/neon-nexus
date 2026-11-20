@@ -5,6 +5,7 @@ import './style.css'
 import { AudioBus } from './audio.ts'
 import { render, type StickView } from './render.ts'
 import {
+  arcReactor,
   chooseUpgrade,
   createGame,
   damageReport,
@@ -342,6 +343,7 @@ const SERIES: { source: DamageSource; color: string }[] = [
   { source: 'field', color: '#c9a6ff' },
   { source: 'ball', color: '#ffd166' },
   { source: 'drone', color: '#ff5d73' },
+  { source: 'tesla', color: '#7ef0ff' },
 ]
 const TOTAL_COLOR = '#9dffb0'
 
@@ -476,7 +478,9 @@ function paintTimeline(game: GameState): void {
 
   timelineLegend.replaceChildren()
   for (const series of owned) {
-    timelineLegend.append(legendItem(series.color, sourceLabel(series.source, rankOf(game, series.source)), game.dealt[series.source], false))
+    timelineLegend.append(
+      legendItem(series.color, sourceLabel(series.source, rankOf(game, series.source), arcReactor(game.mods)), game.dealt[series.source], false),
+    )
   }
   const total = owned.reduce((sum, series) => sum + game.dealt[series.source], 0)
   timelineLegend.append(legendItem(TOTAL_COLOR, 'Total', total, true))
@@ -511,7 +515,7 @@ function legendItem(color: string, name: string, amount: number, total: boolean)
 type DamageSample = Record<DamageSource, number> & { t: number; total: number }
 
 function damageSamples(game: GameState): DamageSample[] {
-  const acc: Record<DamageSource, number> = { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0 }
+  const acc: Record<DamageSource, number> = { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0 }
   const samples: DamageSample[] = []
   const push = (t: number) => {
     samples.push({
@@ -521,7 +525,8 @@ function damageSamples(game: GameState): DamageSample[] {
       field: acc.field,
       ball: acc.ball,
       drone: acc.drone,
-      total: acc.stream + acc.orbiter + acc.field + acc.ball + acc.drone,
+      tesla: acc.tesla,
+      total: acc.stream + acc.orbiter + acc.field + acc.ball + acc.drone + acc.tesla,
     })
   }
   push(0)
@@ -531,6 +536,7 @@ function damageSamples(game: GameState): DamageSample[] {
     acc.field += bin.field
     acc.ball += bin.ball
     acc.drone += bin.drone
+    acc.tesla += bin.tesla
     const at = Math.min(Math.max(game.time, 0), bin.t + 0.5)
     if (at > samples[samples.length - 1].t) push(at)
   }
