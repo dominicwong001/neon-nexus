@@ -1175,7 +1175,18 @@ function touchPlayer(state: GameState, events: StepEvents): void {
     state.flash = 1
     state.shake = 9
     events.hurt = true
-    burst(state, state.playerX, state.playerY, '#ff3df2', 12, 220)
+    if (e.ballistic && e.kind === 3) {
+      const awayX = (state.playerX - e.x) / dist
+      const awayY = (state.playerY - e.y) / dist
+      const kick = 720
+      state.playerVx += awayX * kick
+      state.playerVy += awayY * kick
+      burst(state, e.x, e.y, ENEMY_COLOR[3], 18, 340)
+      state.shocks.push({ x: e.x, y: e.y, life: 0.28, max: 0.28, color: ENEMY_COLOR[3] })
+      state.enemies.splice(j, 1)
+    } else {
+      burst(state, state.playerX, state.playerY, '#ff3df2', 12, 220)
+    }
     repelFromRing(state)
     if (state.hull <= 0) {
       state.hull = 0

@@ -53,8 +53,7 @@ p {
   background: radial-gradient(ellipse at center, transparent 42%, rgba(0, 0, 0, 0.72) 100%);
 }
 
-body.fast #vignette,
-body.fast #flash {
+body.fast #vignette {
   display: none;
 }
 

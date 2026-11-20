@@ -424,6 +424,35 @@ describe('hostiles', () => {
     assert.ok(Math.hypot(stayed.x - beforeX, stayed.y - beforeY) < 1)
   })
 
+  it('bursts a shard on the core and knocks the core back', () => {
+    const state = createGame(0, 4)
+    state.spawnCd = 999
+    state.fireCd = 10
+    state.invuln = 0
+    state.enemies.push(
+      enemy({
+        x: 12,
+        y: 0,
+        vx: -40,
+        vy: 0,
+        radius: 14,
+        kind: 3,
+        hp: 1,
+        ballistic: true,
+        immortal: true,
+        orbitCd: 1,
+        speed: 190,
+      }),
+    )
+    const events = step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(events.hurt, true)
+    assert.equal(state.hull, TUNING.hullMax - 1)
+    assert.equal(state.enemies.length, 0)
+    assert.ok(state.playerVx < -400)
+    assert.ok(state.flash > 0.5)
+    assert.ok(state.shocks.some((shock) => shock.color === '#ff2d3a'))
+  })
+
   it('cracks the hull once, then goes dark at zero', () => {
     const state = createGame(0, 15)
     state.spawnCd = 80
