@@ -462,33 +462,29 @@ function drawBolts(
         const point = path[i]
         if (point) ctx.lineTo(X(point.x), Y(point.y))
       }
+      const glow = bolt.reactor ? '#ff2d3a' : '#ffffff'
+      const core = bolt.reactor ? '#ff6b78' : '#ffffff'
       if (!lean) {
-        ctx.globalAlpha = fade * 0.55 * flicker
-        ctx.strokeStyle = '#3ec8ff'
+        ctx.globalAlpha = fade * (bolt.reactor ? 0.7 : 0.4) * flicker
+        ctx.strokeStyle = glow
         ctx.lineWidth = bolt.reactor ? 10 : 6.5
         ctx.stroke()
-        if (bolt.reactor) {
-          ctx.globalAlpha = fade * 0.4 * flicker
-          ctx.strokeStyle = '#ff4ad8'
-          ctx.lineWidth = 4
-          ctx.stroke()
-        }
       }
       ctx.globalCompositeOperation = 'source-over'
       ctx.globalAlpha = Math.min(1, fade * flicker)
-      ctx.strokeStyle = '#f7feff'
-      ctx.lineWidth = bolt.reactor ? 2.2 : 1.6
+      ctx.strokeStyle = core
+      ctx.lineWidth = bolt.reactor ? 2.4 : 1.7
       ctx.stroke()
       if (!lean) ctx.globalCompositeOperation = 'lighter'
     }
     ctx.globalAlpha = fade
-    ctx.fillStyle = '#ffffff'
+    ctx.fillStyle = bolt.reactor ? '#ff2d3a' : '#ffffff'
     ctx.beginPath()
     ctx.arc(X(bolt.x), Y(bolt.y), bolt.reactor ? 5.5 : 3.6, 0, Math.PI * 2)
     ctx.fill()
     if (!lean) {
-      ctx.globalAlpha = fade * 0.35
-      ctx.strokeStyle = bolt.reactor ? '#9af6ff' : '#7ad7ff'
+      ctx.globalAlpha = fade * 0.4
+      ctx.strokeStyle = bolt.reactor ? '#ff2d3a' : '#ffffff'
       ctx.lineWidth = 2
       ctx.beginPath()
       ctx.arc(X(bolt.x), Y(bolt.y), bolt.reactor ? 18 : 12, 0, Math.PI * 2)

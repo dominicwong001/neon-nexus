@@ -342,7 +342,7 @@ const SERIES: { source: DamageSource; color: string }[] = [
   { source: 'field', color: '#c9a6ff' },
   { source: 'ball', color: '#ffd166' },
   { source: 'drone', color: '#ff5d73' },
-  { source: 'tesla', color: '#7ef0ff' },
+  { source: 'tesla', color: '#ffffff' },
 ]
 const TOTAL_COLOR = '#9dffb0'
 

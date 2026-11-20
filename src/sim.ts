@@ -2012,7 +2012,7 @@ function updateTesla(state: GameState, dt: number, events: StepEvents): void {
     return
   }
   state.teslaCd = teslaInterval(rank, reactor)
-  const ink = reactor ? '#e9fbff' : '#8fe4ff'
+  const ink = reactor ? '#ff2d3a' : '#ffffff'
   burst(state, state.playerX, state.playerY - 16 * BODY, ink, reactor ? 8 : 4, 140)
   for (const enemy of targets) callBolt(state, enemy, events, reactor)
 }
@@ -2033,7 +2033,7 @@ function teslaTargets(state: GameState, count: number): Enemy[] {
 
 function callBolt(state: GameState, enemy: Enemy, events: StepEvents, reactor: boolean): void {
   const dealt = teslaDamage(state.mods.tesla, reactor)
-  const ink = reactor ? '#e9fbff' : '#9adfff'
+  const ink = reactor ? '#ff2d3a' : '#ffffff'
   const sky = {
     x: enemy.x + (state.rng() - 0.5) * 70,
     y: enemy.y - (300 + state.rng() * 90),
@@ -2085,7 +2085,7 @@ function nearestArc(state: GameState, from: Enemy, taken: Set<Enemy>, range: num
 }
 
 function shockArc(state: GameState, x: number, y: number, reactor: boolean): void {
-  const color = reactor ? '#d7f7ff' : '#67d6ff'
+  const color = reactor ? '#ff2d3a' : '#ffffff'
   state.shocks.push({ x, y, life: 0.28, max: 0.28, color })
   burst(state, x, y, color, reactor ? 14 : 10, reactor ? 280 : 220)
 }
