@@ -239,21 +239,20 @@ describe('hostiles', () => {
     for (const child of state.enemies) {
       assert.equal(child.kind, 2)
       assert.equal(child.generation, 2)
-      assert.equal(child.hp, 140)
+      assert.equal(child.hp, 100)
+      assert.ok(child.radius < 8)
     }
     const piece = state.enemies[0]
     assert.ok(piece)
     state.enemies.splice(0, state.enemies.length, piece)
-    piece.hp = 1
     piece.x = state.playerX + TUNING.muzzle + 24
     piece.y = state.playerY
     piece.vx = 0
     piece.vy = 0
     piece.speed = 0
     piece.hitCd = 0
-    for (let i = 0; i < 40 && state.enemies.includes(piece); i++) {
-      step(state, input({ aimX: state.playerX + 200, aimY: state.playerY }), 1 / 60)
-    }
+    state.fireCd = 0
+    step(state, input({ aimX: state.playerX + 200, aimY: state.playerY }), 1 / 60)
     assert.equal(state.enemies.includes(piece), false)
     assert.equal(state.enemies.length, 0)
 
@@ -285,7 +284,7 @@ describe('hostiles', () => {
     }
     assert.equal(state.enemies.includes(child), false)
     assert.equal(state.enemies.length, 2)
-    assert.ok(state.enemies.every((speck) => speck.generation === 2 && speck.hp === 140))
+    assert.ok(state.enemies.every((speck) => speck.generation === 2 && speck.hp === 100 && speck.radius < 8))
   })
 
   it('needs two hits to break a block', () => {

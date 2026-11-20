@@ -890,7 +890,7 @@ function splitCircle(state: GameState, enemy: Enemy, into: 'normal' | 'piece'): 
   const normal = into === 'normal'
   for (const side of [-1, 1]) {
     const a = heading + side * 0.9
-    const radius = normal ? KIND[2].radius : KIND[2].radius * 0.78
+    const radius = normal ? KIND[2].radius : KIND[2].radius * 0.48
     const speed = normal ? KIND[2].speed : enemy.speed
     state.enemies.push({
       x: enemy.x + Math.cos(a) * enemy.radius * 0.55,
@@ -899,8 +899,8 @@ function splitCircle(state: GameState, enemy: Enemy, into: 'normal' | 'piece'): 
       vy: Math.sin(a) * speed * 0.55,
       radius,
       kind: 2,
-      hp: normal ? KIND[2].hp : 140,
-      maxHp: normal ? KIND[2].hp : 140,
+      hp: normal ? KIND[2].hp : 100,
+      maxHp: normal ? KIND[2].hp : 100,
       hitCd: TUNING.hitCooldown,
       flash: 0,
       orbitCd: 0.2,
