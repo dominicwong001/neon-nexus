@@ -53,6 +53,7 @@ export interface Enemy {
   generation: number
   immortal: boolean
   ballistic: boolean
+  fuse: number
 }
 
 export interface Particle {
@@ -841,6 +842,20 @@ function damageEnemy(
   pushFloater(state, enemy.x, enemy.y - enemy.radius * 0.35, String(dealt), color, -68)
   burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 6, 140)
   if (enemy.hp > 0) return
+  if (giantHex(enemy) && enemy.fuse <= 0) {
+    finishEnemy(state, enemy, events)
+    enemy.hp = 1
+    enemy.immortal = true
+    enemy.fuse = 1.2
+    enemy.speed = 0
+    enemy.vx = 0
+    enemy.vy = 0
+    return
+  }
+  finishEnemy(state, enemy, events)
+}
+
+function finishEnemy(state: GameState, enemy: Enemy, events: StepEvents): void {
   const mult = state.comboTime > 0 ? state.combo + 1 : 1
   state.combo = mult
   state.comboTime = 1.7
@@ -861,9 +876,13 @@ function damageEnemy(
   dropOrb(state, enemy)
   if (enemy.kind === 2 && enemy.radius > KIND[2].radius * 1.5) splitCircle(state, enemy, 'normal')
   else if (enemy.kind === 2 && enemy.generation === 0) splitCircle(state, enemy, 'piece')
-  if (enemy.kind === 3 && !enemy.ballistic && enemy.radius > KIND[3].radius * 1.45) shatterHex(state, enemy)
+  if (giantHex(enemy)) return
   const idx = state.enemies.indexOf(enemy)
   if (idx >= 0) state.enemies.splice(idx, 1)
+}
+
+function giantHex(enemy: Enemy): boolean {
+  return enemy.kind === 3 && !enemy.ballistic && enemy.radius > KIND[3].radius * 1.45
 }
 
 function splitCircle(state: GameState, enemy: Enemy, into: 'normal' | 'piece'): void {
@@ -892,6 +911,7 @@ function splitCircle(state: GameState, enemy: Enemy, into: 'normal' | 'piece'): 
       generation: normal ? 0 : 2,
       immortal: false,
       ballistic: false,
+      fuse: 0,
     })
   }
 }
@@ -899,9 +919,10 @@ function splitCircle(state: GameState, enemy: Enemy, into: 'normal' | 'piece'): 
 function shatterHex(state: GameState, enemy: Enemy): void {
   const span = enemy.radius
   const outset = span / Math.sqrt(3)
+  const speed = 360
+  const flight = 240 / speed
   for (let i = 0; i < 6; i++) {
     const bisector = -Math.PI / 2 + (i + 0.5) * (Math.PI / 3)
-    const speed = 210
     state.enemies.push({
       x: enemy.x + Math.cos(bisector) * outset,
       y: enemy.y + Math.sin(bisector) * outset,
@@ -909,18 +930,19 @@ function shatterHex(state: GameState, enemy: Enemy): void {
       vy: Math.sin(bisector) * speed,
       radius: span * 0.46,
       kind: 3,
-      hp: 160,
-      maxHp: 160,
+      hp: 1,
+      maxHp: 1,
       hitCd: 0.12,
       flash: 0,
-      orbitCd: 0,
+      orbitCd: flight,
       spin: 0,
       angle: bisector,
       phase: span,
       speed,
       generation: i,
-      immortal: false,
+      immortal: true,
       ballistic: true,
+      fuse: 0,
     })
   }
 }
@@ -992,6 +1014,7 @@ function spawnOne(state: GameState, viewRadius: number): void {
     generation: 0,
     immortal: false,
     ballistic: false,
+    fuse: 0,
   })
 }
 
@@ -1003,6 +1026,24 @@ function moveEnemies(state: GameState, input: Input, dt: number): void {
     e.hitCd = Math.max(0, e.hitCd - dt)
     e.flash = Math.max(0, e.flash - dt)
     e.orbitCd = Math.max(0, e.orbitCd - dt)
+    if (e.fuse > 0) {
+      e.fuse -= dt
+      e.vx = 0
+      e.vy = 0
+      e.speed = 0
+      e.flash = Math.floor(e.fuse / 0.15) % 2 === 0 ? 0.16 : 0
+      if (e.fuse <= 0) {
+        shatterHex(state, e)
+        burst(state, e.x, e.y, ENEMY_COLOR[3], 22, 360)
+        state.enemies.splice(j, 1)
+      }
+      continue
+    }
+    if (e.ballistic && e.orbitCd <= 0) {
+      burst(state, e.x, e.y, ENEMY_COLOR[e.kind], 6, 140)
+      state.enemies.splice(j, 1)
+      continue
+    }
     const dx = state.playerX - e.x
     const dy = state.playerY - e.y
     const dist = Math.hypot(dx, dy) || 1

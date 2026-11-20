@@ -94,6 +94,7 @@ function enemy(over: Partial<Enemy> = {}): Enemy {
     maxHp: 1,
     immortal: false,
     ballistic: false,
+    fuse: 0,
     ...over,
     maxHp: over.maxHp ?? over.hp ?? 1,
   }
@@ -551,10 +552,14 @@ describe('orbs', () => {
     state.bullets.length = 0
     state.enemies.push(enemy({ x: 360, y: 0, kind: 3, hp: 1, radius: 54, speed: 0, angle: -Math.PI / 2 }))
     let bits = state.enemies.filter((hostile) => hostile.ballistic && hostile.kind === 3)
-    for (let i = 0; i < 50 && bits.length < 6; i++) {
+    let blinked = 0
+    for (let i = 0; i < 140 && bits.length < 6; i++) {
       step(state, input({ aimX: 400, aimY: 0 }), 1 / 60)
+      const body = state.enemies.find((hostile) => hostile.kind === 3 && !hostile.ballistic)
+      if (body?.immortal && body.flash > 0) blinked += 1
       bits = state.enemies.filter((hostile) => hostile.ballistic && hostile.kind === 3)
     }
+    assert.ok(blinked >= 2)
     assert.equal(bits.length, 6)
     const angles = bits
       .map((hostile) => Math.atan2(hostile.vy, hostile.vx))
@@ -566,24 +571,27 @@ describe('orbs', () => {
       assert.ok(Math.abs(Math.abs(gap) - Math.PI / 3) < 0.08)
       const piece = bits[i]
       assert.ok(piece)
-      assert.equal(piece.immortal, false)
-      assert.equal(piece.hp, 160)
+      assert.equal(piece.immortal, true)
+      assert.ok(piece.speed * piece.orbitCd < 320)
+      assert.ok(piece.speed * piece.orbitCd > 120)
       assert.equal(piece.phase, 54)
     }
     const chip = bits[0]
     assert.ok(chip)
-    chip.x = originX + 28
+    chip.x = 240
     chip.y = 0
     chip.vx = 0
     chip.vy = 0
     chip.hitCd = 0
     state.enemies.splice(0, state.enemies.length, chip)
-    const before = chip.hp
+    state.bullets.length = 0
     state.fireCd = 0
     step(state, input(), 1 / 60)
-    assert.ok(chip.hp < before)
-    assert.ok(chip.hp > 0)
+    assert.equal(chip.hp, 1)
     assert.equal(state.enemies.includes(chip), true)
+    chip.orbitCd = 0.01
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(state.enemies.includes(chip), false)
   })
 
   it('shows at least three abilities whenever they are still available', () => {
