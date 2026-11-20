@@ -1108,13 +1108,20 @@ function separateEnemies(state: GameState): void {
           dy = Math.sin(ang)
           dist = 1
         }
-        const push = (min - dist) * 0.5
         const nx = dx / dist
         const ny = dy / dist
-        a.x -= nx * push
-        a.y -= ny * push
-        b.x += nx * push
-        b.y += ny * push
+        const holdA = a.fuse > 0
+        const holdB = b.fuse > 0
+        if (holdA && holdB) continue
+        const push = (min - dist) * (holdA || holdB ? 1 : 0.5)
+        if (!holdA) {
+          a.x -= nx * push
+          a.y -= ny * push
+        }
+        if (!holdB) {
+          b.x += nx * push
+          b.y += ny * push
+        }
       }
     }
   }
@@ -1132,7 +1139,7 @@ export function hexRingReach(angle: number, time: number): number {
 function shoveOutsideRing(state: GameState): void {
   const extra = 16 * BODY
   for (const e of state.enemies) {
-    if (e.ballistic) continue
+    if (e.ballistic || e.fuse > 0) continue
     const dx = e.x - state.playerX
     const dy = e.y - state.playerY
     const dist = Math.hypot(dx, dy)
@@ -1303,6 +1310,7 @@ export function orbitDiscs(state: GameState): { x: number; y: number; spin: numb
 }
 
 function shoveFromDisc(state: GameState, enemy: Enemy, x: number, y: number, shove: number): void {
+  if (enemy.fuse > 0) return
   let dx = enemy.x - x
   let dy = enemy.y - y
   let dist = Math.hypot(dx, dy)
@@ -1509,6 +1517,7 @@ function deflectOffEnemy(ball: Ricochet, enemy: Enemy): boolean {
 }
 
 function shoveFromBall(enemy: Enemy, ball: Ricochet): void {
+  if (enemy.fuse > 0) return
   const speed = Math.hypot(ball.vx, ball.vy) || 1
   const nx = ball.vx / speed
   const ny = ball.vy / speed

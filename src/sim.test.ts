@@ -453,6 +453,51 @@ describe('hostiles', () => {
     assert.ok(Math.hypot(stayed.x - beforeX, stayed.y - beforeY) < 1)
   })
 
+  it('keeps a blinking giant hex fixed while others push', () => {
+    const state = createGame(0, 21)
+    state.spawnCd = 999
+    state.fireCd = 10
+    state.invuln = 0
+    state.mods.orbiter = 1
+    state.orbitTime = 0.4
+    const hex = enemy({
+      x: 0,
+      y: 0,
+      vx: 90,
+      vy: -40,
+      kind: 3,
+      hp: 1,
+      maxHp: 1000,
+      radius: 80,
+      speed: 40,
+      fuse: 1.4,
+      immortal: true,
+    })
+    state.enemies.push(hex, enemy({ x: 10, y: 4, radius: 30, hp: 80, speed: 0 }))
+    state.balls.push({
+      x: 20,
+      y: 0,
+      vx: -700,
+      vy: 0,
+      life: 3,
+      max: 3,
+      radius: 16,
+      damage: 20,
+      echo: false,
+      quantum: false,
+      knock: 8,
+      spin: 0,
+      flex: 0,
+      flexAngle: 0,
+      touched: [],
+    })
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(hex.x, 0)
+    assert.equal(hex.y, 0)
+    assert.equal(hex.vx, 0)
+    assert.equal(hex.vy, 0)
+  })
+
   it('bursts a shard on the core and knocks the core back', () => {
     const state = createGame(0, 4)
     state.spawnCd = 999
