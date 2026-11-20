@@ -212,13 +212,23 @@ describe('cursor stream', () => {
     state.spawnCd = 999
     state.mods.fork = 1
     state.fireCd = 0
-    step(state, input(), 1 / 60)
+    step(state, input({ aimX: 400, aimY: 0 }), 1 / 60)
     assert.equal(state.bullets.length, 2)
+    const pair = state.bullets.map((bullet) => Math.atan2(bullet.vy, bullet.vx)).sort((a, b) => a - b)
+    assert.ok(pair[0] !== undefined && pair[1] !== undefined)
+    assert.ok(pair[0] < 0 && pair[1] > 0)
+    assert.ok(Math.abs(pair[0] + pair[1]) < 0.02)
+    assert.ok(pair[1] - pair[0] < 0.22)
     state.bullets.length = 0
     state.mods.fork = 2
     state.fireCd = 0
-    step(state, input(), 1 / 60)
+    step(state, input({ aimX: 400, aimY: 0 }), 1 / 60)
     assert.equal(state.bullets.length, 3)
+    const fan = state.bullets.map((bullet) => Math.atan2(bullet.vy, bullet.vx)).sort((a, b) => a - b)
+    assert.ok(fan[0] !== undefined && fan[1] !== undefined && fan[2] !== undefined)
+    assert.ok(Math.abs(fan[1]) < 0.02)
+    assert.ok(Math.abs(fan[0] + fan[2]) < 0.02)
+    assert.ok(fan[2] < 0.22)
     state.bullets.length = 0
     state.mods.fork = 4
     state.fireCd = 0

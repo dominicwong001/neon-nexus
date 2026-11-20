@@ -652,9 +652,13 @@ function fire(state: GameState, dt: number, events: StepEvents): void {
   while (state.fireCd <= 0 && guard < 4) {
     guard += 1
     state.fireCd += interval
-    const angles = [state.aim]
-    if (state.mods.fork >= 1) angles.push(state.aim + 0.32)
-    if (state.mods.fork >= 2) angles.push(state.aim - 0.32)
+    const spread = 0.18
+    const angles =
+      state.mods.fork >= 2
+        ? [state.aim - spread, state.aim, state.aim + spread]
+        : state.mods.fork >= 1
+          ? [state.aim - spread * 0.5, state.aim + spread * 0.5]
+          : [state.aim]
     for (const angle of angles) {
       const cs = Math.cos(angle)
       const sn = Math.sin(angle)
@@ -1247,7 +1251,7 @@ function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents
     }
     if (dist < magnet) orb.homing = true
     if (orb.homing) {
-      const speed = 320 + (1 - Math.min(1, dist / magnet)) * 140
+      const speed = 300 + state.mods.magnet * 55 + (1 - Math.min(1, dist / magnet)) * 130
       orb.vx = (dx / dist) * speed
       orb.vy = (dy / dist) * speed
     } else {
@@ -2012,8 +2016,8 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     pulse: { title: 'Pulse', detail: 'Shots leave the core sooner.' },
     caliber: { title: 'Caliber', detail: 'Each round hits a little harder.' },
     drift: { title: 'Drift', detail: 'Top speed climbs.' },
-    magnet: { title: 'Magnet', detail: 'Nearby orbs drift in. Each rank reaches a little farther.' },
-    fork: { title: 'Fork', detail: 'One extra stream beside the main shot. Three streams is the limit.' },
+    magnet: { title: 'Magnet', detail: 'Nearby orbs move a little faster. Each rank reaches a little farther.' },
+    fork: { title: 'Fork', detail: 'Two streams sit on the reticle. The next rank adds a third, still tight on the aim.' },
     greed: { title: 'Greed', detail: 'Every orb pays a bonus, and bigger orbs pay a little more.' },
     regen: { title: 'Regeneration', detail: 'Each level restores one health. Ranks restore more.' },
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
