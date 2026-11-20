@@ -83,16 +83,27 @@ requestAnimationFrame(frame)
 window.addEventListener('resize', resize)
 window.addEventListener('keydown', onKeyDown)
 window.addEventListener('keyup', (event) => keys.delete(event.key.toLowerCase()))
-window.addEventListener('blur', () => keys.clear())
+window.addEventListener('blur', () => {
+  keys.clear()
+  releaseSticks()
+})
 window.addEventListener('pointerdown', onPointerDown, { passive: false })
 window.addEventListener('pointermove', onPointerMove)
 window.addEventListener('pointerup', onPointerUp)
 window.addEventListener('pointercancel', onPointerUp)
-canvas.addEventListener('contextmenu', (event) => event.preventDefault())
+window.addEventListener('touchstart', onTouchStart, { passive: false })
+window.addEventListener('touchmove', onTouchMove, { passive: false })
+window.addEventListener('touchend', onTouchEnd, { passive: false })
+window.addEventListener('touchcancel', onTouchEnd, { passive: false })
+window.addEventListener('selectstart', (event) => event.preventDefault())
+window.addEventListener('dragstart', (event) => event.preventDefault())
+window.addEventListener('contextmenu', (event) => event.preventDefault())
 document.addEventListener('visibilitychange', () => {
   last = performance.now()
-  if (document.hidden) audio.suspend()
-  else audio.resume()
+  if (document.hidden) {
+    audio.suspend()
+    releaseSticks()
+  } else audio.resume()
 })
 againBtn.addEventListener('click', reform)
 advancedBtn.addEventListener('click', openTimeline)
@@ -589,6 +600,60 @@ function touchControl(event: PointerEvent): boolean {
   return event.pointerType === 'touch' || event.pointerType === 'pen'
 }
 
+function gestureTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest('button, a, input, textarea, #level, #overlay, #timeline'))
+}
+
+function releaseSticks(): void {
+  stick = null
+  aimStick = null
+}
+
+function releaseMissing(live: Set<number>): void {
+  if (stick && !live.has(stick.id)) stick = null
+  if (aimStick && !live.has(aimStick.id)) aimStick = null
+}
+
+function placeStick(id: number, x: number, y: number): void {
+  const next = { id, originX: x, originY: y, x, y }
+  const left = x < window.innerWidth * 0.5
+  if (left) {
+    if (!stick || stick.id === id) stick = next
+    return
+  }
+  if (!aimStick || aimStick.id === id) aimStick = next
+}
+
+function moveStick(id: number, x: number, y: number): void {
+  if (stick && stick.id === id) {
+    stick.x = x
+    stick.y = y
+  }
+  if (aimStick && aimStick.id === id) {
+    aimStick.x = x
+    aimStick.y = y
+  }
+}
+
+function onTouchStart(event: TouchEvent): void {
+  audio.ensure()
+  if (!gestureTarget(event.target)) event.preventDefault()
+  releaseMissing(new Set(Array.from(event.touches, (touch) => touch.identifier)))
+  if (gestureTarget(event.target)) return
+  for (const touch of event.changedTouches) placeStick(touch.identifier, touch.clientX, touch.clientY)
+}
+
+function onTouchMove(event: TouchEvent): void {
+  if (!gestureTarget(event.target)) event.preventDefault()
+  releaseMissing(new Set(Array.from(event.touches, (touch) => touch.identifier)))
+  for (const touch of event.touches) moveStick(touch.identifier, touch.clientX, touch.clientY)
+}
+
+function onTouchEnd(event: TouchEvent): void {
+  if (!gestureTarget(event.target)) event.preventDefault()
+  releaseMissing(new Set(Array.from(event.touches, (touch) => touch.identifier)))
+}
+
 function onPointerDown(event: PointerEvent): void {
   audio.ensure()
   if (!touchControl(event)) {
@@ -597,40 +662,15 @@ function onPointerDown(event: PointerEvent): void {
     pointerOn = true
     return
   }
-  if (event.target instanceof Element && event.target.closest('button, #level, #overlay, #timeline')) return
+  if (event.pointerType === 'touch') return
+  if (gestureTarget(event.target)) return
   event.preventDefault()
-  if (event.target instanceof Element) {
-    try {
-      event.target.setPointerCapture(event.pointerId)
-    } catch {
-      // The finger can still steer while it stays inside the page.
-    }
-  }
-  const left = event.clientX < window.innerWidth * 0.5
-  const next = {
-    id: event.pointerId,
-    originX: event.clientX,
-    originY: event.clientY,
-    x: event.clientX,
-    y: event.clientY,
-  }
-  if (left) {
-    if (!stick) stick = next
-    return
-  }
-  if (!aimStick) aimStick = next
+  placeStick(event.pointerId, event.clientX, event.clientY)
 }
 
 function onPointerMove(event: PointerEvent): void {
   if (touchControl(event)) {
-    if (stick && event.pointerId === stick.id) {
-      stick.x = event.clientX
-      stick.y = event.clientY
-    }
-    if (aimStick && event.pointerId === aimStick.id) {
-      aimStick.x = event.clientX
-      aimStick.y = event.clientY
-    }
+    moveStick(event.pointerId, event.clientX, event.clientY)
     return
   }
   pointerX = event.clientX
