@@ -1537,22 +1537,13 @@ describe('orbs', () => {
     assert.ok(report[0] && report[0].amount >= (report[1]?.amount ?? 0))
   })
 
-  it('knits health after a quiet stretch and mends a little on each level', () => {
-    const plain = createGame(0, 80)
-    plain.spawnCd = 999
-    plain.fireCd = 10
-    plain.hull = 4
-    run(plain, input({ aimActive: false }), 8.5)
-    assert.equal(plain.hull, 5)
-
-    const quick = createGame(0, 80)
-    quick.spawnCd = 999
-    quick.fireCd = 10
-    quick.hull = 4
-    quick.mods.regen = 3
-    run(quick, input({ aimActive: false }), 8.5)
-    assert.equal(quick.hull, TUNING.hullMax)
-    assert.ok(quick.hull > plain.hull)
+  it('restores health only when you level, and Regeneration restores more', () => {
+    const quiet = createGame(0, 80)
+    quiet.spawnCd = 999
+    quiet.fireCd = 10
+    quiet.hull = 4
+    run(quiet, input({ aimActive: false }), 8.5)
+    assert.equal(quiet.hull, 4)
 
     const state = createGame(0, 81)
     state.spawnCd = 999
@@ -1567,6 +1558,11 @@ describe('orbs', () => {
     assert.equal(state.mods.regen, 1)
     assert.equal(state.hullMax, TUNING.hullMax)
     assert.equal(state.phase, 'play')
+
+    state.hull = 2
+    state.xp = state.xpNeed
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(state.hull, 4)
 
     const bite = createGame(0, 82)
     bite.spawnCd = 999

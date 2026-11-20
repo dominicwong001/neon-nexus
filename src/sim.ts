@@ -207,8 +207,6 @@ export interface GameState {
   xp: number
   xpNeed: number
   hullMax: number
-  hurtIdle: number
-  regenTick: number
   orbitTime: number
   fieldTick: number
   ballCd: number
@@ -448,20 +446,8 @@ export function streamDamage(rank: number): number {
   return HIT + Math.max(0, rank) * 25
 }
 
-export function regenDelay(rank: number): number {
-  return Math.max(1.8, 6 - Math.max(0, rank) * 1.15)
-}
-
-export function regenPace(rank: number): number {
-  return Math.max(0.7, 2.2 - Math.max(0, rank) * 0.45)
-}
-
-export function regenAmount(rank: number): number {
-  return 1 + Math.floor(Math.max(0, rank) / 2)
-}
-
 export function levelMend(rank: number): number {
-  return 1 + Math.floor(Math.max(0, rank) / 2)
+  return 1 + Math.max(0, rank)
 }
 
 export function orbGain(value: number, rank: number): number {
@@ -504,8 +490,6 @@ export function createGame(best = 0, seed = 1): GameState {
     xp: 0,
     xpNeed: xpNeedFor(1),
     hullMax: TUNING.hullMax,
-    hurtIdle: 0,
-    regenTick: 0,
     orbitTime: 0,
     fieldTick: 0,
     ballCd: 0.45,
@@ -602,7 +586,6 @@ function simulate(state: GameState, input: Input, dt: number, events: StepEvents
   state.invuln = Math.max(0, state.invuln - dt)
   state.comboTime = Math.max(0, state.comboTime - dt)
   if (state.comboTime === 0) state.combo = 0
-  recoverHull(state, dt)
 
   drift(state, input, dt)
   aimAt(state, input)
@@ -1178,24 +1161,6 @@ function repelFromRing(state: GameState): void {
   shoveOutsideRing(state)
 }
 
-function recoverHull(state: GameState, dt: number): void {
-  if (state.hull <= 0 || state.hull >= state.hullMax) {
-    state.regenTick = 0
-    return
-  }
-  state.hurtIdle += dt
-  const rank = state.mods.regen
-  if (state.hurtIdle < regenDelay(rank)) return
-  state.regenTick += dt
-  const pace = regenPace(rank)
-  const amount = regenAmount(rank)
-  while (state.regenTick >= pace && state.hull < state.hullMax) {
-    state.regenTick -= pace
-    state.hull += amount
-  }
-  state.hull = Math.min(state.hullMax, state.hull)
-}
-
 function touchPlayer(state: GameState, events: StepEvents): void {
   if (state.invuln > 0) return
   for (let j = state.enemies.length - 1; j >= 0; j--) {
@@ -1206,8 +1171,6 @@ function touchPlayer(state: GameState, events: StepEvents): void {
     const reach = TUNING.playerRadius + e.radius - 4 * BODY
     if (dist > reach) continue
     state.hull -= 1
-    state.hurtIdle = 0
-    state.regenTick = 0
     state.invuln = TUNING.invuln
     state.flash = 1
     state.shake = 9
@@ -2042,7 +2005,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     magnet: { title: 'Magnet', detail: 'Orbs home from farther away and rush in faster.' },
     fork: { title: 'Fork', detail: 'Two extra rounds fan out beside the main shot.' },
     greed: { title: 'Greed', detail: 'Every orb pays a bonus, and bigger orbs pay a little more.' },
-    regen: { title: 'Regeneration', detail: 'After a quiet stretch, health knits back. Ranks start that sooner and restore more.' },
+    regen: { title: 'Regeneration', detail: 'Each level restores one health. Ranks restore more.' },
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
     field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off any hostile whose hull is 1000 or more, no matter how much health is left.' },
@@ -2058,8 +2021,8 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
           : id === 'drone' && rank > 1
             ? 'More rockets in each fan, a wider blast, and a shorter wait between volleys.'
             : id === 'regen' && rank > 1
-          ? 'The quiet starts sooner, and each pulse restores more health.'
-          : copy[id].detail
+              ? 'Each level restores more health.'
+              : copy[id].detail
   return { id, title: copy[id].title, detail, rank, max, overdrive: false }
 }
 
