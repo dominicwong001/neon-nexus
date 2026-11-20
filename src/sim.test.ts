@@ -552,13 +552,13 @@ describe('orbs', () => {
     state.enemies.push(enemy({ x: 360, y: 0, kind: 3, hp: 1, radius: 54, speed: 0, angle: -Math.PI / 2 }))
     let bits = state.enemies.filter((hostile) => hostile.ballistic && hostile.kind === 3)
     let blinked = 0
-    for (let i = 0; i < 140 && bits.length < 6; i++) {
+    for (let i = 0; i < 200 && bits.length < 6; i++) {
       step(state, input({ aimX: 400, aimY: 0 }), 1 / 60)
       const body = state.enemies.find((hostile) => hostile.kind === 3 && !hostile.ballistic)
       if (body?.immortal && body.flash > 0) blinked += 1
       bits = state.enemies.filter((hostile) => hostile.ballistic && hostile.kind === 3)
     }
-    assert.ok(blinked >= 2)
+    assert.ok(blinked >= 8)
     assert.equal(bits.length, 6)
     const angles = bits
       .map((hostile) => Math.atan2(hostile.vy, hostile.vx))
@@ -571,8 +571,9 @@ describe('orbs', () => {
       const piece = bits[i]
       assert.ok(piece)
       assert.equal(piece.immortal, true)
-      assert.ok(piece.speed * piece.orbitCd < 420)
-      assert.ok(piece.speed * piece.orbitCd > 200)
+      assert.ok(piece.speed < 250)
+      assert.ok(piece.speed * piece.orbitCd > 480)
+      assert.ok(piece.speed * piece.orbitCd < 700)
       assert.equal(piece.phase, 54)
     }
     const chip = bits[0]

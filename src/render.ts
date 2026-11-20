@@ -1,4 +1,4 @@
-import { BODY, ENEMY_COLOR, TUNING, droneAnchor, droneBlasterTips, droneStorm, fieldColor, fieldRadius, fieldRipple, orbitDiscs, shellPose, type GameState } from './sim.ts'
+import { BODY, ENEMY_COLOR, TUNING, droneAnchor, droneBlasterTips, droneStorm, fieldColor, fieldRadius, fieldRipple, hexFuseLit, orbitDiscs, shellPose, type GameState } from './sim.ts'
 
 export interface StickView {
   x: number
@@ -305,9 +305,12 @@ function drawEnemies(
     ctx.save()
     ctx.translate(X(e.x), Y(e.y))
     ctx.rotate(e.angle)
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.78)'
-    ctx.strokeStyle = ENEMY_COLOR[e.kind]
-    ctx.lineWidth = (e.kind === 3 ? 3.1 : 2) * BODY
+    const primed = e.fuse > 0
+    const lit = primed && hexFuseLit(e.fuse)
+    if (lit) ctx.scale(1.08, 1.08)
+    ctx.fillStyle = lit ? '#ffffff' : 'rgba(0, 0, 0, 0.78)'
+    ctx.strokeStyle = lit ? '#ffffff' : ENEMY_COLOR[e.kind]
+    ctx.lineWidth = ((e.kind === 3 ? 3.1 : 2) + (lit ? 2.4 : 0)) * BODY
     ctx.beginPath()
     if (e.ballistic && e.kind === 3) traceHexWedge(ctx, e.phase)
     else if (e.kind === 0) polyPath(ctx, 0, 0, e.radius, 3, -Math.PI / 2)
