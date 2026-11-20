@@ -307,8 +307,9 @@ function drawEnemies(
     ctx.rotate(e.angle)
     const primed = e.fuse > 0
     const lit = primed && hexFuseLit(e.fuse)
+    const shard = e.ballistic && e.kind === 3
     if (lit) ctx.scale(1.08, 1.08)
-    ctx.fillStyle = lit ? '#ffffff' : 'rgba(0, 0, 0, 0.78)'
+    ctx.fillStyle = lit ? '#ffffff' : shard ? ENEMY_COLOR[3] : 'rgba(0, 0, 0, 0.78)'
     ctx.strokeStyle = lit ? '#ffffff' : ENEMY_COLOR[e.kind]
     ctx.lineWidth = ((e.kind === 3 ? 3.1 : 2) + (lit ? 2.4 : 0)) * BODY
     ctx.beginPath()
