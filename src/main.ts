@@ -49,7 +49,7 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 const coarse = window.matchMedia('(hover: none) and (pointer: coarse)').matches
 
 hintEl.textContent = coarse
-  ? 'Stick drifts · touch aims · orbs fill the bar'
+  ? 'Left stick drifts · right stick aims · orbs fill the bar'
   : 'WASD drifts · cursor aims · orbs fill the bar'
 
 let state = createGame(loadBest(), seed())
@@ -62,7 +62,7 @@ let pointerY = 0
 let pointerOn = false
 type TouchStick = { id: number; originX: number; originY: number; x: number; y: number }
 let stick: TouchStick | null = null
-let aimTouch: number | null = null
+let aimStick: TouchStick | null = null
 let shownBest = -1
 let shownHull = -1
 let shownHullMax = -1
@@ -118,16 +118,15 @@ function frame(now: number): void {
   last = now
   if (!document.hidden) {
     const move = readMove()
-    const aimScreenX = pointerOn ? pointerX : width / 2 + 150
-    const aimScreenY = pointerOn ? pointerY : height / 2
-    const aim = screenToWorld(width, height, state.playerX, state.playerY, aimScreenX, aimScreenY)
+    const aim = readAim()
+    const aimed = screenToWorld(width, height, state.playerX, state.playerY, aim.x, aim.y)
     const events = step(
       state,
       {
         moveX: move.x,
         moveY: move.y,
-        aimX: aim.x,
-        aimY: aim.y,
+        aimX: aimed.x,
+        aimY: aimed.y,
         aimActive: true,
         viewRadius: Math.max(220, Math.hypot(width, height) / 2),
         viewW: width,
@@ -149,6 +148,7 @@ function frame(now: number): void {
       pointerY,
       pointerOn,
       stick: move.stick,
+      aimStick: aim.stick,
       reduceMotion,
       fast,
     })
@@ -168,6 +168,25 @@ function readMove(): { x: number; y: number; stick: StickView | null } {
   const analog = stickVector(stick)
   if (x === 0 && y === 0) return { x: analog.x, y: analog.y, stick: analog.view }
   return { x, y, stick: analog.view }
+}
+
+function readAim(): { x: number; y: number; stick: StickView | null } {
+  if (!aimStick) {
+    return {
+      x: pointerOn ? pointerX : width / 2 + 150,
+      y: pointerOn ? pointerY : height / 2,
+      stick: null,
+    }
+  }
+  const analog = stickVector(aimStick)
+  analog.view.aim = true
+  if (analog.x !== 0 || analog.y !== 0) {
+    const reach = Math.min(width, height) * 0.46
+    pointerX = width / 2 + analog.x * reach
+    pointerY = height / 2 + analog.y * reach
+    pointerOn = true
+  }
+  return { x: pointerOn ? pointerX : width / 2 + 150, y: pointerOn ? pointerY : height / 2, stick: analog.view }
 }
 
 function stickVector(active: TouchStick): { x: number; y: number; view: StickView } {
@@ -566,43 +585,51 @@ function onKeyDown(event: KeyboardEvent): void {
   if (key === 'f') toggleFull()
 }
 
+function touchControl(event: PointerEvent): boolean {
+  return event.pointerType === 'touch' || event.pointerType === 'pen'
+}
+
 function onPointerDown(event: PointerEvent): void {
   audio.ensure()
-  if (event.pointerType !== 'touch') {
+  if (!touchControl(event)) {
     pointerX = event.clientX
     pointerY = event.clientY
     pointerOn = true
     return
   }
-  if (event.target instanceof Element && event.target.closest('button')) return
+  if (event.target instanceof Element && event.target.closest('button, #level, #overlay, #timeline')) return
   event.preventDefault()
-  const left = event.clientX < window.innerWidth * 0.5
-  if (left && !stick) {
-    stick = {
-      id: event.pointerId,
-      originX: event.clientX,
-      originY: event.clientY,
-      x: event.clientX,
-      y: event.clientY,
+  if (event.target instanceof Element) {
+    try {
+      event.target.setPointerCapture(event.pointerId)
+    } catch {
+      // The finger can still steer while it stays inside the page.
     }
+  }
+  const left = event.clientX < window.innerWidth * 0.5
+  const next = {
+    id: event.pointerId,
+    originX: event.clientX,
+    originY: event.clientY,
+    x: event.clientX,
+    y: event.clientY,
+  }
+  if (left) {
+    if (!stick) stick = next
     return
   }
-  aimTouch = event.pointerId
-  pointerX = event.clientX
-  pointerY = event.clientY
-  pointerOn = true
+  if (!aimStick) aimStick = next
 }
 
 function onPointerMove(event: PointerEvent): void {
-  if (event.pointerType === 'touch') {
+  if (touchControl(event)) {
     if (stick && event.pointerId === stick.id) {
       stick.x = event.clientX
       stick.y = event.clientY
     }
-    if (event.pointerId === aimTouch) {
-      pointerX = event.clientX
-      pointerY = event.clientY
-      pointerOn = true
+    if (aimStick && event.pointerId === aimStick.id) {
+      aimStick.x = event.clientX
+      aimStick.y = event.clientY
     }
     return
   }
@@ -613,7 +640,7 @@ function onPointerMove(event: PointerEvent): void {
 
 function onPointerUp(event: PointerEvent): void {
   if (stick && event.pointerId === stick.id) stick = null
-  if (event.pointerId === aimTouch) aimTouch = null
+  if (aimStick && event.pointerId === aimStick.id) aimStick = null
 }
 
 function resize(): void {

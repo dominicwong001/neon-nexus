@@ -25,6 +25,6 @@ npm run build
 - **W A S D** or the arrow keys drift. The core stays centered.
 - The **cursor** aims each shot. It fires on its own.
 - Walk over **orbs** to fill the bar. **1**, **2**, or **3** picks an upgrade when it fills.
-- On a touch screen, **drag the left side** to drift and **touch the right side** to aim.
+- On a phone or iPad, the **left stick** drifts and the **right stick** aims. Each stick follows the finger, so it is not locked to where the touch started.
 - **R** or **Reform** starts another run after the core is lost.
 - **Audio** toggles the synth. **Full screen** fills the display.
