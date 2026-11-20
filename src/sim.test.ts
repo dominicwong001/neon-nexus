@@ -226,52 +226,63 @@ describe('hostiles', () => {
     assert.equal(state.floaters.some((floater) => floater.text.startsWith('+')), false)
   })
 
-  it('splits a circle into normal circles that split once more', () => {
+  it('splits a normal circle once and a big circle into normals that split again', () => {
     const state = createGame(0, 19)
     state.spawnCd = 50
-    state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, radius: 28, kind: 2, hp: 1, generation: 0 }))
-    const events = step(state, input(), 1 / 60)
-    assert.equal(events.kills, 1)
+    state.xpNeed = 999
+    state.enemies.push(enemy({ x: TUNING.muzzle + 30, y: 0, radius: 14, kind: 2, hp: 1, generation: 0, speed: 0 }))
+    step(state, input(), 1 / 60)
     assert.equal(state.enemies.length, 2)
     for (const child of state.enemies) {
       assert.equal(child.kind, 2)
+      assert.equal(child.generation, 2)
+      assert.equal(child.hp, 140)
+    }
+    const piece = state.enemies[0]
+    assert.ok(piece)
+    state.enemies.splice(0, state.enemies.length, piece)
+    piece.hp = 1
+    piece.x = state.playerX + TUNING.muzzle + 24
+    piece.y = state.playerY
+    piece.vx = 0
+    piece.vy = 0
+    piece.speed = 0
+    piece.hitCd = 0
+    for (let i = 0; i < 40 && state.enemies.includes(piece); i++) {
+      step(state, input({ aimX: state.playerX + 200, aimY: state.playerY }), 1 / 60)
+    }
+    assert.equal(state.enemies.includes(piece), false)
+    assert.equal(state.enemies.length, 0)
+
+    state.bullets.length = 0
+    state.fireCd = 0
+    state.enemies.push(enemy({ x: 220, y: 0, radius: 36, kind: 2, hp: 1, generation: 0, speed: 0 }))
+    for (let i = 0; i < 40 && state.enemies.length < 2; i++) {
+      step(state, input({ aimX: 400, aimY: 0 }), 1 / 60)
+    }
+    assert.equal(state.enemies.length, 2)
+    for (const child of state.enemies) {
+      assert.equal(child.kind, 2)
+      assert.equal(child.generation, 0)
       assert.equal(child.hp, 300)
-      assert.equal(child.generation, 1)
-      assert.ok(child.radius < 28)
+      assert.equal(child.radius, 14)
     }
     const child = state.enemies[0]
     assert.ok(child)
     state.enemies.splice(0, state.enemies.length, child)
-    state.xpNeed = 999
     child.hp = 1
-    child.x = state.playerX + TUNING.muzzle
+    child.x = state.playerX + TUNING.muzzle + 24
     child.y = state.playerY
     child.vx = 0
     child.vy = 0
     child.speed = 0
     child.hitCd = 0
-    const kills = state.kills
     for (let i = 0; i < 40 && state.enemies.includes(child); i++) {
       step(state, input({ aimX: state.playerX + 200, aimY: state.playerY }), 1 / 60)
     }
     assert.equal(state.enemies.includes(child), false)
-    assert.equal(state.kills, kills + 1)
     assert.equal(state.enemies.length, 2)
-    assert.ok(state.enemies.every((e) => e.generation === 2 && e.kind === 2))
-    const speck = state.enemies[0]
-    assert.ok(speck)
-    speck.hp = 1
-    speck.x = state.playerX + TUNING.muzzle + 24
-    speck.y = state.playerY
-    speck.vx = 0
-    speck.vy = 0
-    speck.hitCd = 0
-    state.enemies.splice(0, state.enemies.length, speck)
-    for (let i = 0; i < 40 && state.enemies.includes(speck); i++) {
-      step(state, input({ aimX: state.playerX + 200, aimY: state.playerY }), 1 / 60)
-    }
-    assert.equal(state.enemies.includes(speck), false)
-    assert.equal(state.enemies.length, 0)
+    assert.ok(state.enemies.every((speck) => speck.generation === 2 && speck.hp === 140))
   })
 
   it('needs two hits to break a block', () => {
@@ -315,15 +326,20 @@ describe('hostiles', () => {
         assert.equal(hostile.hp, [100, 200, 300, 1000][hostile.kind])
       }
     }
-    assert.equal(earlyCounts[3], 0)
+    assert.ok((earlyCounts[3] ?? 0) >= 1)
+    assert.ok((earlyCounts[2] ?? 0) >= 1)
+    assert.ok((earlyCounts[3] ?? 0) < (earlyCounts[0] ?? 0))
+    assert.ok((earlyCounts[2] ?? 0) < (earlyCounts[1] ?? 0))
     assert.ok((earlyCounts[0] ?? 0) > 0)
 
     const state = createGame(0, 7)
     state.fireCd = 10
-    state.time = 100
-    state.level = 12
+    state.time = 70
+    state.level = 9
     const counts = [0, 0, 0, 0]
-    for (let i = 0; i < 120; i++) {
+    let plainHex = 0
+    let giantHex = 0
+    for (let i = 0; i < 160; i++) {
       state.spawnCd = 0
       state.enemies.length = 0
       step(state, input({ viewRadius: 400, aimActive: false }), 1 / 60)
@@ -332,14 +348,15 @@ describe('hostiles', () => {
         counts[hostile.kind] += 1
         if (hostile.kind !== 3) continue
         assert.equal(hostile.hp, 1000)
-        assert.ok(hostile.radius > 40)
         assert.ok(hostile.speed < 66)
+        if (hostile.radius > 40) giantHex += 1
+        else plainHex += 1
       }
     }
-    assert.ok(counts[3] >= 1)
+    assert.ok(plainHex >= 1)
+    assert.ok(giantHex >= 1)
     assert.ok(counts[3] < (counts[0] ?? 0) / 4)
     assert.ok(counts[3] < (counts[1] ?? 0))
-    assert.ok(counts[3] < (counts[2] ?? 0))
   })
 
   it('spawns outside the view', () => {
@@ -495,7 +512,7 @@ describe('orbs', () => {
     const best = [0, 0, 0, 0]
     const pace = [0, 0, 0, 0]
     const size = [0, 0, 0, 0]
-    for (let n = 0; n < 50; n++) {
+    for (let n = 0; n < 100; n++) {
       state.spawnCd = 0
       state.enemies.length = 0
       step(state, input({ viewRadius: 400, aimActive: false }), 1 / 60)
@@ -516,12 +533,22 @@ describe('orbs', () => {
     state.enemies.length = 0
     state.bullets.length = 0
     const originX = TUNING.muzzle
-    state.enemies.push(enemy({ x: originX, y: 0, kind: 3, hp: 1, radius: 36, speed: 0, angle: -Math.PI / 2 }))
+    state.enemies.push(enemy({ x: originX, y: 0, kind: 3, hp: 1, radius: 28, speed: 0 }))
     step(state, input({ aimActive: false }), 1 / 60)
-    const bits = state.enemies.filter((hostile) => hostile.ballistic && hostile.kind === 3)
+    assert.equal(state.enemies.some((hostile) => hostile.ballistic), false)
+
+    state.fireCd = 0
+    state.enemies.length = 0
+    state.bullets.length = 0
+    state.enemies.push(enemy({ x: 360, y: 0, kind: 3, hp: 1, radius: 54, speed: 0, angle: -Math.PI / 2 }))
+    let bits = state.enemies.filter((hostile) => hostile.ballistic && hostile.kind === 3)
+    for (let i = 0; i < 50 && bits.length < 6; i++) {
+      step(state, input({ aimX: 400, aimY: 0 }), 1 / 60)
+      bits = state.enemies.filter((hostile) => hostile.ballistic && hostile.kind === 3)
+    }
     assert.equal(bits.length, 6)
     const angles = bits
-      .map((hostile) => Math.atan2(hostile.y, hostile.x - originX))
+      .map((hostile) => Math.atan2(hostile.vy, hostile.vx))
       .sort((a, b) => a - b)
     for (let i = 0; i < angles.length; i++) {
       const a = angles[i] ?? 0
@@ -532,7 +559,7 @@ describe('orbs', () => {
       assert.ok(piece)
       assert.equal(piece.immortal, false)
       assert.equal(piece.hp, 160)
-      assert.equal(piece.phase, 36)
+      assert.equal(piece.phase, 54)
     }
     const chip = bits[0]
     assert.ok(chip)

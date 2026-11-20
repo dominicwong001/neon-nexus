@@ -861,28 +861,28 @@ function damageEnemy(
   })
   burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 14, 280)
   dropOrb(state, enemy)
-  if (enemy.kind === 2 && enemy.generation < 2) splitCircle(state, enemy)
-  if (enemy.kind === 3 && lateGame(state)) shatterHex(state, enemy)
+  if (enemy.kind === 2 && enemy.radius > KIND[2].radius * 1.5) splitCircle(state, enemy, 'normal')
+  else if (enemy.kind === 2 && enemy.generation === 0) splitCircle(state, enemy, 'piece')
+  if (enemy.kind === 3 && !enemy.ballistic && enemy.radius > KIND[3].radius * 1.45) shatterHex(state, enemy)
   const idx = state.enemies.indexOf(enemy)
   if (idx >= 0) state.enemies.splice(idx, 1)
 }
 
-function splitCircle(state: GameState, enemy: Enemy): void {
+function splitCircle(state: GameState, enemy: Enemy, into: 'normal' | 'piece'): void {
   const heading = Math.hypot(enemy.vx, enemy.vy) > 8 ? Math.atan2(enemy.vy, enemy.vx) : state.rng() * Math.PI * 2
-  const generation = enemy.generation + 1
-  const normal = generation === 1
+  const normal = into === 'normal'
   for (const side of [-1, 1]) {
     const a = heading + side * 0.9
-    const radius = normal ? KIND[2].radius : Math.max(8 * BODY, enemy.radius * 0.55)
-    const speed = enemy.speed
+    const radius = normal ? KIND[2].radius : KIND[2].radius * 0.78
+    const speed = normal ? KIND[2].speed : enemy.speed
     state.enemies.push({
-      x: enemy.x + Math.cos(a) * enemy.radius * 0.75,
-      y: enemy.y + Math.sin(a) * enemy.radius * 0.75,
+      x: enemy.x + Math.cos(a) * enemy.radius * 0.55,
+      y: enemy.y + Math.sin(a) * enemy.radius * 0.55,
       vx: Math.cos(a) * speed * 0.55,
       vy: Math.sin(a) * speed * 0.55,
       radius,
       kind: 2,
-      hp: normal ? KIND[2].hp : 90,
+      hp: normal ? KIND[2].hp : 140,
       hitCd: TUNING.hitCooldown,
       flash: 0,
       orbitCd: 0.2,
@@ -890,7 +890,7 @@ function splitCircle(state: GameState, enemy: Enemy): void {
       angle: enemy.angle + side,
       phase: enemy.phase + side,
       speed,
-      generation,
+      generation: normal ? 0 : 2,
       immortal: false,
       ballistic: false,
     })
@@ -929,8 +929,8 @@ function lateGame(state: GameState): boolean {
   return state.heat >= 6 || state.level >= 7
 }
 
-function hexSeason(state: GameState): boolean {
-  return state.heat >= 14 || state.level >= 12
+function bigHexSeason(state: GameState): boolean {
+  return state.heat >= 9 || state.level >= 9
 }
 
 function spawn(state: GameState, input: Input, dt: number): void {
@@ -949,9 +949,9 @@ function spawn(state: GameState, input: Input, dt: number): void {
 function spawnOne(state: GameState, viewRadius: number): void {
   const roll = state.rng()
   let kind: EnemyKind = 0
-  if (hexSeason(state) && roll > 0.975) kind = 3
-  else if (roll > 0.73) kind = 2
-  else if (roll > 0.4) kind = 1
+  if (roll > 0.96) kind = 3
+  else if (roll > 0.9) kind = 2
+  else if (roll > 0.42) kind = 1
   const spec = KIND[kind]
   const ang = state.rng() * Math.PI * 2
   const late = lateGame(state)
@@ -967,10 +967,10 @@ function spawnOne(state: GameState, viewRadius: number): void {
   } else if (late && kind === 1) {
     hp = spec.hp * 6
     radius *= 2.2
-  } else if (late && kind === 2) {
+  } else if (late && kind === 2 && state.rng() < 0.32) {
     hp = Math.round(spec.hp * 1.5)
     radius *= 2.6
-  } else if (late && kind === 3) {
+  } else if (kind === 3 && bigHexSeason(state) && state.rng() < 0.4) {
     radius *= 1.95
   }
   state.enemies.push({
@@ -1067,6 +1067,7 @@ export function hexRingReach(angle: number, time: number): number {
 function shoveOutsideRing(state: GameState): void {
   const extra = 16 * BODY
   for (const e of state.enemies) {
+    if (e.ballistic) continue
     const dx = e.x - state.playerX
     const dy = e.y - state.playerY
     const dist = Math.hypot(dx, dy)
