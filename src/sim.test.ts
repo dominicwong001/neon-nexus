@@ -772,11 +772,13 @@ describe('orbs', () => {
     assert.ok(state.dealt.tesla > 0)
     assert.ok(state.bolts.length >= 1)
     assert.ok(state.shocks.length >= 1)
-    const sky = state.bolts[0]?.paths[0]
+    const sky = state.bolts[0]?.strike.pts
+    const widths = state.bolts[0]?.strike.half ?? []
     assert.ok(sky && sky.length >= 8)
     assert.ok(Math.abs((sky[0]?.y ?? 0) - (state.playerY - 720 / 2)) < 12)
     assert.ok((sky[sky.length - 1]?.y ?? 0) > (sky[0]?.y ?? 0))
-    assert.ok((state.bolts[0]?.tendrils.length ?? 0) >= 6)
+    assert.ok(Math.max(...widths) > Math.min(...widths) * 1.8)
+    assert.ok((state.bolts[0]?.splinters.length ?? 0) >= 8)
 
     const reactor = createGame(0, 9)
     reactor.spawnCd = 999
@@ -791,14 +793,29 @@ describe('orbs', () => {
     assert.ok(beside.hp < 900)
     assert.ok(
       reactor.bolts.some((bolt) =>
-        bolt.paths.some((path) => {
-          const ys = path.map((point) => point.y)
+        bolt.arcs.some((arc) => {
+          const ys = arc.pts.map((point) => point.y)
           const top = Math.max(...ys)
           const bottom = Math.min(...ys)
-          return top - bottom < 160
+          return top - bottom < 180
         }),
       ),
     )
+  })
+
+  it('strikes only enemies inside the camera', () => {
+    const state = createGame(0, 4)
+    state.spawnCd = 999
+    state.fireCd = 10
+    state.mods.tesla = 1
+    state.teslaCd = 0
+    const seen = enemy({ x: 180, y: 40, hp: 500, radius: 16, speed: 0 })
+    const hidden = enemy({ x: 1400, y: 40, hp: 500, radius: 16, speed: 0 })
+    state.enemies.push(seen, hidden)
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.ok(seen.hp < 500)
+    assert.equal(hidden.hp, 500)
+    assert.ok(state.bolts.every((bolt) => Math.hypot(bolt.x - hidden.x, bolt.y - hidden.y) > 40))
   })
 
   it('opens three upgrades when the bar fills and freezes the pit', () => {

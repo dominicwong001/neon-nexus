@@ -180,7 +180,7 @@ function drawShocks(
       ctx.strokeRect(X(shock.x) - outer, Y(shock.y) - outer, outer * 2, outer * 2)
       ctx.lineWidth = 6
       ctx.strokeRect(X(shock.x) - outer, Y(shock.y) - outer, outer * 2, outer * 2)
-      ctx.lineWidth = 1.7
+      ctx.lineWidth = 2.2
       ctx.strokeRect(X(shock.x) - inner, Y(shock.y) - inner, inner * 2, inner * 2)
       continue
     }
@@ -446,59 +446,52 @@ function drawBolts(
 ): void {
   if (state.bolts.length === 0) return
   ctx.save()
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
   for (const bolt of state.bolts) {
     const fade = Math.max(0, bolt.life / bolt.max)
-    const flicker = 0.78 + 0.22 * Math.abs(Math.sin((bolt.max - bolt.life) * 70 + bolt.x))
+    const flicker = 0.82 + 0.18 * Math.abs(Math.sin((bolt.max - bolt.life) * 90 + bolt.x))
     const red = bolt.reactor
-    const glow = red ? '#ff2d3a' : '#ffffff'
-    const aura = red ? '#ff4d5a' : '#ffffff'
-    const core = red ? '#ffd2d6' : '#ffffff'
-    const pillar = bolt.paths[0]
-    if (pillar) {
-      fillRibbon(ctx, pillar, X, Y, 34, 10, glow, fade * (red ? 0.22 : 0.14) * flicker)
-      fillRibbon(ctx, pillar, X, Y, 16, 4.2, aura, fade * (red ? 0.5 : 0.34) * flicker)
-      fillRibbon(ctx, pillar, X, Y, 5.2, 1.2, core, fade * flicker)
-    }
-    for (let i = 1; i < bolt.paths.length; i++) {
-      const arc = bolt.paths[i]
-      if (!arc) continue
-      fillRibbon(ctx, arc, X, Y, 16, 5, glow, fade * (red ? 0.32 : 0.18) * flicker)
-      fillRibbon(ctx, arc, X, Y, 5.5, 1.5, core, fade * flicker)
+    const glow = red ? '#ff1f33' : '#ffffff'
+    const core = red ? '#fff1f3' : '#ffffff'
+    const glowAlpha = fade * (red ? 0.5 : 0.32) * flicker
+    const coreAlpha = fade * flicker
+    fillJag(ctx, bolt.strike, X, Y, 2.7, glow, glowAlpha)
+    fillJag(ctx, bolt.strike, X, Y, 1, core, coreAlpha)
+    for (const arc of bolt.arcs) {
+      fillJag(ctx, arc, X, Y, 2.5, glow, glowAlpha * (red ? 1 : 0.85))
+      fillJag(ctx, arc, X, Y, 1, core, coreAlpha)
     }
     paintImpact(ctx, X(bolt.x), Y(bolt.y), fade * flicker, glow, core, red)
-    for (const ray of bolt.tendrils) {
-      fillRibbon(ctx, ray, X, Y, 3.6, 0.35, glow, fade * 0.75 * flicker)
-      fillRibbon(ctx, ray, X, Y, 1.4, 0.15, core, fade * flicker)
+    for (const ray of bolt.splinters) {
+      fillJag(ctx, ray, X, Y, 2.2, glow, glowAlpha * 0.9)
+      fillJag(ctx, ray, X, Y, 1, core, coreAlpha)
     }
   }
   ctx.restore()
 }
 
-function fillRibbon(
+function fillJag(
   ctx: CanvasRenderingContext2D,
-  points: { x: number; y: number }[],
+  jag: { pts: { x: number; y: number }[]; half: number[] },
   X: (x: number) => number,
   Y: (y: number) => number,
-  startW: number,
-  endW: number,
+  scale: number,
   color: string,
   alpha: number,
 ): void {
-  if (points.length < 2 || alpha <= 0) return
+  const pts = jag.pts
+  if (pts.length < 2 || alpha <= 0) return
   const left: { x: number; y: number }[] = []
   const right: { x: number; y: number }[] = []
-  const last = points.length - 1
-  for (let i = 0; i < points.length; i++) {
-    const point = points[i]
-    const prev = points[Math.max(0, i - 1)]
-    const next = points[Math.min(last, i + 1)]
+  const last = pts.length - 1
+  for (let i = 0; i < pts.length; i++) {
+    const point = pts[i]
+    const prev = pts[Math.max(0, i - 1)]
+    const next = pts[Math.min(last, i + 1)]
     if (!point || !prev || !next) continue
     const dx = next.x - prev.x
     const dy = next.y - prev.y
     const len = Math.hypot(dx, dy) || 1
-    const half = (startW + (endW - startW) * (i / last)) / 2
+    const half = (jag.half[i] ?? 1) * scale
     const nx = (-dy / len) * half
     const ny = (dx / len) * half
     const sx = X(point.x)
@@ -533,19 +526,15 @@ function paintImpact(
   core: string,
   red: boolean,
 ): void {
-  ctx.globalAlpha = fade * (red ? 0.22 : 0.14)
+  ctx.globalAlpha = fade * (red ? 0.28 : 0.16)
   ctx.fillStyle = glow
   ctx.beginPath()
-  ctx.arc(x, y, red ? 58 : 46, 0, Math.PI * 2)
+  ctx.arc(x, y, red ? 36 : 28, 0, Math.PI * 2)
   ctx.fill()
-  ctx.globalAlpha = fade * (red ? 0.4 : 0.28)
-  ctx.beginPath()
-  ctx.arc(x, y, red ? 26 : 20, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.globalAlpha = fade
+  ctx.globalAlpha = fade * 0.9
   ctx.fillStyle = core
   ctx.beginPath()
-  ctx.arc(x, y, red ? 8 : 6, 0, Math.PI * 2)
+  ctx.arc(x, y, red ? 5 : 4, 0, Math.PI * 2)
   ctx.fill()
 }
 

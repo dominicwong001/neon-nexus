@@ -129,12 +129,18 @@ export interface Mods {
   tesla: number
 }
 
+export interface Jagged {
+  pts: { x: number; y: number }[]
+  half: number[]
+}
+
 export interface Bolt {
   life: number
   max: number
   reactor: boolean
-  paths: { x: number; y: number }[][]
-  tendrils: { x: number; y: number }[][]
+  strike: Jagged
+  arcs: Jagged[]
+  splinters: Jagged[]
   x: number
   y: number
 }
@@ -641,7 +647,7 @@ function simulate(state: GameState, input: Input, dt: number, events: StepEvents
   launchBalls(state, dt)
   moveBalls(state, input, dt, events)
   updateDrone(state, dt, events)
-  updateTesla(state, dt, events, input.viewH)
+  updateTesla(state, dt, events, input.viewW, input.viewH)
   moveOrbs(state, input, dt, events)
   touchPlayer(state, events)
   if (state.phase === 'play' && openLevel(state)) {
@@ -2001,24 +2007,36 @@ function explodeShell(state: GameState, shell: Mortar, events: StepEvents): void
   }
 }
 
-function updateTesla(state: GameState, dt: number, events: StepEvents, viewH: number): void {
+function updateTesla(state: GameState, dt: number, events: StepEvents, viewW: number, viewH: number): void {
   const rank = state.mods.tesla
   if (rank <= 0) return
   state.teslaCd -= dt
   if (state.teslaCd > 0) return
   const reactor = arcReactor(rank)
-  const targets = teslaTargets(state, teslaBolts(rank, reactor))
+  const targets = teslaTargets(state, teslaBolts(rank, reactor), viewW, viewH)
   if (targets.length === 0) {
     state.teslaCd = 0.2
     return
   }
   state.teslaCd = teslaInterval(rank, reactor)
   const sky = state.playerY - Math.max(80, viewH) / 2
-  for (const enemy of targets) callBolt(state, enemy, events, reactor, sky)
+  for (const enemy of targets) callBolt(state, enemy, events, reactor, sky, viewW, viewH)
 }
 
-function teslaTargets(state: GameState, count: number): Enemy[] {
-  const pool = state.enemies.filter((enemy) => !enemy.immortal && !enemy.ballistic)
+function enemyOnScreen(state: GameState, enemy: Enemy, viewW: number, viewH: number): boolean {
+  const halfW = Math.max(80, viewW) / 2
+  const halfH = Math.max(80, viewH) / 2
+  const left = state.playerX - halfW
+  const right = state.playerX + halfW
+  const top = state.playerY - halfH
+  const bottom = state.playerY + halfH
+  return enemy.x >= left && enemy.x <= right && enemy.y >= top && enemy.y <= bottom
+}
+
+function teslaTargets(state: GameState, count: number, viewW: number, viewH: number): Enemy[] {
+  const pool = state.enemies.filter(
+    (enemy) => !enemy.immortal && !enemy.ballistic && enemyOnScreen(state, enemy, viewW, viewH),
+  )
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(state.rng() * (i + 1))
     const swap = pool[i]
@@ -2031,11 +2049,21 @@ function teslaTargets(state: GameState, count: number): Enemy[] {
   return pool.slice(0, count)
 }
 
-function callBolt(state: GameState, enemy: Enemy, events: StepEvents, reactor: boolean, skyY: number): void {
+function callBolt(
+  state: GameState,
+  enemy: Enemy,
+  events: StepEvents,
+  reactor: boolean,
+  skyY: number,
+  viewW: number,
+  viewH: number,
+): void {
   const dealt = teslaDamage(state.mods.tesla, reactor)
   const ink = reactor ? '#ff2d3a' : '#ffffff'
-  const paths = [plasmaPillar(state, skyY, enemy)]
-  const tendrils = impactTendrils(state, enemy.x, enemy.y)
+  const strike = jaggedStrike(state, skyY, enemy)
+  const splinters = sideSplinters(state, strike)
+  splinters.push(...impactJags(state, enemy.x, enemy.y))
+  const arcs: Jagged[] = []
   const taken = new Set<Enemy>([enemy])
   damageEnemy(state, enemy, events, dealt, ink, 'tesla')
   shockArc(state, enemy.x, enemy.y, reactor)
@@ -2043,11 +2071,13 @@ function callBolt(state: GameState, enemy: Enemy, events: StepEvents, reactor: b
     let from = enemy
     let hopDamage = Math.round(dealt * 0.62)
     for (let hop = 0; hop < 3 && hopDamage > 0; hop++) {
-      const next = nearestArc(state, from, taken, 210)
+      const next = nearestArc(state, from, taken, 210, viewW, viewH)
       if (!next) break
       taken.add(next)
-      paths.push(plasmaArc(state, from, next))
-      tendrils.push(...impactTendrils(state, next.x, next.y))
+      const arc = jaggedArc(state, from, next)
+      arcs.push(arc)
+      splinters.push(...sideSplinters(state, arc).slice(0, 2))
+      splinters.push(...impactJags(state, next.x, next.y))
       damageEnemy(state, next, events, hopDamage, ink, 'tesla')
       shockArc(state, next.x, next.y, true)
       from = next
@@ -2055,14 +2085,22 @@ function callBolt(state: GameState, enemy: Enemy, events: StepEvents, reactor: b
     }
   }
   if (state.bolts.length > 28) state.bolts.shift()
-  state.bolts.push({ life: 0.28, max: 0.28, reactor, paths, tendrils, x: enemy.x, y: enemy.y })
+  state.bolts.push({ life: 0.28, max: 0.28, reactor, strike, arcs, splinters, x: enemy.x, y: enemy.y })
 }
 
-function nearestArc(state: GameState, from: Enemy, taken: Set<Enemy>, range: number): Enemy | null {
+function nearestArc(
+  state: GameState,
+  from: Enemy,
+  taken: Set<Enemy>,
+  range: number,
+  viewW: number,
+  viewH: number,
+): Enemy | null {
   let best: Enemy | null = null
   let bestD = range
   for (const enemy of state.enemies) {
     if (taken.has(enemy) || enemy.immortal || enemy.ballistic) continue
+    if (!enemyOnScreen(state, enemy, viewW, viewH)) continue
     const dist = Math.hypot(enemy.x - from.x, enemy.y - from.y)
     if (dist < bestD) {
       best = enemy
@@ -2078,65 +2116,110 @@ function shockArc(state: GameState, x: number, y: number, reactor: boolean): voi
   burst(state, x, y, color, reactor ? 14 : 10, reactor ? 280 : 220)
 }
 
-function plasmaPillar(state: GameState, skyY: number, enemy: Enemy): { x: number; y: number }[] {
-  const from = { x: enemy.x + (state.rng() - 0.5) * 28, y: skyY - 6 }
-  const to = { x: enemy.x, y: enemy.y }
-  const bow = (state.rng() - 0.5) * 110
-  const wobble = (state.rng() - 0.5) * 26
-  const phase = state.rng() * Math.PI * 2
-  return smoothBend(from, to, 16, (t) => Math.sin(t * Math.PI) * bow + Math.sin(t * Math.PI * 2 + phase) * wobble * Math.sin(t * Math.PI))
+function jaggedStrike(state: GameState, skyY: number, enemy: Enemy): Jagged {
+  const fromX = enemy.x + (state.rng() - 0.5) * 48
+  const pts = displace(state, fromX, skyY - 4, enemy.x, enemy.y, 4, 96)
+  return { pts, half: inkWidths(state, pts.length, 7.4, 0.2) }
 }
 
-function plasmaArc(state: GameState, from: Enemy, to: Enemy): { x: number; y: number }[] {
-  const bow = (state.rng() - 0.5) * 36
-  return smoothBend(from, to, 8, (t) => Math.sin(t * Math.PI) * bow)
+function jaggedArc(state: GameState, from: Enemy, to: Enemy): Jagged {
+  const pts = displace(state, from.x, from.y, to.x, to.y, 3, 38)
+  return { pts, half: inkWidths(state, pts.length, 4.4, 0.28) }
 }
 
-function impactTendrils(state: GameState, x: number, y: number): { x: number; y: number }[][] {
-  const rays: { x: number; y: number }[][] = []
-  const count = 6 + Math.floor(state.rng() * 3)
+function sideSplinters(state: GameState, jag: Jagged): Jagged[] {
+  const out: Jagged[] = []
+  const n = jag.pts.length
+  if (n < 4) return out
+  const count = 3 + Math.floor(state.rng() * 3)
   for (let i = 0; i < count; i++) {
-    const angle = (i / count) * Math.PI * 2 + state.rng() * 0.4
-    const reach = 22 + state.rng() * 56
-    const kink = 0.45 + state.rng() * 0.25
-    const bend = (state.rng() - 0.5) * 0.9
-    const mid = {
-      x: x + Math.cos(angle + bend) * reach * kink,
-      y: y + Math.sin(angle + bend) * reach * kink,
-    }
-    const end = {
-      x: x + Math.cos(angle) * reach,
-      y: y + Math.sin(angle) * reach,
-    }
-    rays.push([
-      { x, y },
-      mid,
-      end,
-    ])
+    const idx = 1 + Math.floor(state.rng() * (n - 2))
+    const point = jag.pts[idx]
+    const prev = jag.pts[Math.max(0, idx - 1)]
+    const next = jag.pts[Math.min(n - 1, idx + 1)]
+    if (!point || !prev || !next) continue
+    const heading = Math.atan2(next.y - prev.y, next.x - prev.x)
+    const side = state.rng() < 0.5 ? 1 : -1
+    const angle = heading + side * (0.55 + state.rng() * 1.05)
+    const reach = 14 + state.rng() * 46
+    const pts = displace(
+      state,
+      point.x,
+      point.y,
+      point.x + Math.cos(angle) * reach,
+      point.y + Math.sin(angle) * reach,
+      2,
+      reach * 0.55,
+    )
+    out.push({ pts, half: inkWidths(state, pts.length, 2.15, 0.12) })
+  }
+  return out
+}
+
+function impactJags(state: GameState, x: number, y: number): Jagged[] {
+  const rays: Jagged[] = []
+  const count = 7 + Math.floor(state.rng() * 3)
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2 + (state.rng() - 0.5) * 0.85
+    const reach = 16 + state.rng() * 62
+    const pts = displace(
+      state,
+      x,
+      y,
+      x + Math.cos(angle) * reach,
+      y + Math.sin(angle) * reach,
+      2,
+      reach * 0.42,
+    )
+    rays.push({ pts, half: inkWidths(state, pts.length, 2.35, 0.1) })
   }
   return rays
 }
 
-function smoothBend(
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-  steps: number,
-  sway: (t: number) => number,
+function displace(
+  state: GameState,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  depth: number,
+  spread: number,
 ): { x: number; y: number }[] {
-  const dx = to.x - from.x
-  const dy = to.y - from.y
-  const len = Math.hypot(dx, dy) || 1
-  const nx = -dy / len
-  const ny = dx / len
-  const points = []
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps
-    points.push({
-      x: from.x + dx * t + nx * sway(t),
-      y: from.y + dy * t + ny * sway(t),
-    })
+  const walk = (
+    a: { x: number; y: number },
+    b: { x: number; y: number },
+    d: number,
+    spr: number,
+  ): { x: number; y: number }[] => {
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const len = Math.hypot(dx, dy)
+    if (d <= 0 || len < 16) return [a, b]
+    const kick = (state.rng() - 0.5) * 2 * spr
+    const mid = {
+      x: (a.x + b.x) / 2 + (-dy / len) * kick,
+      y: (a.y + b.y) / 2 + (dx / len) * kick,
+    }
+    const left = walk(a, mid, d - 1, spr * 0.58)
+    const right = walk(mid, b, d - 1, spr * 0.58)
+    return left.concat(right.slice(1))
   }
-  return points
+  return walk({ x: ax, y: ay }, { x: bx, y: by }, depth, spread)
+}
+
+function inkWidths(state: GameState, count: number, base: number, taperEnd: number): number[] {
+  const half: number[] = []
+  for (let i = 0; i < count; i++) {
+    const t = i / Math.max(1, count - 1)
+    const taper = 1 - t * (1 - taperEnd)
+    let lump = 0.38 + state.rng() * 1.35
+    const roll = state.rng()
+    if (roll < 0.24) lump *= 0.3
+    else if (roll > 0.82) lump *= 1.55
+    half.push(Math.max(0.4, base * taper * lump))
+  }
+  if (count > 0) half[count - 1] = Math.max(0.32, base * taperEnd * 0.5)
+  return half
 }
 
 function openLevel(state: GameState): boolean {
