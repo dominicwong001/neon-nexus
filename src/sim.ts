@@ -42,6 +42,7 @@ export interface Enemy {
   radius: number
   kind: EnemyKind
   hp: number
+  maxHp: number
   hitCd: number
   flash: number
   orbitCd: number
@@ -435,9 +436,6 @@ export function fieldRipple(rank: number): number {
   const step = Math.min(Math.max(rank, 1), OVERDRIVE - 1)
   return Math.max(0.18, 0.42 - Math.max(0, step - 1) * 0.06)
 }
-
-const ORB_COMMON = '#ffffff'
-const ORB_RARE = '#d9a6ff'
 
 export function xpNeedFor(level: number): number {
   return Math.round(8 * 1.2 ** Math.max(0, level - 1))
@@ -883,6 +881,7 @@ function splitCircle(state: GameState, enemy: Enemy, into: 'normal' | 'piece'): 
       radius,
       kind: 2,
       hp: normal ? KIND[2].hp : 140,
+      maxHp: normal ? KIND[2].hp : 140,
       hitCd: TUNING.hitCooldown,
       flash: 0,
       orbitCd: 0.2,
@@ -911,6 +910,7 @@ function shatterHex(state: GameState, enemy: Enemy): void {
       radius: span * 0.46,
       kind: 3,
       hp: 160,
+      maxHp: 160,
       hitCd: 0.12,
       flash: 0,
       orbitCd: 0,
@@ -960,11 +960,11 @@ function spawnOne(state: GameState, viewRadius: number): void {
   let hp: number = spec.hp
   let radius = spec.radius
   let speed = spec.speed * heatScale
-  if (late && kind === 0) {
+  if (late && kind === 0 && state.rng() < 0.1) {
     hp = spec.hp * 3
     speed *= 1.85
     radius *= 2.05
-  } else if (late && kind === 1) {
+  } else if (late && kind === 1 && state.rng() < 0.12) {
     hp = spec.hp * 6
     radius *= 2.2
   } else if (late && kind === 2 && state.rng() < 0.32) {
@@ -981,6 +981,7 @@ function spawnOne(state: GameState, viewRadius: number): void {
     radius,
     kind,
     hp,
+    maxHp: hp,
     hitCd: 0,
     flash: 0,
     orbitCd: 0,
@@ -1128,12 +1129,22 @@ function touchPlayer(state: GameState, events: StepEvents): void {
   }
 }
 
+function orbValue(hp: number): number {
+  return Math.max(1, Math.round(hp / 100))
+}
+
+function orbColor(value: number): string {
+  if (value >= 12) return '#ff2d3a'
+  if (value >= 8) return '#ff4d9a'
+  if (value >= 5) return '#ff8a24'
+  if (value >= 3) return '#ffe14a'
+  if (value >= 2) return '#7dff9a'
+  return '#eef3ff'
+}
+
 function dropOrb(state: GameState, enemy: Enemy): void {
-  const rare = enemy.kind === 2
-  const brute = enemy.kind === 3
-  const child = enemy.generation > 0
-  const radius = brute ? 8 : rare ? (child ? 4.5 : 7) : enemy.kind === 1 ? 4.5 : 3.5
-  const value = brute ? 6 : rare ? (child ? 3 : 4) : enemy.kind === 1 ? 2 : 1
+  const value = orbValue(enemy.maxHp)
+  const radius = 3.1 + Math.min(5.6, value * 0.7)
   const a = state.rng() * Math.PI * 2
   const kick = 18 + state.rng() * 36
   if (state.orbs.length > 90) state.orbs.shift()
@@ -1144,8 +1155,8 @@ function dropOrb(state: GameState, enemy: Enemy): void {
     vy: Math.sin(a) * kick,
     radius,
     value,
-    color: brute ? ENEMY_COLOR[3] : rare ? ORB_RARE : ORB_COMMON,
-    rare: rare || brute,
+    color: orbColor(value),
+    rare: value >= 5,
     homing: false,
     pulse: state.rng() * Math.PI * 2,
   })

@@ -91,9 +91,11 @@ function enemy(over: Partial<Enemy> = {}): Enemy {
     phase: 0,
     speed: 120,
     generation: 0,
+    maxHp: 1,
     immortal: false,
     ballistic: false,
     ...over,
+    maxHp: over.maxHp ?? over.hp ?? 1,
   }
 }
 
@@ -447,23 +449,21 @@ describe('hostiles', () => {
 })
 
 describe('orbs', () => {
-  it('drops a larger lilac orb from a circle than from a square', () => {
+  it('drops a richer orb from a healthier shape', () => {
     const state = createGame(0, 31)
     state.spawnCd = 999
-    state.enemies.push(enemy({ x: 340, y: 0, kind: 1, hp: 1, speed: 0, radius: 18 }))
-    state.enemies.push(enemy({ x: 560, y: 0, kind: 2, hp: 1, speed: 0, radius: 18, generation: 0 }))
-    run(state, input({ aimX: 900, aimY: 0 }), 1.6)
-    const common = state.orbs.filter((item) => !item.rare)
-    const rare = state.orbs.filter((item) => item.rare)
-    assert.ok(common.length >= 1)
-    assert.ok(rare.length >= 1)
-    const plain = common[0]
-    const big = rare.reduce((best, item) => (item.radius > best.radius ? item : best))
-    assert.ok(plain)
-    assert.ok(big.radius > plain.radius)
-    assert.equal(big.value, 4)
-    assert.ok(big.value > plain.value)
-    assert.notEqual(big.color, plain.color)
+    state.xpNeed = 9999
+    state.enemies.push(enemy({ x: 220, y: 0, kind: 1, hp: 200, speed: 0, radius: 16 }))
+    state.enemies.push(enemy({ x: 320, y: 0, kind: 2, hp: 300, speed: 0, radius: 14, generation: 2 }))
+    run(state, input({ aimX: 900, aimY: 0 }), 3)
+    const square = state.orbs.find((item) => item.value === 2)
+    const circle = state.orbs.find((item) => item.value === 3)
+    assert.ok(square)
+    assert.ok(circle)
+    assert.ok(circle.radius > square.radius)
+    assert.equal(square.color, '#7dff9a')
+    assert.equal(circle.color, '#ffe14a')
+    assert.notEqual(circle.color, square.color)
   })
 
   it('pulls a nearby orb into the bar and ignores one out of range', () => {
@@ -512,6 +512,8 @@ describe('orbs', () => {
     const best = [0, 0, 0, 0]
     const pace = [0, 0, 0, 0]
     const size = [0, 0, 0, 0]
+    const giant = [0, 0, 0, 0]
+    const plain = [0, 0, 0, 0]
     for (let n = 0; n < 100; n++) {
       state.spawnCd = 0
       state.enemies.length = 0
@@ -521,12 +523,19 @@ describe('orbs', () => {
         best[hostile.kind] = Math.max(best[hostile.kind] ?? 0, hostile.hp)
         pace[hostile.kind] = Math.max(pace[hostile.kind] ?? 0, hostile.speed)
         size[hostile.kind] = Math.max(size[hostile.kind] ?? 0, hostile.radius)
+        const huge = hostile.radius > [18, 28, 24, 40][hostile.kind]
+        if (huge) giant[hostile.kind] += 1
+        else plain[hostile.kind] += 1
       }
     }
     assert.ok((best[1] ?? 0) >= 1000)
     assert.ok((best[0] ?? 0) >= 250)
     assert.ok((pace[0] ?? 0) > 110)
     assert.ok((size[2] ?? 0) > 30)
+    assert.ok((giant[0] ?? 0) > 0)
+    assert.ok((giant[1] ?? 0) > 0)
+    assert.ok((giant[0] ?? 0) < (plain[0] ?? 0) / 4)
+    assert.ok((giant[1] ?? 0) < (plain[1] ?? 0) / 4)
 
     state.spawnCd = 999
     state.fireCd = 0
