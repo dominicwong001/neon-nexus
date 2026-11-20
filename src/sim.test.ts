@@ -852,7 +852,7 @@ describe('orbs', () => {
     chipped.spawnCd = 999
     chipped.fireCd = 10
     chipped.invuln = 5
-    const wounded = enemy({ x: 36, y: 0, hp: 640, radius: 22, kind: 3, speed: 0 })
+    const wounded = enemy({ x: 36, y: 0, hp: 80, maxHp: 1200, radius: 22, kind: 1, speed: 0 })
     chipped.enemies.push(wounded)
     const again = {
       x: 0,
@@ -875,7 +875,7 @@ describe('orbs', () => {
     step(chipped, input({ aimActive: false }), 1 / 60)
     assert.ok(again.vx < 0)
     assert.ok(again.x < wounded.x)
-    assert.ok(wounded.hp < 640)
+    assert.ok(wounded.hp < 80)
   })
 
   it('burns and slows inside a wider Force Field ring', () => {

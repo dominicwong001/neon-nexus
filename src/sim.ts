@@ -1445,7 +1445,7 @@ function splitBall(state: GameState, ball: Ricochet): boolean {
 }
 
 function thickHull(enemy: Enemy): boolean {
-  return !enemy.ballistic && (enemy.kind === 3 || enemy.hp >= 1000)
+  return !enemy.ballistic && enemy.maxHp >= 1000
 }
 
 function deflectOffEnemy(ball: Ricochet, enemy: Enemy): boolean {
@@ -2006,7 +2006,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     plate: { title: 'Plate', detail: 'Repair one hull segment and add a spare.' },
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
     field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
-    ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off hostiles with 1000 hull or more and flies through the rest.' },
+    ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off any hostile whose hull is 1000 or more, no matter how much health is left.' },
     drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
   }
   const detail =
