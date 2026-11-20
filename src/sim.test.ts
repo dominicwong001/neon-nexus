@@ -303,25 +303,43 @@ describe('hostiles', () => {
   })
 
   it('sends a rare red hex with a much thicker hull', () => {
+    const early = createGame(0, 7)
+    early.fireCd = 10
+    const earlyCounts = [0, 0, 0, 0]
+    for (let i = 0; i < 80; i++) {
+      early.spawnCd = 0
+      early.enemies.length = 0
+      step(early, input({ viewRadius: 400, aimActive: false }), 1 / 60)
+      for (const hostile of early.enemies) {
+        earlyCounts[hostile.kind] += 1
+        assert.equal(hostile.hp, [100, 200, 300, 1000][hostile.kind])
+      }
+    }
+    assert.equal(earlyCounts[3], 0)
+    assert.ok((earlyCounts[0] ?? 0) > 0)
+
     const state = createGame(0, 7)
     state.fireCd = 10
+    state.time = 100
+    state.level = 12
     const counts = [0, 0, 0, 0]
-    for (let i = 0; i < 240; i++) {
+    for (let i = 0; i < 120; i++) {
       state.spawnCd = 0
       state.enemies.length = 0
       step(state, input({ viewRadius: 400, aimActive: false }), 1 / 60)
       for (const hostile of state.enemies) {
+        if (hostile.ballistic) continue
         counts[hostile.kind] += 1
-        assert.equal(hostile.hp, [100, 200, 300, 1000][hostile.kind])
         if (hostile.kind !== 3) continue
-        assert.ok(hostile.radius > 22 * BODY)
+        assert.equal(hostile.hp, 1000)
+        assert.ok(hostile.radius > 40)
         assert.ok(hostile.speed < 66)
       }
     }
     assert.ok(counts[3] >= 1)
-    assert.ok(counts[3] < counts[0])
-    assert.ok(counts[3] < counts[1])
-    assert.ok(counts[3] < counts[2])
+    assert.ok(counts[3] < (counts[0] ?? 0) / 4)
+    assert.ok(counts[3] < (counts[1] ?? 0))
+    assert.ok(counts[3] < (counts[2] ?? 0))
   })
 
   it('spawns outside the view', () => {
@@ -491,26 +509,44 @@ describe('orbs', () => {
     assert.ok((best[1] ?? 0) >= 1000)
     assert.ok((best[0] ?? 0) >= 250)
     assert.ok((pace[0] ?? 0) > 110)
-    assert.ok((size[2] ?? 0) > 20)
+    assert.ok((size[2] ?? 0) > 30)
 
     state.spawnCd = 999
     state.fireCd = 0
     state.enemies.length = 0
     state.bullets.length = 0
-    state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, kind: 3, hp: 1, radius: 28, speed: 0 }))
+    const originX = TUNING.muzzle
+    state.enemies.push(enemy({ x: originX, y: 0, kind: 3, hp: 1, radius: 36, speed: 0, angle: -Math.PI / 2 }))
     step(state, input({ aimActive: false }), 1 / 60)
-    const bits = state.enemies.filter((hostile) => hostile.immortal && hostile.ballistic)
+    const bits = state.enemies.filter((hostile) => hostile.ballistic && hostile.kind === 3)
     assert.equal(bits.length, 6)
+    const angles = bits
+      .map((hostile) => Math.atan2(hostile.y, hostile.x - originX))
+      .sort((a, b) => a - b)
+    for (let i = 0; i < angles.length; i++) {
+      const a = angles[i] ?? 0
+      const b = angles[(i + 1) % angles.length] ?? 0
+      const gap = Math.atan2(Math.sin(b - a), Math.cos(b - a))
+      assert.ok(Math.abs(Math.abs(gap) - Math.PI / 3) < 0.08)
+      const piece = bits[i]
+      assert.ok(piece)
+      assert.equal(piece.immortal, false)
+      assert.equal(piece.hp, 160)
+      assert.equal(piece.phase, 36)
+    }
     const chip = bits[0]
     assert.ok(chip)
-    chip.x = TUNING.muzzle
+    chip.x = originX + 28
     chip.y = 0
     chip.vx = 0
     chip.vy = 0
     chip.hitCd = 0
+    state.enemies.splice(0, state.enemies.length, chip)
+    const before = chip.hp
     state.fireCd = 0
     step(state, input(), 1 / 60)
-    assert.equal(chip.hp, 1)
+    assert.ok(chip.hp < before)
+    assert.ok(chip.hp > 0)
     assert.equal(state.enemies.includes(chip), true)
   })
 

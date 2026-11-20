@@ -309,7 +309,8 @@ function drawEnemies(
     ctx.strokeStyle = ENEMY_COLOR[e.kind]
     ctx.lineWidth = (e.kind === 3 ? 3.1 : 2) * BODY
     ctx.beginPath()
-    if (e.kind === 0 || e.ballistic) polyPath(ctx, 0, 0, e.radius, 3, -Math.PI / 2)
+    if (e.ballistic && e.kind === 3) traceHexWedge(ctx, e.phase)
+    else if (e.kind === 0) polyPath(ctx, 0, 0, e.radius, 3, -Math.PI / 2)
     else if (e.kind === 1) polyPath(ctx, 0, 0, e.radius, 4, Math.PI / 4)
     else if (e.kind === 3) polyPath(ctx, 0, 0, e.radius, 6, -Math.PI / 2)
     else ctx.arc(0, 0, e.radius, 0, Math.PI * 2)
@@ -521,6 +522,21 @@ function traceCrescent(ctx: CanvasRenderingContext2D, r: number): void {
   ctx.beginPath()
   ctx.arc(0, 0, r * 0.98, a0, a1)
   ctx.arc(0, 0, r * 0.6, a1 - 0.06, a0 + 0.1, true)
+  ctx.closePath()
+}
+
+function traceHexWedge(ctx: CanvasRenderingContext2D, span: number): void {
+  const a0 = -Math.PI / 6
+  const a1 = Math.PI / 6
+  const v0x = Math.cos(a0) * span
+  const v0y = Math.sin(a0) * span
+  const v1x = Math.cos(a1) * span
+  const v1y = Math.sin(a1) * span
+  const cx = (v0x + v1x) / 3
+  const cy = (v0y + v1y) / 3
+  ctx.moveTo(-cx, -cy)
+  ctx.lineTo(v0x - cx, v0y - cy)
+  ctx.lineTo(v1x - cx, v1y - cy)
   ctx.closePath()
 }
 

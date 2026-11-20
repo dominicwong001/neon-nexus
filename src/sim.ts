@@ -898,27 +898,28 @@ function splitCircle(state: GameState, enemy: Enemy): void {
 }
 
 function shatterHex(state: GameState, enemy: Enemy): void {
-  const pieces = 6
-  for (let i = 0; i < pieces; i++) {
-    const a = enemy.angle + (i / pieces) * Math.PI * 2 + state.rng() * 0.2
-    const speed = 320 + state.rng() * 140
+  const span = enemy.radius
+  const outset = span / Math.sqrt(3)
+  for (let i = 0; i < 6; i++) {
+    const bisector = -Math.PI / 2 + (i + 0.5) * (Math.PI / 3)
+    const speed = 210
     state.enemies.push({
-      x: enemy.x + Math.cos(a) * enemy.radius * 0.7,
-      y: enemy.y + Math.sin(a) * enemy.radius * 0.7,
-      vx: Math.cos(a) * speed,
-      vy: Math.sin(a) * speed,
-      radius: Math.max(5.5 * BODY, enemy.radius * 0.2),
+      x: enemy.x + Math.cos(bisector) * outset,
+      y: enemy.y + Math.sin(bisector) * outset,
+      vx: Math.cos(bisector) * speed,
+      vy: Math.sin(bisector) * speed,
+      radius: span * 0.46,
       kind: 3,
-      hp: 1,
-      hitCd: 0.15,
+      hp: 160,
+      hitCd: 0.12,
       flash: 0,
       orbitCd: 0,
-      spin: (state.rng() < 0.5 ? -1 : 1) * 7,
-      angle: a,
-      phase: a,
-      speed: speed,
-      generation: 0,
-      immortal: true,
+      spin: 0,
+      angle: bisector,
+      phase: span,
+      speed,
+      generation: i,
+      immortal: false,
       ballistic: true,
     })
   }
@@ -926,6 +927,10 @@ function shatterHex(state: GameState, enemy: Enemy): void {
 
 function lateGame(state: GameState): boolean {
   return state.heat >= 6 || state.level >= 7
+}
+
+function hexSeason(state: GameState): boolean {
+  return state.heat >= 14 || state.level >= 12
 }
 
 function spawn(state: GameState, input: Input, dt: number): void {
@@ -944,7 +949,7 @@ function spawn(state: GameState, input: Input, dt: number): void {
 function spawnOne(state: GameState, viewRadius: number): void {
   const roll = state.rng()
   let kind: EnemyKind = 0
-  if (roll > 0.93) kind = 3
+  if (hexSeason(state) && roll > 0.975) kind = 3
   else if (roll > 0.73) kind = 2
   else if (roll > 0.4) kind = 1
   const spec = KIND[kind]
@@ -958,15 +963,15 @@ function spawnOne(state: GameState, viewRadius: number): void {
   if (late && kind === 0) {
     hp = spec.hp * 3
     speed *= 1.85
-    radius *= 1.3
+    radius *= 2.05
   } else if (late && kind === 1) {
     hp = spec.hp * 6
-    radius *= 1.35
+    radius *= 2.2
   } else if (late && kind === 2) {
     hp = Math.round(spec.hp * 1.5)
-    radius *= 1.8
+    radius *= 2.6
   } else if (late && kind === 3) {
-    radius *= 1.18
+    radius *= 1.95
   }
   state.enemies.push({
     x: state.playerX + Math.cos(ang) * dist,
@@ -1023,10 +1028,10 @@ function separateEnemies(state: GameState): void {
   for (let pass = 0; pass < 2; pass++) {
     for (let i = 0; i < list.length; i++) {
       const a = list[i]
-      if (!a) continue
+      if (!a || a.ballistic) continue
       for (let j = i + 1; j < list.length; j++) {
         const b = list[j]
-        if (!b) continue
+        if (!b || b.ballistic) continue
         let dx = b.x - a.x
         let dy = b.y - a.y
         let dist = Math.hypot(dx, dy)
@@ -1387,7 +1392,7 @@ function splitBall(state: GameState, ball: Ricochet): boolean {
 }
 
 function thickHull(enemy: Enemy): boolean {
-  return enemy.kind === 3 || enemy.hp >= 1000
+  return !enemy.ballistic && (enemy.kind === 3 || enemy.hp >= 1000)
 }
 
 function deflectOffEnemy(ball: Ricochet, enemy: Enemy): boolean {
