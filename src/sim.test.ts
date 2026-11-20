@@ -434,6 +434,22 @@ describe('orbs', () => {
     assert.ok(second > first)
     assert.ok(third > second)
     assert.ok(third < first * 3)
+    assert.ok(xpNeedFor(10) < xpNeedFor(6) * 2.4)
+  })
+
+  it('sends thicker waves as the run goes on', () => {
+    const early = createGame(0, 11)
+    early.spawnCd = 0
+    early.fireCd = 10
+    step(early, input({ viewRadius: 400, aimActive: false }), 1 / 60)
+    const late = createGame(0, 11)
+    late.time = 70
+    late.level = 8
+    late.spawnCd = 0
+    late.fireCd = 10
+    step(late, input({ viewRadius: 400, aimActive: false }), 1 / 60)
+    assert.ok(late.enemies.length > early.enemies.length)
+    assert.ok(late.spawnCd < early.spawnCd)
   })
 
   it('shows at least three abilities whenever they are still available', () => {

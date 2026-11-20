@@ -438,7 +438,7 @@ const ORB_COMMON = '#ffffff'
 const ORB_RARE = '#d9a6ff'
 
 export function xpNeedFor(level: number): number {
-  return Math.round(8 * 1.4 ** Math.max(0, level - 1))
+  return Math.round(8 * 1.2 ** Math.max(0, level - 1))
 }
 
 function freshMods(): Mods {
@@ -888,11 +888,14 @@ function splitCircle(state: GameState, enemy: Enemy): void {
 function spawn(state: GameState, input: Input, dt: number): void {
   state.spawnCd -= dt
   if (state.spawnCd > 0) return
-  const interval = Math.max(0.22, 0.82 - state.time * 0.014)
+  const pace = Math.max(0, state.time) * 0.01 + Math.max(0, state.level - 1) * 0.035
+  const interval = Math.max(0.12, 0.78 - pace)
   state.spawnCd += interval
-  if (state.enemies.length >= 42) return
-  spawnOne(state, input.viewRadius)
-  if (state.heat >= 3 && state.rng() < 0.62 && state.enemies.length < 42) {
+  const cap = Math.min(84, 36 + state.heat * 3)
+  if (state.enemies.length >= cap) return
+  const wave = 1 + Math.floor(state.heat / 4) + (state.level >= 6 ? 1 : 0)
+  for (let n = 0; n < wave && state.enemies.length < cap; n++) {
+    if (n > 0 && state.rng() > 0.8) continue
     spawnOne(state, input.viewRadius)
   }
 }
