@@ -773,8 +773,10 @@ describe('orbs', () => {
     assert.ok(state.bolts.length >= 1)
     assert.ok(state.shocks.length >= 1)
     const sky = state.bolts[0]?.paths[0]
-    assert.ok(sky && sky.length >= 2)
-    assert.ok((sky[0]?.y ?? 0) < foe.y - 200)
+    assert.ok(sky && sky.length >= 8)
+    assert.ok(Math.abs((sky[0]?.y ?? 0) - (state.playerY - 720 / 2)) < 12)
+    assert.ok((sky[sky.length - 1]?.y ?? 0) > (sky[0]?.y ?? 0))
+    assert.ok((state.bolts[0]?.tendrils.length ?? 0) >= 6)
 
     const reactor = createGame(0, 9)
     reactor.spawnCd = 999

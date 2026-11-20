@@ -448,50 +448,105 @@ function drawBolts(
   ctx.save()
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
-  if (!lean) ctx.globalCompositeOperation = 'lighter'
   for (const bolt of state.bolts) {
     const fade = Math.max(0, bolt.life / bolt.max)
-    const flicker = 0.62 + 0.38 * Math.abs(Math.sin((bolt.max - bolt.life) * 80 + bolt.x))
-    for (const path of bolt.paths) {
-      if (path.length < 2) continue
-      ctx.beginPath()
-      const first = path[0]
-      if (!first) continue
-      ctx.moveTo(X(first.x), Y(first.y))
-      for (let i = 1; i < path.length; i++) {
-        const point = path[i]
-        if (point) ctx.lineTo(X(point.x), Y(point.y))
-      }
-      const glow = bolt.reactor ? '#ff2d3a' : '#ffffff'
-      const core = bolt.reactor ? '#ff6b78' : '#ffffff'
-      if (!lean) {
-        ctx.globalAlpha = fade * (bolt.reactor ? 0.7 : 0.4) * flicker
-        ctx.strokeStyle = glow
-        ctx.lineWidth = bolt.reactor ? 10 : 6.5
-        ctx.stroke()
-      }
-      ctx.globalCompositeOperation = 'source-over'
-      ctx.globalAlpha = Math.min(1, fade * flicker)
-      ctx.strokeStyle = core
-      ctx.lineWidth = bolt.reactor ? 2.4 : 1.7
-      ctx.stroke()
-      if (!lean) ctx.globalCompositeOperation = 'lighter'
+    const flicker = 0.78 + 0.22 * Math.abs(Math.sin((bolt.max - bolt.life) * 70 + bolt.x))
+    const red = bolt.reactor
+    const glow = red ? '#ff2d3a' : '#ffffff'
+    const aura = red ? '#ff4d5a' : '#ffffff'
+    const core = red ? '#ffd2d6' : '#ffffff'
+    const pillar = bolt.paths[0]
+    if (pillar) {
+      fillRibbon(ctx, pillar, X, Y, 34, 10, glow, fade * (red ? 0.22 : 0.14) * flicker)
+      fillRibbon(ctx, pillar, X, Y, 16, 4.2, aura, fade * (red ? 0.5 : 0.34) * flicker)
+      fillRibbon(ctx, pillar, X, Y, 5.2, 1.2, core, fade * flicker)
     }
-    ctx.globalAlpha = fade
-    ctx.fillStyle = bolt.reactor ? '#ff2d3a' : '#ffffff'
-    ctx.beginPath()
-    ctx.arc(X(bolt.x), Y(bolt.y), bolt.reactor ? 5.5 : 3.6, 0, Math.PI * 2)
-    ctx.fill()
-    if (!lean) {
-      ctx.globalAlpha = fade * 0.4
-      ctx.strokeStyle = bolt.reactor ? '#ff2d3a' : '#ffffff'
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.arc(X(bolt.x), Y(bolt.y), bolt.reactor ? 18 : 12, 0, Math.PI * 2)
-      ctx.stroke()
+    for (let i = 1; i < bolt.paths.length; i++) {
+      const arc = bolt.paths[i]
+      if (!arc) continue
+      fillRibbon(ctx, arc, X, Y, 16, 5, glow, fade * (red ? 0.32 : 0.18) * flicker)
+      fillRibbon(ctx, arc, X, Y, 5.5, 1.5, core, fade * flicker)
+    }
+    paintImpact(ctx, X(bolt.x), Y(bolt.y), fade * flicker, glow, core, red)
+    for (const ray of bolt.tendrils) {
+      fillRibbon(ctx, ray, X, Y, 3.6, 0.35, glow, fade * 0.75 * flicker)
+      fillRibbon(ctx, ray, X, Y, 1.4, 0.15, core, fade * flicker)
     }
   }
   ctx.restore()
+}
+
+function fillRibbon(
+  ctx: CanvasRenderingContext2D,
+  points: { x: number; y: number }[],
+  X: (x: number) => number,
+  Y: (y: number) => number,
+  startW: number,
+  endW: number,
+  color: string,
+  alpha: number,
+): void {
+  if (points.length < 2 || alpha <= 0) return
+  const left: { x: number; y: number }[] = []
+  const right: { x: number; y: number }[] = []
+  const last = points.length - 1
+  for (let i = 0; i < points.length; i++) {
+    const point = points[i]
+    const prev = points[Math.max(0, i - 1)]
+    const next = points[Math.min(last, i + 1)]
+    if (!point || !prev || !next) continue
+    const dx = next.x - prev.x
+    const dy = next.y - prev.y
+    const len = Math.hypot(dx, dy) || 1
+    const half = (startW + (endW - startW) * (i / last)) / 2
+    const nx = (-dy / len) * half
+    const ny = (dx / len) * half
+    const sx = X(point.x)
+    const sy = Y(point.y)
+    left.push({ x: sx + nx, y: sy + ny })
+    right.push({ x: sx - nx, y: sy - ny })
+  }
+  const start = left[0]
+  if (!start) return
+  ctx.beginPath()
+  ctx.moveTo(start.x, start.y)
+  for (let i = 1; i < left.length; i++) {
+    const point = left[i]
+    if (point) ctx.lineTo(point.x, point.y)
+  }
+  for (let i = right.length - 1; i >= 0; i--) {
+    const point = right[i]
+    if (point) ctx.lineTo(point.x, point.y)
+  }
+  ctx.closePath()
+  ctx.fillStyle = color
+  ctx.globalAlpha = alpha
+  ctx.fill()
+}
+
+function paintImpact(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  fade: number,
+  glow: string,
+  core: string,
+  red: boolean,
+): void {
+  ctx.globalAlpha = fade * (red ? 0.22 : 0.14)
+  ctx.fillStyle = glow
+  ctx.beginPath()
+  ctx.arc(x, y, red ? 58 : 46, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.globalAlpha = fade * (red ? 0.4 : 0.28)
+  ctx.beginPath()
+  ctx.arc(x, y, red ? 26 : 20, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.globalAlpha = fade
+  ctx.fillStyle = core
+  ctx.beginPath()
+  ctx.arc(x, y, red ? 8 : 6, 0, Math.PI * 2)
+  ctx.fill()
 }
 
 function drawFloaters(
