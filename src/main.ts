@@ -5,7 +5,6 @@ import './style.css'
 import { AudioBus } from './audio.ts'
 import { render, type StickView } from './render.ts'
 import {
-  arcReactor,
   chooseUpgrade,
   createGame,
   damageReport,
@@ -479,7 +478,7 @@ function paintTimeline(game: GameState): void {
   timelineLegend.replaceChildren()
   for (const series of owned) {
     timelineLegend.append(
-      legendItem(series.color, sourceLabel(series.source, rankOf(game, series.source), arcReactor(game.mods)), game.dealt[series.source], false),
+      legendItem(series.color, sourceLabel(series.source, rankOf(game, series.source)), game.dealt[series.source], false),
     )
   }
   const total = owned.reduce((sum, series) => sum + game.dealt[series.source], 0)

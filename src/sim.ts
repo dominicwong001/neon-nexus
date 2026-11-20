@@ -23,7 +23,7 @@ export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a', '#ff2d3a'] as const
 
 export type EnemyKind = 0 | 1 | 2 | 3
 export type Phase = 'play' | 'dead' | 'level'
-export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'regen' | 'ion' | 'orbiter' | 'field' | 'ball' | 'drone' | 'tesla' | 'cache'
+export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'regen' | 'orbiter' | 'field' | 'ball' | 'drone' | 'tesla' | 'cache'
 export type DamageSource = 'stream' | 'orbiter' | 'field' | 'ball' | 'drone' | 'tesla'
 
 export interface Bullet {
@@ -122,7 +122,6 @@ export interface Mods {
   fork: number
   greed: number
   regen: number
-  ion: number
   orbiter: number
   field: number
   ball: number
@@ -297,7 +296,6 @@ const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
   fork: 2,
   greed: 3,
   regen: 3,
-  ion: 1,
   orbiter: OVERDRIVE,
   field: OVERDRIVE,
   ball: OVERDRIVE,
@@ -332,8 +330,8 @@ export const TESLA = {
   evolveRank: 5,
 } as const
 
-export function arcReactor(mods: Mods): boolean {
-  return mods.tesla >= TESLA.evolveRank && mods.ion >= 1
+export function arcReactor(rank: number): boolean {
+  return rank >= TESLA.evolveRank
 }
 
 export function teslaBolts(rank: number, reactor: boolean): number {
@@ -497,7 +495,7 @@ export function orbGain(value: number, rank: number): number {
 }
 
 function freshMods(): Mods {
-  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, regen: 0, ion: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0 }
+  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, regen: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0 }
 }
 
 export function createGame(best = 0, seed = 1): GameState {
@@ -781,18 +779,18 @@ export function damageReport(state: GameState): { name: string; amount: number }
     rows.push({ name: droneStorm(state.mods.drone) ? 'Bulletstorm' : 'Drone', amount: state.dealt.drone })
   }
   if (state.mods.tesla > 0 || state.dealt.tesla > 0) {
-    rows.push({ name: arcReactor(state.mods) ? 'Arc Reactor' : 'Tesla Coil', amount: state.dealt.tesla })
+    rows.push({ name: arcReactor(state.mods.tesla) ? 'Arc Reactor' : 'Tesla Coil', amount: state.dealt.tesla })
   }
   rows.sort((a, b) => b.amount - a.amount)
   return rows
 }
 
-export function sourceLabel(source: DamageSource, rank: number, evolved = false): string {
+export function sourceLabel(source: DamageSource, rank: number): string {
   if (source === 'stream') return 'Stream'
   if (source === 'orbiter') return rank >= OVERDRIVE ? "Guardian's Halo" : 'Sentinel'
   if (source === 'field') return rank >= OVERDRIVE ? 'Null Zone' : 'Force Field'
   if (source === 'ball') return rank >= OVERDRIVE ? 'Quantum Core' : 'Bouncy Ball'
-  if (source === 'tesla') return evolved ? 'Arc Reactor' : 'Tesla Coil'
+  if (source === 'tesla') return arcReactor(rank) ? 'Arc Reactor' : 'Tesla Coil'
   return droneStorm(rank) ? 'Bulletstorm' : 'Drone'
 }
 
@@ -807,15 +805,13 @@ function noteDamage(state: GameState, source: DamageSource, amount: number): voi
   bin[source] += amount
 }
 
-function upgradeSource(state: GameState, id: UpgradeId, rank: number): { source: DamageSource; name: string } | null {
+function upgradeSource(id: UpgradeId, rank: number): { source: DamageSource; name: string } | null {
   if (id === 'pulse') return { source: 'stream', name: 'Pulse' }
   if (id === 'caliber') return { source: 'stream', name: 'Caliber' }
   if (id === 'fork') return { source: 'stream', name: 'Fork' }
-  if (id === 'orbiter' || id === 'field' || id === 'ball' || id === 'drone') {
+  if (id === 'orbiter' || id === 'field' || id === 'ball' || id === 'drone' || id === 'tesla') {
     return { source: id, name: sourceLabel(id, rank) }
   }
-  if (id === 'tesla') return { source: 'tesla', name: sourceLabel('tesla', rank, arcReactor(state.mods)) }
-  if (id === 'ion') return { source: 'tesla', name: 'Ion Cell' }
   return null
 }
 
@@ -2009,7 +2005,7 @@ function updateTesla(state: GameState, dt: number, events: StepEvents): void {
   if (rank <= 0) return
   state.teslaCd -= dt
   if (state.teslaCd > 0) return
-  const reactor = arcReactor(state.mods)
+  const reactor = arcReactor(rank)
   const targets = teslaTargets(state, teslaBolts(rank, reactor))
   if (targets.length === 0) {
     state.teslaCd = 0.2
@@ -2155,7 +2151,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
   const rank = state.mods[id] + 1
   const max = UPGRADE_MAX[id]
   const overdrive = rank >= OVERDRIVE && (id === 'orbiter' || id === 'field' || id === 'ball')
-  if (id === 'tesla' && rank >= TESLA.evolveRank && state.mods.ion >= 1) {
+  if (id === 'tesla' && arcReactor(rank)) {
     return {
       id,
       title: 'Arc Reactor',
@@ -2213,18 +2209,11 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     fork: { title: 'Fork', detail: 'Two streams sit on the reticle. The next rank adds a third, still tight on the aim.' },
     greed: { title: 'Greed', detail: 'Every orb pays a bonus, and bigger orbs pay a little more.' },
     regen: { title: 'Regeneration', detail: 'Each level restores one health. Ranks restore more.' },
-    ion: { title: 'Ion Cell', detail: 'The coil’s matching charge. Tesla Coil becomes Arc Reactor at level 5.' },
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
     field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off giant circles and any hostile whose hull is 1000 or more, no matter how much health is left.' },
     drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
-    tesla: {
-      title: 'Tesla Coil',
-      detail:
-        rank >= TESLA.evolveRank
-          ? 'More bolts, harder hits, and a shorter wait. Ion Cell turns this into Arc Reactor.'
-          : 'Lightning falls on random hostiles. Each rank adds bolts, damage, and strike speed.',
-    },
+    tesla: { title: 'Tesla Coil', detail: 'Lightning falls on random hostiles. Each rank adds bolts, damage, and strike speed.' },
   }
   const detail =
     id === 'orbiter' && rank > 1
@@ -2250,7 +2239,7 @@ function applyUpgrade(state: GameState, id: UpgradeId): void {
     return
   }
   state.mods[id] += 1
-  const mark = upgradeSource(state, id, state.mods[id])
+  const mark = upgradeSource(id, state.mods[id])
   if (mark) state.upgradeMarks.push({ t: state.time, source: mark.source, name: mark.name, rank: state.mods[id] })
   if (id === 'orbiter' && state.mods.orbiter === 1) state.orbitTime = 0.35
   if (id === 'field') state.fieldTick = Math.floor(state.time / FIELD.tick)

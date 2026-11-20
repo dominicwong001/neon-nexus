@@ -726,11 +726,11 @@ describe('orbs', () => {
     assert.equal(state.offers.some((offer) => offer.id === 'pulse'), false)
   })
 
-  it('always offers Tesla Coil, then Arc Reactor with Ion Cell', () => {
+  it('always offers Tesla Coil, then Arc Reactor at the last rank', () => {
     const state = createGame(0, 5)
     state.spawnCd = 999
     state.fireCd = 10
-    for (let n = 0; n < 5; n++) {
+    for (let n = 0; n < 4; n++) {
       state.phase = 'play'
       state.xp = state.xpNeed
       step(state, input({ aimActive: false }), 1 / 60)
@@ -739,32 +739,21 @@ describe('orbs', () => {
       assert.equal(card.title, 'Tesla Coil')
       chooseUpgrade(state, state.offers.indexOf(card))
     }
+    assert.equal(state.mods.tesla, 4)
+    state.phase = 'play'
+    state.xp = state.xpNeed
+    step(state, input({ aimActive: false }), 1 / 60)
+    const evolved = state.offers.find((offer) => offer.id === 'tesla')
+    assert.ok(evolved)
+    assert.equal(evolved.title, 'Arc Reactor')
+    assert.equal(evolved.overdrive, true)
+    chooseUpgrade(state, state.offers.indexOf(evolved))
     assert.equal(state.mods.tesla, 5)
-    assert.equal(arcReactor(state.mods), false)
+    assert.equal(arcReactor(state.mods.tesla), true)
     state.phase = 'play'
     state.xp = state.xpNeed
     step(state, input({ aimActive: false }), 1 / 60)
     assert.equal(state.offers.some((offer) => offer.id === 'tesla'), false)
-    const ion = state.offers.find((offer) => offer.id === 'ion')
-    if (ion) chooseUpgrade(state, state.offers.indexOf(ion))
-    else {
-      state.offers = [{ id: 'ion', title: 'Ion Cell', detail: '', rank: 1, max: 1, overdrive: false }]
-      state.phase = 'level'
-      chooseUpgrade(state, 0)
-    }
-    assert.equal(arcReactor(state.mods), true)
-
-    const gated = createGame(0, 6)
-    gated.spawnCd = 999
-    gated.fireCd = 10
-    gated.mods.tesla = 4
-    gated.mods.ion = 1
-    gated.xp = gated.xpNeed
-    step(gated, input({ aimActive: false }), 1 / 60)
-    const evolved = gated.offers.find((offer) => offer.id === 'tesla')
-    assert.ok(evolved)
-    assert.equal(evolved.title, 'Arc Reactor')
-    assert.equal(evolved.overdrive, true)
     assert.ok(teslaBolts(5, true) > teslaBolts(4, false))
     assert.ok(teslaDamage(5, true) > teslaDamage(4, false))
     assert.ok(teslaInterval(5, true) < teslaInterval(1, false))
@@ -791,7 +780,6 @@ describe('orbs', () => {
     reactor.spawnCd = 999
     reactor.fireCd = 10
     reactor.mods.tesla = 5
-    reactor.mods.ion = 1
     reactor.teslaCd = 0
     const near = enemy({ x: 180, y: 0, hp: 900, radius: 18, speed: 0 })
     const beside = enemy({ x: 250, y: 16, hp: 900, radius: 18, speed: 0 })
