@@ -396,13 +396,15 @@ function drawBalls(
     ctx.rotate(ball.flexAngle)
     ctx.scale(along, across)
     ctx.rotate(-ball.flexAngle)
-    ctx.globalCompositeOperation = 'lighter'
-    ctx.globalAlpha = ball.quantum ? 0.95 : 0.82
-    ctx.drawImage(sheet, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
-    ctx.globalAlpha = 0.4
-    ctx.drawImage(sheet, -glowSize, -glowSize, glowSize * 2, glowSize * 2)
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.globalAlpha = 1
+    if (!lean) {
+      ctx.globalCompositeOperation = 'lighter'
+      ctx.globalAlpha = ball.quantum ? 0.95 : 0.82
+      ctx.drawImage(sheet, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
+      ctx.globalAlpha = 0.4
+      ctx.drawImage(sheet, -glowSize, -glowSize, glowSize * 2, glowSize * 2)
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.globalAlpha = 1
+    }
     ctx.rotate(ball.spin)
     drawEnergyBall(ctx, ball.radius, ball.quantum)
     ctx.restore()
