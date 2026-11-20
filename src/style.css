@@ -57,6 +57,10 @@ body.fast #vignette {
   display: none;
 }
 
+body.fast #flash {
+  display: block;
+}
+
 body.critical #vignette {
   background: radial-gradient(ellipse at center, transparent 36%, rgba(90, 0, 32, 0.55) 100%);
 }

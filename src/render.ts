@@ -60,6 +60,10 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
   drawFloaters(ctx, state, X, Y)
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  if (state.flash > 0) {
+    ctx.fillStyle = `rgba(255, 36, 72, ${Math.min(0.55, state.flash * 0.55)})`
+    ctx.fillRect(0, 0, width, height)
+  }
   if (state.phase === 'play') drawAim(ctx, view, sx, sy)
   if (view.stick && state.phase === 'play') drawStick(ctx, view.stick)
 }

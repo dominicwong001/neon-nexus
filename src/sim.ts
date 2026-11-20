@@ -653,9 +653,8 @@ function fire(state: GameState, dt: number, events: StepEvents): void {
     guard += 1
     state.fireCd += interval
     const angles = [state.aim]
-    for (let n = 1; n <= state.mods.fork; n++) {
-      angles.push(state.aim + n * 0.2, state.aim - n * 0.2)
-    }
+    if (state.mods.fork >= 1) angles.push(state.aim + 0.32)
+    if (state.mods.fork >= 2) angles.push(state.aim - 0.32)
     for (const angle of angles) {
       const cs = Math.cos(angle)
       const sn = Math.sin(angle)
@@ -1235,7 +1234,7 @@ function dropOrb(state: GameState, enemy: Enemy): void {
 }
 
 function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents): void {
-  const magnet = 110 + state.mods.magnet * 78
+  const magnet = 72 + state.mods.magnet * 28
   const limit = Math.max(900, input.viewRadius * 2.8)
   for (let i = state.orbs.length - 1; i >= 0; i--) {
     const orb = state.orbs[i]
@@ -1248,7 +1247,7 @@ function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents
     }
     if (dist < magnet) orb.homing = true
     if (orb.homing) {
-      const speed = 540 + (1 - Math.min(1, dist / magnet)) * 460
+      const speed = 320 + (1 - Math.min(1, dist / magnet)) * 140
       orb.vx = (dx / dist) * speed
       orb.vy = (dy / dist) * speed
     } else {
@@ -2013,8 +2012,8 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     pulse: { title: 'Pulse', detail: 'Shots leave the core sooner.' },
     caliber: { title: 'Caliber', detail: 'Each round hits a little harder.' },
     drift: { title: 'Drift', detail: 'Top speed climbs.' },
-    magnet: { title: 'Magnet', detail: 'Orbs home from farther away and rush in faster.' },
-    fork: { title: 'Fork', detail: 'Two extra rounds fan out beside the main shot.' },
+    magnet: { title: 'Magnet', detail: 'Nearby orbs drift in. Each rank reaches a little farther.' },
+    fork: { title: 'Fork', detail: 'One extra stream beside the main shot. Three streams is the limit.' },
     greed: { title: 'Greed', detail: 'Every orb pays a bonus, and bigger orbs pay a little more.' },
     regen: { title: 'Regeneration', detail: 'Each level restores one health. Ranks restore more.' },
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },

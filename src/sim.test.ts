@@ -207,6 +207,25 @@ describe('cursor stream', () => {
     assert.ok(Math.abs(bullet.y - y0 - vy / 60) < 1.5)
   })
 
+  it('adds one stream per Fork rank and stops at three', () => {
+    const state = createGame(0, 3)
+    state.spawnCd = 999
+    state.mods.fork = 1
+    state.fireCd = 0
+    step(state, input(), 1 / 60)
+    assert.equal(state.bullets.length, 2)
+    state.bullets.length = 0
+    state.mods.fork = 2
+    state.fireCd = 0
+    step(state, input(), 1 / 60)
+    assert.equal(state.bullets.length, 3)
+    state.bullets.length = 0
+    state.mods.fork = 4
+    state.fireCd = 0
+    step(state, input(), 1 / 60)
+    assert.equal(state.bullets.length, 3)
+  })
+
   it('holds the last aim when the cursor sits on the core', () => {
     const state = createGame(0, 9)
     step(state, input({ aimX: 0, aimY: 220 }), 1 / 60)
