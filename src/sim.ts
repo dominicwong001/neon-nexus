@@ -1970,39 +1970,21 @@ function openLevel(state: GameState): boolean {
   return true
 }
 
-const SIGNATURE = ['orbiter', 'field', 'ball', 'drone'] as const
-
 function rollOffers(state: GameState): Offer[] {
   const pool = (Object.keys(UPGRADE_MAX) as Exclude<UpgradeId, 'cache'>[]).filter(
     (id) => state.mods[id] < UPGRADE_MAX[id],
   )
-  const picked: UpgradeId[] = []
-  const take = (id: Exclude<UpgradeId, 'cache'>) => {
-    const index = pool.indexOf(id)
-    if (index < 0) return
-    picked.push(id)
-    pool.splice(index, 1)
-  }
-  take('drone')
-  const abilities = pool.filter((id) => (SIGNATURE as readonly string[]).includes(id))
-  while (picked.length < 3 && abilities.length > 0) {
-    const id = abilities.splice(Math.floor(state.rng() * abilities.length), 1)[0]
-    if (id) take(id)
-  }
-  while (picked.length < 3 && pool.length > 0) {
-    const id = pool.splice(Math.floor(state.rng() * pool.length), 1)[0]
-    if (id) picked.push(id)
-  }
-  while (picked.length < 3) picked.push('cache')
-  for (let i = picked.length - 1; i > 0; i--) {
+  for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(state.rng() * (i + 1))
-    const swap = picked[i]
-    const other = picked[j]
+    const swap = pool[i]
+    const other = pool[j]
     if (swap && other) {
-      picked[i] = other
-      picked[j] = swap
+      pool[i] = other
+      pool[j] = swap
     }
   }
+  const picked: UpgradeId[] = pool.slice(0, 3)
+  while (picked.length < 3) picked.push('cache')
   return picked.map((id) => describeOffer(state, id))
 }
 

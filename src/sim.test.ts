@@ -594,27 +594,28 @@ describe('orbs', () => {
     assert.equal(state.enemies.includes(chip), false)
   })
 
-  it('shows at least three abilities whenever they are still available', () => {
+  it('offers any three upgrades that are still available', () => {
     const state = createGame(0, 90)
     state.spawnCd = 999
     state.fireCd = 10
-    const mains = new Set(['orbiter', 'field', 'ball', 'drone'])
     const seen = new Set<string>()
-    for (let n = 0; n < 12; n++) {
+    for (let n = 0; n < 36; n++) {
+      state.phase = 'play'
       state.xp = state.xpNeed
       step(state, input({ aimActive: false }), 1 / 60)
-      const shown = state.offers.filter((offer) => mains.has(offer.id))
       assert.equal(state.offers.length, 3)
-      assert.ok(shown.length >= 3)
-      assert.equal(state.offers.some((offer) => offer.id === 'drone'), true)
-      for (const offer of shown) seen.add(offer.id)
-      const other = state.offers
-        .map((offer, index) => ({ offer, index }))
-        .filter(({ offer }) => offer.id !== 'drone')
-        .sort((a, b) => a.offer.rank - b.offer.rank)[0]
-      chooseUpgrade(state, other?.index ?? 0)
+      assert.equal(new Set(state.offers.map((offer) => offer.id)).size, 3)
+      for (const offer of state.offers) seen.add(offer.id)
+      state.xp = 0
     }
-    assert.ok(seen.size >= 3)
+    assert.ok(seen.has('pulse') || seen.has('magnet') || seen.has('regen') || seen.has('greed'))
+    assert.ok(seen.has('orbiter') || seen.has('field') || seen.has('ball') || seen.has('drone'))
+    assert.ok(seen.size >= 8)
+    state.mods.pulse = 5
+    state.phase = 'play'
+    state.xp = state.xpNeed
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(state.offers.some((offer) => offer.id === 'pulse'), false)
   })
 
   it('opens three upgrades when the bar fills and freezes the pit', () => {
