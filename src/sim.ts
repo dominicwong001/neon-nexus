@@ -1013,7 +1013,7 @@ function spawnOne(state: GameState, viewRadius: number): void {
     hp = spec.hp * 6
     radius *= 2.2
   } else if (late && kind === 2 && state.rng() < 0.32) {
-    hp = Math.round(spec.hp * 1.5)
+    hp = Math.round(spec.hp * 2.5)
     radius *= 2.6
   } else if (kind === 3 && bigHexSeason(state) && state.rng() < 0.4) {
     radius *= 1.95
@@ -1485,8 +1485,15 @@ function splitBall(state: GameState, ball: Ricochet): boolean {
   return true
 }
 
+function giantCircle(enemy: Enemy): boolean {
+  return enemy.kind === 2 && !enemy.ballistic && enemy.radius > KIND[2].radius * 1.5
+}
+
 function thickHull(enemy: Enemy): boolean {
-  return !enemy.ballistic && enemy.maxHp >= 1000
+  if (enemy.ballistic) return false
+  if (enemy.maxHp >= 1000) return true
+  // A giant circle splits into two circles, and each of those splits again.
+  return giantCircle(enemy) && enemy.maxHp + KIND[2].hp * 2 + 400 >= 1000
 }
 
 function deflectOffEnemy(ball: Ricochet, enemy: Enemy): boolean {
@@ -2005,7 +2012,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     return {
       id,
       title: 'Quantum Core',
-      detail: 'Hyper-fast red balls. They bounce off hostiles with 1000 hull or more, and a hit replaces each one with two smaller balls.',
+      detail: 'Hyper-fast red balls. They bounce off giant circles and hostiles with 1000 hull or more, and a hit replaces each one with two smaller balls.',
       rank,
       max,
       overdrive: true,
@@ -2031,7 +2038,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     regen: { title: 'Regeneration', detail: 'Each level restores one health. Ranks restore more.' },
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
     field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
-    ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off any hostile whose hull is 1000 or more, no matter how much health is left.' },
+    ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off giant circles and any hostile whose hull is 1000 or more, no matter how much health is left.' },
     drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
   }
   const detail =

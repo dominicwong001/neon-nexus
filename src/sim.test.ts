@@ -632,6 +632,7 @@ describe('orbs', () => {
       }
     }
     assert.ok((best[1] ?? 0) >= 1000)
+    assert.ok((best[2] ?? 0) >= 750)
     assert.ok((best[0] ?? 0) >= 250)
     assert.ok((pace[0] ?? 0) > 110)
     assert.ok((size[2] ?? 0) > 30)
@@ -952,6 +953,36 @@ describe('orbs', () => {
     assert.ok(incoming.vx < 0)
     assert.ok(brute.hp < 1000)
     assert.ok(incoming.x < brute.x)
+
+    const blob = createGame(0, 12)
+    blob.spawnCd = 999
+    blob.fireCd = 10
+    blob.invuln = 5
+    const giant = enemy({ x: 40, y: 0, hp: 80, maxHp: 750, radius: 36, kind: 2, speed: 0 })
+    const plain = enemy({ x: 40, y: 80, hp: 300, maxHp: 300, radius: 14, kind: 2, speed: 0 })
+    blob.enemies.push(giant, plain)
+    const offGiant = {
+      x: 0,
+      y: 0,
+      vx: 240,
+      vy: 0,
+      life: 2,
+      max: 2,
+      radius: 12,
+      damage: 20,
+      echo: false,
+      quantum: false,
+      knock: 2.2,
+      spin: 0,
+      flex: 0,
+      flexAngle: 0,
+      touched: [],
+    }
+    blob.balls.push(offGiant)
+    step(blob, input({ aimActive: false }), 1 / 60)
+    assert.ok(offGiant.vx < 0)
+    assert.ok(giant.hp < 80)
+    assert.equal(plain.hp, 300)
 
     const chipped = createGame(0, 11)
     chipped.spawnCd = 999
