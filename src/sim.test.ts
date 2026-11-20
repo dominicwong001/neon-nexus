@@ -1536,17 +1536,43 @@ describe('orbs', () => {
     assert.ok(report[0] && report[0].amount >= (report[1]?.amount ?? 0))
   })
 
-  it('repairs hull when Plate is chosen', () => {
-    const state = createGame(0, 45)
-    state.phase = 'level'
-    state.hull = 3
-    state.offers = [{ id: 'plate', title: 'Plate', detail: 'Repair one hull segment and add a spare.', rank: 1, max: 3, overdrive: false }]
+  it('knits health after a quiet stretch and mends a little on each level', () => {
+    const plain = createGame(0, 80)
+    plain.spawnCd = 999
+    plain.fireCd = 10
+    plain.hull = 4
+    run(plain, input({ aimActive: false }), 8.5)
+    assert.equal(plain.hull, 5)
+
+    const quick = createGame(0, 80)
+    quick.spawnCd = 999
+    quick.fireCd = 10
+    quick.hull = 4
+    quick.mods.regen = 3
+    run(quick, input({ aimActive: false }), 8.5)
+    assert.equal(quick.hull, TUNING.hullMax)
+    assert.ok(quick.hull > plain.hull)
+
+    const state = createGame(0, 81)
+    state.spawnCd = 999
+    state.fireCd = 10
+    state.hull = 6
+    state.xp = state.xpNeed
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(state.phase, 'level')
+    assert.equal(state.hull, 7)
+    state.offers = [{ id: 'regen', title: 'Regeneration', detail: '', rank: 1, max: 3, overdrive: false }]
     chooseUpgrade(state, 0)
-    assert.equal(state.hullMax, TUNING.hullMax + 1)
-    assert.equal(state.hull, 4)
-    assert.equal(state.mods.plate, 1)
+    assert.equal(state.mods.regen, 1)
+    assert.equal(state.hullMax, TUNING.hullMax)
     assert.equal(state.phase, 'play')
-    assert.equal(state.upgradeMarks.length, 0)
+
+    const bite = createGame(0, 82)
+    bite.spawnCd = 999
+    bite.mods.caliber = 1
+    bite.enemies.push(enemy({ x: TUNING.muzzle, y: 0, radius: 26, kind: 1, hp: 200 }))
+    step(bite, input(), 1 / 60)
+    assert.equal(bite.enemies[0]?.hp, 75)
   })
 
   it('bins damage by time and marks weapon upgrades', () => {

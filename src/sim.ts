@@ -11,7 +11,7 @@ export const TUNING = {
   playerRadius: 14 * BODY,
   ringRadius: 34 * BODY,
   ringSpin: 0.65,
-  hullMax: 5,
+  hullMax: 8,
   invuln: 1.15,
   hitCooldown: 0.05,
   mercy: 1.4,
@@ -23,7 +23,7 @@ export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a', '#ff2d3a'] as const
 
 export type EnemyKind = 0 | 1 | 2 | 3
 export type Phase = 'play' | 'dead' | 'level'
-export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'plate' | 'orbiter' | 'field' | 'ball' | 'drone' | 'cache'
+export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'regen' | 'orbiter' | 'field' | 'ball' | 'drone' | 'cache'
 export type DamageSource = 'stream' | 'orbiter' | 'field' | 'ball' | 'drone'
 
 export interface Bullet {
@@ -121,7 +121,7 @@ export interface Mods {
   magnet: number
   fork: number
   greed: number
-  plate: number
+  regen: number
   orbiter: number
   field: number
   ball: number
@@ -207,6 +207,8 @@ export interface GameState {
   xp: number
   xpNeed: number
   hullMax: number
+  hurtIdle: number
+  regenTick: number
   orbitTime: number
   fieldTick: number
   ballCd: number
@@ -282,7 +284,7 @@ const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
   magnet: 4,
   fork: 2,
   greed: 3,
-  plate: 3,
+  regen: 3,
   orbiter: OVERDRIVE,
   field: OVERDRIVE,
   ball: OVERDRIVE,
@@ -442,8 +444,32 @@ export function xpNeedFor(level: number): number {
   return Math.round(8 * 1.2 ** Math.max(0, level - 1))
 }
 
+export function streamDamage(rank: number): number {
+  return HIT + Math.max(0, rank) * 25
+}
+
+export function regenDelay(rank: number): number {
+  return Math.max(1.8, 6 - Math.max(0, rank) * 1.15)
+}
+
+export function regenPace(rank: number): number {
+  return Math.max(0.7, 2.2 - Math.max(0, rank) * 0.45)
+}
+
+export function regenAmount(rank: number): number {
+  return 1 + Math.floor(Math.max(0, rank) / 2)
+}
+
+export function levelMend(rank: number): number {
+  return 1 + Math.floor(Math.max(0, rank) / 2)
+}
+
+export function orbGain(value: number, rank: number): number {
+  return Math.max(1, Math.round(value * (1 + Math.max(0, rank) * 0.12)) + Math.max(0, rank))
+}
+
 function freshMods(): Mods {
-  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, plate: 0, orbiter: 0, field: 0, ball: 0, drone: 0 }
+  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, regen: 0, orbiter: 0, field: 0, ball: 0, drone: 0 }
 }
 
 export function createGame(best = 0, seed = 1): GameState {
@@ -478,6 +504,8 @@ export function createGame(best = 0, seed = 1): GameState {
     xp: 0,
     xpNeed: xpNeedFor(1),
     hullMax: TUNING.hullMax,
+    hurtIdle: 0,
+    regenTick: 0,
     orbitTime: 0,
     fieldTick: 0,
     ballCd: 0.45,
@@ -574,6 +602,7 @@ function simulate(state: GameState, input: Input, dt: number, events: StepEvents
   state.invuln = Math.max(0, state.invuln - dt)
   state.comboTime = Math.max(0, state.comboTime - dt)
   if (state.comboTime === 0) state.combo = 0
+  recoverHull(state, dt)
 
   drift(state, input, dt)
   aimAt(state, input)
@@ -823,7 +852,7 @@ function damageEnemy(
   state: GameState,
   enemy: Enemy,
   events: StepEvents,
-  dealt = HIT * (1 + state.mods.caliber),
+  dealt = streamDamage(state.mods.caliber),
   color = '#ffffff',
   source: DamageSource = 'stream',
 ): void {
@@ -1149,6 +1178,24 @@ function repelFromRing(state: GameState): void {
   shoveOutsideRing(state)
 }
 
+function recoverHull(state: GameState, dt: number): void {
+  if (state.hull <= 0 || state.hull >= state.hullMax) {
+    state.regenTick = 0
+    return
+  }
+  state.hurtIdle += dt
+  const rank = state.mods.regen
+  if (state.hurtIdle < regenDelay(rank)) return
+  state.regenTick += dt
+  const pace = regenPace(rank)
+  const amount = regenAmount(rank)
+  while (state.regenTick >= pace && state.hull < state.hullMax) {
+    state.regenTick -= pace
+    state.hull += amount
+  }
+  state.hull = Math.min(state.hullMax, state.hull)
+}
+
 function touchPlayer(state: GameState, events: StepEvents): void {
   if (state.invuln > 0) return
   for (let j = state.enemies.length - 1; j >= 0; j--) {
@@ -1159,6 +1206,8 @@ function touchPlayer(state: GameState, events: StepEvents): void {
     const reach = TUNING.playerRadius + e.radius - 4 * BODY
     if (dist > reach) continue
     state.hull -= 1
+    state.hurtIdle = 0
+    state.regenTick = 0
     state.invuln = TUNING.invuln
     state.flash = 1
     state.shake = 9
@@ -1212,8 +1261,7 @@ function dropOrb(state: GameState, enemy: Enemy): void {
 }
 
 function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents): void {
-  const magnet = 86 + state.mods.magnet * 46
-  const greed = 1 + state.mods.greed * 0.3
+  const magnet = 110 + state.mods.magnet * 78
   const limit = Math.max(900, input.viewRadius * 2.8)
   for (let i = state.orbs.length - 1; i >= 0; i--) {
     const orb = state.orbs[i]
@@ -1226,7 +1274,7 @@ function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents
     }
     if (dist < magnet) orb.homing = true
     if (orb.homing) {
-      const speed = 462 + (1 - Math.min(1, dist / magnet)) * 294
+      const speed = 540 + (1 - Math.min(1, dist / magnet)) * 460
       orb.vx = (dx / dist) * speed
       orb.vy = (dy / dist) * speed
     } else {
@@ -1239,7 +1287,7 @@ function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents
     orb.pulse += dt
     const landed = Math.hypot(state.playerX - orb.x, state.playerY - orb.y)
     if (landed > TUNING.playerRadius + orb.radius + 6 * BODY) continue
-    const gain = Math.max(1, Math.round(orb.value * greed))
+    const gain = orbGain(orb.value, state.mods.greed)
     state.xp += gain
     events.pickups += 1
     state.orbs.splice(i, 1)
@@ -1917,6 +1965,7 @@ function openLevel(state: GameState): boolean {
   state.xp -= state.xpNeed
   state.level += 1
   state.xpNeed = xpNeedFor(state.level)
+  state.hull = Math.min(state.hullMax, state.hull + levelMend(state.mods.regen))
   state.phase = 'level'
   return true
 }
@@ -2006,12 +2055,12 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
   }
   const copy: Record<Exclude<UpgradeId, 'cache'>, { title: string; detail: string }> = {
     pulse: { title: 'Pulse', detail: 'Shots leave the core sooner.' },
-    caliber: { title: 'Caliber', detail: 'Each round takes off one more hit.' },
+    caliber: { title: 'Caliber', detail: 'Each round hits a little harder.' },
     drift: { title: 'Drift', detail: 'Top speed climbs.' },
-    magnet: { title: 'Magnet', detail: 'Orbs start homing from farther out.' },
+    magnet: { title: 'Magnet', detail: 'Orbs home from farther away and rush in faster.' },
     fork: { title: 'Fork', detail: 'Two extra rounds fan out beside the main shot.' },
-    greed: { title: 'Greed', detail: 'Every orb is worth more.' },
-    plate: { title: 'Plate', detail: 'Repair one hull segment and add a spare.' },
+    greed: { title: 'Greed', detail: 'Every orb pays a bonus, and bigger orbs pay a little more.' },
+    regen: { title: 'Regeneration', detail: 'After a quiet stretch, health knits back. Ranks start that sooner and restore more.' },
     orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
     field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off any hostile whose hull is 1000 or more, no matter how much health is left.' },
@@ -2026,7 +2075,9 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
           ? 'More balls. They hit harder and stay out longer.'
           : id === 'drone' && rank > 1
             ? 'More rockets in each fan, a wider blast, and a shorter wait between volleys.'
-            : copy[id].detail
+            : id === 'regen' && rank > 1
+          ? 'The quiet starts sooner, and each pulse restores more health.'
+          : copy[id].detail
   return { id, title: copy[id].title, detail, rank, max, overdrive: false }
 }
 
@@ -2043,9 +2094,6 @@ function applyUpgrade(state: GameState, id: UpgradeId): void {
   if (id === 'field') state.fieldTick = Math.floor(state.time / FIELD.tick)
   if (id === 'ball') state.ballCd = 0.2
   if (id === 'drone' && state.mods.drone === 1) state.droneReload = 0.25
-  if (id !== 'plate') return
-  state.hullMax = Math.min(8, state.hullMax + 1)
-  state.hull = Math.min(state.hullMax, state.hull + 1)
 }
 
 function spawnImpact(state: GameState, x: number, y: number): void {

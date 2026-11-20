@@ -253,7 +253,7 @@ function syncHud(game: GameState, now: number): void {
         ? `Core lost. Reached level ${game.level}.`
         : game.phase === 'level'
           ? `Level ${game.level}. Choose an upgrade.`
-          : `Level ${game.level}. Hull ${game.hull} of ${game.hullMax}.`
+          : `Level ${game.level}. Health ${game.hull} of ${game.hullMax}.`
   }
 }
 
