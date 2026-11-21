@@ -134,12 +134,20 @@ export interface Jagged {
   half: number[]
 }
 
-export interface Wisp {
+export interface Shard {
   x: number
   y: number
   vx: number
   vy: number
-  r: number
+  angle: number
+  spin: number
+  size: number
+}
+
+export interface Burst {
+  jag: Jagged
+  vx: number
+  vy: number
 }
 
 export interface Bolt {
@@ -149,9 +157,31 @@ export interface Bolt {
   strike: Jagged
   arcs: Jagged[]
   splinters: Jagged[]
-  wisps: Wisp[]
+  bursts: Burst[]
+  shards: Shard[]
   x: number
   y: number
+}
+
+export const BOLT_SKY_PAD = 250
+
+export function placeStrikeTop(
+  pts: { x: number; y: number }[],
+  cameraTop: number,
+): { x: number; y: number }[] {
+  const top = pts[0]
+  const bottom = pts[pts.length - 1]
+  if (!top || !bottom) return pts
+  const origin = cameraTop - BOLT_SKY_PAD
+  const span = bottom.y - top.y
+  if (Math.abs(span) < 1) {
+    return pts.map((point, index) => (index === 0 ? { x: point.x, y: origin } : { x: point.x, y: point.y }))
+  }
+  const scale = (bottom.y - origin) / span
+  return pts.map((point) => ({
+    x: point.x,
+    y: origin + (point.y - top.y) * scale,
+  }))
 }
 
 export interface Ricochet {
@@ -2071,8 +2101,8 @@ function callBolt(
   const ink = reactor ? '#ff2d3a' : '#ffffff'
   const strike = jaggedStrike(state, skyY, enemy)
   const splinters = sideSplinters(state, strike)
-  splinters.push(...impactJags(state, enemy.x, enemy.y))
-  const wisps = impactWisps(state, enemy.x, enemy.y)
+  const bursts = impactBursts(state, enemy.x, enemy.y)
+  const shards = impactShards(state, enemy.x, enemy.y)
   const arcs: Jagged[] = []
   const taken = new Set<Enemy>([enemy])
   damageEnemy(state, enemy, events, dealt, ink, 'tesla')
@@ -2087,8 +2117,8 @@ function callBolt(
       const arc = jaggedArc(state, from, next)
       arcs.push(arc)
       splinters.push(...sideSplinters(state, arc).slice(0, 2))
-      splinters.push(...impactJags(state, next.x, next.y))
-      wisps.push(...impactWisps(state, next.x, next.y))
+      bursts.push(...impactBursts(state, next.x, next.y))
+      shards.push(...impactShards(state, next.x, next.y))
       damageEnemy(state, next, events, hopDamage, ink, 'tesla')
       shockArc(state, next.x, next.y, true)
       from = next
@@ -2096,7 +2126,7 @@ function callBolt(
     }
   }
   if (state.bolts.length > 28) state.bolts.shift()
-  state.bolts.push({ life: 0.28, max: 0.28, reactor, strike, arcs, splinters, wisps, x: enemy.x, y: enemy.y })
+  state.bolts.push({ life: 0.42, max: 0.42, reactor, strike, arcs, splinters, bursts, shards, x: enemy.x, y: enemy.y })
 }
 
 function nearestArc(
@@ -2123,7 +2153,6 @@ function nearestArc(
 
 function shockArc(state: GameState, x: number, y: number, reactor: boolean): void {
   const color = reactor ? '#ff2d3a' : '#ffffff'
-  state.shocks.push({ x, y, life: 0.28, max: 0.28, color })
   burst(state, x, y, color, reactor ? 14 : 10, reactor ? 280 : 220)
 }
 
@@ -2167,12 +2196,12 @@ function sideSplinters(state: GameState, jag: Jagged): Jagged[] {
   return out
 }
 
-function impactJags(state: GameState, x: number, y: number): Jagged[] {
-  const rays: Jagged[] = []
+function impactBursts(state: GameState, x: number, y: number): Burst[] {
+  const rays: Burst[] = []
   const count = 7 + Math.floor(state.rng() * 3)
   for (let i = 0; i < count; i++) {
     const angle = (i / count) * Math.PI * 2 + (state.rng() - 0.5) * 0.85
-    const reach = 16 + state.rng() * 62
+    const reach = 18 + state.rng() * 48
     const pts = displace(
       state,
       x,
@@ -2182,7 +2211,12 @@ function impactJags(state: GameState, x: number, y: number): Jagged[] {
       2,
       reach * 0.42,
     )
-    rays.push({ pts, half: inkWidths(state, pts.length, 2.35, 0.1) })
+    const speed = 280 + state.rng() * 360
+    rays.push({
+      jag: { pts, half: inkWidths(state, pts.length, 2.35, 0.1) },
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+    })
   }
   return rays
 }
@@ -2218,21 +2252,23 @@ function displace(
   return walk({ x: ax, y: ay }, { x: bx, y: by }, depth, spread)
 }
 
-function impactWisps(state: GameState, x: number, y: number): Wisp[] {
-  const wisps: Wisp[] = []
-  const count = 5 + Math.floor(state.rng() * 3)
+function impactShards(state: GameState, x: number, y: number): Shard[] {
+  const shards: Shard[] = []
+  const count = 8 + Math.floor(state.rng() * 4)
   for (let i = 0; i < count; i++) {
     const angle = state.rng() * Math.PI * 2
-    const dist = 8 + state.rng() * 42
-    wisps.push({
-      x: x + Math.cos(angle) * dist,
-      y: y + Math.sin(angle) * dist * 0.72,
-      vx: Math.cos(angle) * (10 + state.rng() * 26),
-      vy: Math.sin(angle) * (6 + state.rng() * 16) - 22,
-      r: 3.2 + state.rng() * 6.5,
+    const speed = 240 + state.rng() * 420
+    shards.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      angle,
+      spin: (state.rng() - 0.5) * 16,
+      size: 8 + state.rng() * 16,
     })
   }
-  return wisps
+  return shards
 }
 
 function inkWidths(state: GameState, count: number, base: number, taperEnd: number): number[] {
@@ -2466,12 +2502,24 @@ function decayFx(state: GameState, dt: number): void {
       state.bolts.splice(i, 1)
       continue
     }
-    for (const wisp of bolt.wisps) {
-      wisp.x += wisp.vx * dt
-      wisp.y += wisp.vy * dt
-      const damp = Math.exp(-1.3 * dt)
-      wisp.vx *= damp
-      wisp.vy *= damp
+    const damp = Math.exp(-5.4 * dt)
+    for (const shard of bolt.shards) {
+      shard.x += shard.vx * dt
+      shard.y += shard.vy * dt
+      shard.angle += shard.spin * dt
+      shard.vx *= damp
+      shard.vy *= damp
+      shard.spin *= damp
+    }
+    for (const ray of bolt.bursts) {
+      ray.vx *= damp
+      ray.vy *= damp
+      const dx = ray.vx * dt
+      const dy = ray.vy * dt
+      for (const point of ray.jag.pts) {
+        point.x += dx
+        point.y += dy
+      }
     }
   }
   for (let i = state.shocks.length - 1; i >= 0; i--) {

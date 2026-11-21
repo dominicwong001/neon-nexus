@@ -1,4 +1,4 @@
-import { BODY, ENEMY_COLOR, TUNING, droneAnchor, droneBlasterTips, droneStorm, fieldColor, fieldRadius, fieldRipple, hexFuseLit, orbitDiscs, shellPose, type GameState } from './sim.ts'
+import { BODY, ENEMY_COLOR, TUNING, droneAnchor, droneBlasterTips, droneStorm, fieldColor, fieldRadius, fieldRipple, hexFuseLit, orbitDiscs, placeStrikeTop, shellPose, type GameState } from './sim.ts'
 
 export interface StickView {
   x: number
@@ -59,7 +59,7 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
   drawOrbiters(ctx, state, X, Y)
   drawPlayer(ctx, state)
   drawDrone(ctx, state, X, Y)
-  drawBolts(ctx, state, X, Y)
+  drawBolts(ctx, state, X, Y, height, view.reduceMotion)
   drawFloaters(ctx, state, X, Y)
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -443,30 +443,79 @@ function drawBolts(
   state: GameState,
   X: (x: number) => number,
   Y: (y: number) => number,
+  height: number,
+  still: boolean,
 ): void {
   if (state.bolts.length === 0) return
+  const cameraTop = state.playerY - height / 2
   ctx.save()
   for (const bolt of state.bolts) {
     const fade = Math.max(0, bolt.life / bolt.max)
-    const flicker = 0.82 + 0.18 * Math.abs(Math.sin((bolt.max - bolt.life) * 90 + bolt.x))
+    const flicker = 0.82 + 0.18 * Math.abs(Math.sin(state.time * 90 + bolt.x))
     const red = bolt.reactor
     const glow = red ? '#ff1a2e' : '#ffffff'
     const core = '#ffffff'
-    const glowAlpha = fade * (red ? 0.78 : 0.62) * flicker
-    fillJag(ctx, bolt.strike, X, Y, 2.9, glow, glowAlpha)
-    fillJag(ctx, bolt.strike, X, Y, 1, core, fade)
+    const crack = Math.max(0.07, fade ** 1.7)
+    const glowAlpha = (red ? 0.78 : 0.62) * flicker * (0.35 + fade * 0.65)
+    const coreAlpha = Math.min(1, 0.55 + fade * 0.45)
+    const strikeTop = bolt.strike.pts[0]
+    const strikeBottom = bolt.strike.pts[bolt.strike.pts.length - 1]
+    const strike = jitterPts(placeStrikeTop(bolt.strike.pts, cameraTop), state.time, bolt.x, still ? 0 : 6, true)
+    fillJag(ctx, { pts: strike, half: bolt.strike.half }, X, Y, 2.9 * crack, glow, glowAlpha)
+    fillJag(ctx, { pts: strike, half: bolt.strike.half }, X, Y, crack, core, coreAlpha)
     for (const arc of bolt.arcs) {
-      fillJag(ctx, arc, X, Y, 2.6, glow, glowAlpha)
-      fillJag(ctx, arc, X, Y, 1, core, fade)
+      const pts = jitterPts(arc.pts, state.time, bolt.y + arc.pts.length, still ? 0 : 3.5, true)
+      fillJag(ctx, { pts, half: arc.half }, X, Y, 2.6 * crack, glow, glowAlpha)
+      fillJag(ctx, { pts, half: arc.half }, X, Y, crack, core, coreAlpha)
     }
-    paintImpact(ctx, X(bolt.x), Y(bolt.y), fade * flicker, glow, core, red)
-    paintWisps(ctx, bolt.wisps, X, Y, fade * flicker, glow, core)
+    const ink = red ? '#ff2436' : '#ffffff'
     for (const ray of bolt.splinters) {
-      fillJag(ctx, ray, X, Y, 2.2, glow, glowAlpha * 0.9)
-      fillJag(ctx, ray, X, Y, 1, core, fade)
+      const lifted = ray.pts.map((point) => ({
+        x: point.x,
+        y: strikeTop && strikeBottom ? liftWithStrike(point.y, strikeTop.y, strikeBottom.y, cameraTop) : point.y,
+      }))
+      const pts = jitterPts(lifted, state.time, bolt.x + ray.pts.length, still ? 0 : 3, false)
+      fillJag(ctx, { pts, half: ray.half }, X, Y, 2.1 * crack, glow, glowAlpha * 0.9)
+      fillJag(ctx, { pts, half: ray.half }, X, Y, crack, core, coreAlpha)
     }
+    for (const ray of bolt.bursts) {
+      const pts = jitterPts(ray.jag.pts, state.time, bolt.x, still ? 0 : 2.2, false)
+      fillJag(ctx, { pts, half: ray.jag.half }, X, Y, 2.2 * crack, ink, glowAlpha)
+      fillJag(ctx, { pts, half: ray.jag.half }, X, Y, crack, ink, coreAlpha)
+    }
+    paintShards(ctx, bolt.shards, X, Y, fade, ink)
   }
   ctx.restore()
+}
+
+function liftWithStrike(y: number, strikeTop: number, strikeBottom: number, cameraTop: number): number {
+  const lifted = placeStrikeTop(
+    [
+      { x: 0, y: strikeTop },
+      { x: 0, y },
+      { x: 0, y: strikeBottom },
+    ],
+    cameraTop,
+  )
+  return lifted[1]?.y ?? y
+}
+
+function jitterPts(
+  pts: { x: number; y: number }[],
+  time: number,
+  seed: number,
+  amount: number,
+  lockEnds: boolean,
+): { x: number; y: number }[] {
+  if (amount <= 0) return pts
+  const last = pts.length - 1
+  return pts.map((point, index) => {
+    if (lockEnds && (index === 0 || index === last)) return point
+    return {
+      x: point.x + Math.sin(time * 64 + seed + index * 1.7) * amount,
+      y: point.y + Math.cos(time * 73 + seed * 0.6 + index * 2.2) * amount * 0.7,
+    }
+  })
 }
 
 function fillJag(
@@ -525,62 +574,30 @@ function traceRail(
   }
 }
 
-function paintImpact(
+function paintShards(
   ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  fade: number,
-  glow: string,
-  core: string,
-  red: boolean,
-): void {
-  const layers = red
-    ? [
-        { r: 108, a: 0.1 },
-        { r: 68, a: 0.18 },
-        { r: 36, a: 0.32 },
-      ]
-    : [
-        { r: 92, a: 0.07 },
-        { r: 56, a: 0.13 },
-        { r: 28, a: 0.24 },
-      ]
-  ctx.fillStyle = glow
-  for (const layer of layers) {
-    ctx.globalAlpha = fade * layer.a
-    ctx.beginPath()
-    ctx.arc(x, y, layer.r, 0, Math.PI * 2)
-    ctx.fill()
-  }
-  ctx.globalAlpha = fade * 0.88
-  ctx.fillStyle = core
-  ctx.beginPath()
-  ctx.arc(x, y, red ? 7 : 5.5, 0, Math.PI * 2)
-  ctx.fill()
-}
-
-function paintWisps(
-  ctx: CanvasRenderingContext2D,
-  wisps: { x: number; y: number; r: number }[],
+  shards: { x: number; y: number; angle: number; size: number }[],
   X: (x: number) => number,
   Y: (y: number) => number,
   fade: number,
-  glow: string,
-  core: string,
+  color: string,
 ): void {
-  for (const wisp of wisps) {
-    const x = X(wisp.x)
-    const y = Y(wisp.y)
-    ctx.fillStyle = glow
-    ctx.globalAlpha = fade * 0.28
+  const scale = 0.18 + 0.82 * fade
+  ctx.fillStyle = color
+  ctx.globalAlpha = Math.min(1, 0.4 + fade * 0.6)
+  for (const shard of shards) {
+    const size = shard.size * scale
+    ctx.save()
+    ctx.translate(X(shard.x), Y(shard.y))
+    ctx.rotate(shard.angle)
     ctx.beginPath()
-    ctx.arc(x, y, wisp.r * 2.6, 0, Math.PI * 2)
+    ctx.moveTo(size, 0)
+    ctx.lineTo(-size * 0.42, size * 0.32)
+    ctx.lineTo(-size * 0.16, 0)
+    ctx.lineTo(-size * 0.42, -size * 0.24)
+    ctx.closePath()
     ctx.fill()
-    ctx.fillStyle = core
-    ctx.globalAlpha = fade * 0.72
-    ctx.beginPath()
-    ctx.arc(x, y, Math.max(1.2, wisp.r * 0.42), 0, Math.PI * 2)
-    ctx.fill()
+    ctx.restore()
   }
 }
 

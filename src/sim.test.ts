@@ -23,6 +23,8 @@ import {
   teslaBolts,
   teslaDamage,
   teslaInterval,
+  placeStrikeTop,
+  BOLT_SKY_PAD,
   orbiterCount,
   orbiterDamage,
   orbiterShove,
@@ -786,7 +788,6 @@ describe('orbs', () => {
     assert.ok(foe.hp < 500)
     assert.ok(state.dealt.tesla > 0)
     assert.ok(state.bolts.length >= 1)
-    assert.ok(state.shocks.length >= 1)
     const sky = state.bolts[0]?.strike.pts
     const widths = state.bolts[0]?.strike.half ?? []
     assert.ok(sky && sky.length >= 8)
@@ -794,8 +795,23 @@ describe('orbs', () => {
     assert.ok((sky[sky.length - 1]?.y ?? 0) > (sky[0]?.y ?? 0))
     assert.ok(Math.max(...widths) > Math.min(...widths) * 2)
     assert.ok(strikeDrift(sky) > 24)
-    assert.ok((state.bolts[0]?.splinters.length ?? 0) >= 8)
-    assert.ok((state.bolts[0]?.wisps.length ?? 0) >= 5)
+    assert.ok((state.bolts[0]?.splinters.length ?? 0) >= 3)
+    assert.ok((state.bolts[0]?.bursts.length ?? 0) >= 7)
+    assert.ok((state.bolts[0]?.shards.length ?? 0) >= 8)
+    const cameraTop = state.playerY - 400
+    const lifted = placeStrikeTop(sky, cameraTop)
+    assert.equal(lifted[0]?.y, cameraTop - BOLT_SKY_PAD)
+    assert.equal(lifted[lifted.length - 1]?.y, sky[sky.length - 1]?.y)
+    const born = state.bolts[0]?.shards[0]
+    assert.ok(born)
+    const speed = Math.hypot(born.vx, born.vy)
+    const bornX = born.x
+    const bornY = born.y
+    step(state, input({ aimActive: false, moveY: -1 }), 0.1)
+    const flown = state.bolts[0]?.shards[0]
+    assert.ok(flown)
+    assert.ok(Math.hypot(flown.x - bornX, flown.y - bornY) > 8)
+    assert.ok(Math.hypot(flown.vx, flown.vy) < speed)
 
     const reactor = createGame(0, 9)
     reactor.spawnCd = 999
