@@ -454,13 +454,14 @@ function drawBolts(
     const core = red ? '#fff1f3' : '#ffffff'
     const glowAlpha = fade * (red ? 0.5 : 0.32) * flicker
     const coreAlpha = fade * flicker
-    fillJag(ctx, bolt.strike, X, Y, 2.7, glow, glowAlpha)
-    fillJag(ctx, bolt.strike, X, Y, 1, core, coreAlpha)
+    fillJag(ctx, bolt.strike, X, Y, 2.35, glow, glowAlpha, true)
+    fillJag(ctx, bolt.strike, X, Y, 1, core, coreAlpha, true)
     for (const arc of bolt.arcs) {
       fillJag(ctx, arc, X, Y, 2.5, glow, glowAlpha * (red ? 1 : 0.85))
       fillJag(ctx, arc, X, Y, 1, core, coreAlpha)
     }
     paintImpact(ctx, X(bolt.x), Y(bolt.y), fade * flicker, glow, core, red)
+    paintWisps(ctx, bolt.wisps, X, Y, fade * flicker, glow, core)
     for (const ray of bolt.splinters) {
       fillJag(ctx, ray, X, Y, 2.2, glow, glowAlpha * 0.9)
       fillJag(ctx, ray, X, Y, 1, core, coreAlpha)
@@ -477,6 +478,7 @@ function fillJag(
   scale: number,
   color: string,
   alpha: number,
+  smooth = false,
 ): void {
   const pts = jag.pts
   if (pts.length < 2 || alpha <= 0) return
@@ -502,19 +504,39 @@ function fillJag(
   const start = left[0]
   if (!start) return
   ctx.beginPath()
-  ctx.moveTo(start.x, start.y)
-  for (let i = 1; i < left.length; i++) {
-    const point = left[i]
-    if (point) ctx.lineTo(point.x, point.y)
-  }
-  for (let i = right.length - 1; i >= 0; i--) {
-    const point = right[i]
-    if (point) ctx.lineTo(point.x, point.y)
-  }
+  traceRail(ctx, left, smooth, false)
+  traceRail(ctx, right.reverse(), smooth, true)
   ctx.closePath()
   ctx.fillStyle = color
   ctx.globalAlpha = alpha
   ctx.fill()
+}
+
+function traceRail(
+  ctx: CanvasRenderingContext2D,
+  rail: { x: number; y: number }[],
+  smooth: boolean,
+  join: boolean,
+): void {
+  const first = rail[0]
+  if (!first) return
+  if (join) ctx.lineTo(first.x, first.y)
+  else ctx.moveTo(first.x, first.y)
+  if (!smooth || rail.length < 3) {
+    for (let i = 1; i < rail.length; i++) {
+      const point = rail[i]
+      if (point) ctx.lineTo(point.x, point.y)
+    }
+    return
+  }
+  for (let i = 1; i < rail.length - 1; i++) {
+    const point = rail[i]
+    const next = rail[i + 1]
+    if (!point || !next) continue
+    ctx.quadraticCurveTo(point.x, point.y, (point.x + next.x) / 2, (point.y + next.y) / 2)
+  }
+  const end = rail[rail.length - 1]
+  if (end) ctx.lineTo(end.x, end.y)
 }
 
 function paintImpact(
@@ -526,16 +548,54 @@ function paintImpact(
   core: string,
   red: boolean,
 ): void {
-  ctx.globalAlpha = fade * (red ? 0.28 : 0.16)
+  const layers = red
+    ? [
+        { r: 108, a: 0.1 },
+        { r: 68, a: 0.18 },
+        { r: 36, a: 0.32 },
+      ]
+    : [
+        { r: 92, a: 0.07 },
+        { r: 56, a: 0.13 },
+        { r: 28, a: 0.24 },
+      ]
   ctx.fillStyle = glow
-  ctx.beginPath()
-  ctx.arc(x, y, red ? 36 : 28, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.globalAlpha = fade * 0.9
+  for (const layer of layers) {
+    ctx.globalAlpha = fade * layer.a
+    ctx.beginPath()
+    ctx.arc(x, y, layer.r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.globalAlpha = fade * 0.88
   ctx.fillStyle = core
   ctx.beginPath()
-  ctx.arc(x, y, red ? 5 : 4, 0, Math.PI * 2)
+  ctx.arc(x, y, red ? 7 : 5.5, 0, Math.PI * 2)
   ctx.fill()
+}
+
+function paintWisps(
+  ctx: CanvasRenderingContext2D,
+  wisps: { x: number; y: number; r: number }[],
+  X: (x: number) => number,
+  Y: (y: number) => number,
+  fade: number,
+  glow: string,
+  core: string,
+): void {
+  for (const wisp of wisps) {
+    const x = X(wisp.x)
+    const y = Y(wisp.y)
+    ctx.fillStyle = glow
+    ctx.globalAlpha = fade * 0.28
+    ctx.beginPath()
+    ctx.arc(x, y, wisp.r * 2.6, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = core
+    ctx.globalAlpha = fade * 0.72
+    ctx.beginPath()
+    ctx.arc(x, y, Math.max(1.2, wisp.r * 0.42), 0, Math.PI * 2)
+    ctx.fill()
+  }
 }
 
 function drawFloaters(

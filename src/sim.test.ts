@@ -50,6 +50,21 @@ import {
   type Orb,
 } from './sim.ts'
 
+function strikeDrift(pts: { x: number; y: number }[]): number {
+  const start = pts[0]
+  const end = pts[pts.length - 1]
+  if (!start || !end) return 0
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const len = Math.hypot(dx, dy) || 1
+  let drift = 0
+  for (const point of pts) {
+    const cross = Math.abs((point.x - start.x) * dy - (point.y - start.y) * dx) / len
+    if (cross > drift) drift = cross
+  }
+  return drift
+}
+
 function input(over: Partial<Input> = {}): Input {
   return {
     moveX: 0,
@@ -777,8 +792,11 @@ describe('orbs', () => {
     assert.ok(sky && sky.length >= 8)
     assert.ok(Math.abs((sky[0]?.y ?? 0) - (state.playerY - 720 / 2)) < 12)
     assert.ok((sky[sky.length - 1]?.y ?? 0) > (sky[0]?.y ?? 0))
-    assert.ok(Math.max(...widths) > Math.min(...widths) * 1.8)
+    assert.ok(Math.max(...widths) > 10)
+    assert.ok(Math.max(...widths) > Math.min(...widths) * 1.6)
+    assert.ok(strikeDrift(sky) < 100)
     assert.ok((state.bolts[0]?.splinters.length ?? 0) >= 8)
+    assert.ok((state.bolts[0]?.wisps.length ?? 0) >= 5)
 
     const reactor = createGame(0, 9)
     reactor.spawnCd = 999

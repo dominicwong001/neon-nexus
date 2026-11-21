@@ -134,6 +134,14 @@ export interface Jagged {
   half: number[]
 }
 
+export interface Wisp {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  r: number
+}
+
 export interface Bolt {
   life: number
   max: number
@@ -141,6 +149,7 @@ export interface Bolt {
   strike: Jagged
   arcs: Jagged[]
   splinters: Jagged[]
+  wisps: Wisp[]
   x: number
   y: number
 }
@@ -2063,6 +2072,7 @@ function callBolt(
   const strike = jaggedStrike(state, skyY, enemy)
   const splinters = sideSplinters(state, strike)
   splinters.push(...impactJags(state, enemy.x, enemy.y))
+  const wisps = impactWisps(state, enemy.x, enemy.y)
   const arcs: Jagged[] = []
   const taken = new Set<Enemy>([enemy])
   damageEnemy(state, enemy, events, dealt, ink, 'tesla')
@@ -2078,6 +2088,7 @@ function callBolt(
       arcs.push(arc)
       splinters.push(...sideSplinters(state, arc).slice(0, 2))
       splinters.push(...impactJags(state, next.x, next.y))
+      wisps.push(...impactWisps(state, next.x, next.y))
       damageEnemy(state, next, events, hopDamage, ink, 'tesla')
       shockArc(state, next.x, next.y, true)
       from = next
@@ -2085,7 +2096,7 @@ function callBolt(
     }
   }
   if (state.bolts.length > 28) state.bolts.shift()
-  state.bolts.push({ life: 0.28, max: 0.28, reactor, strike, arcs, splinters, x: enemy.x, y: enemy.y })
+  state.bolts.push({ life: 0.28, max: 0.28, reactor, strike, arcs, splinters, wisps, x: enemy.x, y: enemy.y })
 }
 
 function nearestArc(
@@ -2117,9 +2128,10 @@ function shockArc(state: GameState, x: number, y: number, reactor: boolean): voi
 }
 
 function jaggedStrike(state: GameState, skyY: number, enemy: Enemy): Jagged {
-  const fromX = enemy.x + (state.rng() - 0.5) * 48
-  const pts = displace(state, fromX, skyY - 4, enemy.x, enemy.y, 4, 96)
-  return { pts, half: inkWidths(state, pts.length, 7.4, 0.2) }
+  const fromX = enemy.x + (state.rng() - 0.5) * 18
+  const raw = displace(state, fromX, skyY - 4, enemy.x, enemy.y, 3, 34)
+  const pts = soften(soften(raw))
+  return { pts, half: flowWidths(state, pts.length, 11.2, 0.34) }
 }
 
 function jaggedArc(state: GameState, from: Enemy, to: Enemy): Jagged {
@@ -2205,6 +2217,60 @@ function displace(
     return left.concat(right.slice(1))
   }
   return walk({ x: ax, y: ay }, { x: bx, y: by }, depth, spread)
+}
+
+function impactWisps(state: GameState, x: number, y: number): Wisp[] {
+  const wisps: Wisp[] = []
+  const count = 5 + Math.floor(state.rng() * 3)
+  for (let i = 0; i < count; i++) {
+    const angle = state.rng() * Math.PI * 2
+    const dist = 8 + state.rng() * 42
+    wisps.push({
+      x: x + Math.cos(angle) * dist,
+      y: y + Math.sin(angle) * dist * 0.72,
+      vx: Math.cos(angle) * (10 + state.rng() * 26),
+      vy: Math.sin(angle) * (6 + state.rng() * 16) - 22,
+      r: 3.2 + state.rng() * 6.5,
+    })
+  }
+  return wisps
+}
+
+function soften(pts: { x: number; y: number }[]): { x: number; y: number }[] {
+  if (pts.length < 3) return pts
+  const eased = [pts[0]!]
+  for (let i = 1; i < pts.length - 1; i++) {
+    const prev = pts[i - 1]
+    const point = pts[i]
+    const next = pts[i + 1]
+    if (!prev || !point || !next) continue
+    eased.push({
+      x: prev.x * 0.22 + point.x * 0.56 + next.x * 0.22,
+      y: prev.y * 0.22 + point.y * 0.56 + next.y * 0.22,
+    })
+  }
+  const end = pts[pts.length - 1]
+  if (end) eased.push(end)
+  return eased
+}
+
+function flowWidths(state: GameState, count: number, base: number, taperEnd: number): number[] {
+  const raw: number[] = []
+  let wave = 0
+  for (let i = 0; i < count; i++) {
+    wave = wave * 0.65 + (state.rng() - 0.5) * 0.28
+    const t = i / Math.max(1, count - 1)
+    const taper = 1 - t * (1 - taperEnd)
+    raw.push(Math.max(0.8, base * taper * (0.9 + wave)))
+  }
+  const half = raw.slice()
+  for (let i = 1; i < count - 1; i++) {
+    const prev = raw[i - 1] ?? raw[i] ?? 1
+    const mid = raw[i] ?? 1
+    const next = raw[i + 1] ?? mid
+    half[i] = prev * 0.22 + mid * 0.56 + next * 0.22
+  }
+  return half
 }
 
 function inkWidths(state: GameState, count: number, base: number, taperEnd: number): number[] {
@@ -2434,7 +2500,17 @@ function decayFx(state: GameState, dt: number): void {
     const bolt = state.bolts[i]
     if (!bolt) continue
     bolt.life -= dt
-    if (bolt.life <= 0) state.bolts.splice(i, 1)
+    if (bolt.life <= 0) {
+      state.bolts.splice(i, 1)
+      continue
+    }
+    for (const wisp of bolt.wisps) {
+      wisp.x += wisp.vx * dt
+      wisp.y += wisp.vy * dt
+      const damp = Math.exp(-1.3 * dt)
+      wisp.vx *= damp
+      wisp.vy *= damp
+    }
   }
   for (let i = state.shocks.length - 1; i >= 0; i--) {
     state.shocks[i].life -= dt
