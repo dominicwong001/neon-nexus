@@ -450,21 +450,20 @@ function drawBolts(
     const fade = Math.max(0, bolt.life / bolt.max)
     const flicker = 0.82 + 0.18 * Math.abs(Math.sin((bolt.max - bolt.life) * 90 + bolt.x))
     const red = bolt.reactor
-    const glow = red ? '#ff1f33' : '#ffffff'
-    const core = red ? '#fff1f3' : '#ffffff'
-    const glowAlpha = fade * (red ? 0.5 : 0.32) * flicker
-    const coreAlpha = fade * flicker
-    fillJag(ctx, bolt.strike, X, Y, 2.35, glow, glowAlpha, true)
-    fillJag(ctx, bolt.strike, X, Y, 1, core, coreAlpha, true)
+    const glow = red ? '#ff1a2e' : '#ffffff'
+    const core = '#ffffff'
+    const glowAlpha = fade * (red ? 0.78 : 0.62) * flicker
+    fillJag(ctx, bolt.strike, X, Y, 2.9, glow, glowAlpha)
+    fillJag(ctx, bolt.strike, X, Y, 1, core, fade)
     for (const arc of bolt.arcs) {
-      fillJag(ctx, arc, X, Y, 2.5, glow, glowAlpha * (red ? 1 : 0.85))
-      fillJag(ctx, arc, X, Y, 1, core, coreAlpha)
+      fillJag(ctx, arc, X, Y, 2.6, glow, glowAlpha)
+      fillJag(ctx, arc, X, Y, 1, core, fade)
     }
     paintImpact(ctx, X(bolt.x), Y(bolt.y), fade * flicker, glow, core, red)
     paintWisps(ctx, bolt.wisps, X, Y, fade * flicker, glow, core)
     for (const ray of bolt.splinters) {
       fillJag(ctx, ray, X, Y, 2.2, glow, glowAlpha * 0.9)
-      fillJag(ctx, ray, X, Y, 1, core, coreAlpha)
+      fillJag(ctx, ray, X, Y, 1, core, fade)
     }
   }
   ctx.restore()
@@ -478,7 +477,6 @@ function fillJag(
   scale: number,
   color: string,
   alpha: number,
-  smooth = false,
 ): void {
   const pts = jag.pts
   if (pts.length < 2 || alpha <= 0) return
@@ -504,8 +502,8 @@ function fillJag(
   const start = left[0]
   if (!start) return
   ctx.beginPath()
-  traceRail(ctx, left, smooth, false)
-  traceRail(ctx, right.reverse(), smooth, true)
+  traceRail(ctx, left, false)
+  traceRail(ctx, right.reverse(), true)
   ctx.closePath()
   ctx.fillStyle = color
   ctx.globalAlpha = alpha
@@ -515,28 +513,16 @@ function fillJag(
 function traceRail(
   ctx: CanvasRenderingContext2D,
   rail: { x: number; y: number }[],
-  smooth: boolean,
   join: boolean,
 ): void {
   const first = rail[0]
   if (!first) return
   if (join) ctx.lineTo(first.x, first.y)
   else ctx.moveTo(first.x, first.y)
-  if (!smooth || rail.length < 3) {
-    for (let i = 1; i < rail.length; i++) {
-      const point = rail[i]
-      if (point) ctx.lineTo(point.x, point.y)
-    }
-    return
-  }
-  for (let i = 1; i < rail.length - 1; i++) {
+  for (let i = 1; i < rail.length; i++) {
     const point = rail[i]
-    const next = rail[i + 1]
-    if (!point || !next) continue
-    ctx.quadraticCurveTo(point.x, point.y, (point.x + next.x) / 2, (point.y + next.y) / 2)
+    if (point) ctx.lineTo(point.x, point.y)
   }
-  const end = rail[rail.length - 1]
-  if (end) ctx.lineTo(end.x, end.y)
 }
 
 function paintImpact(

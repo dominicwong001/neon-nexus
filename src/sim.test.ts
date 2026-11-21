@@ -792,9 +792,8 @@ describe('orbs', () => {
     assert.ok(sky && sky.length >= 8)
     assert.ok(Math.abs((sky[0]?.y ?? 0) - (state.playerY - 720 / 2)) < 12)
     assert.ok((sky[sky.length - 1]?.y ?? 0) > (sky[0]?.y ?? 0))
-    assert.ok(Math.max(...widths) > 10)
-    assert.ok(Math.max(...widths) > Math.min(...widths) * 1.6)
-    assert.ok(strikeDrift(sky) < 100)
+    assert.ok(Math.max(...widths) > Math.min(...widths) * 2)
+    assert.ok(strikeDrift(sky) > 24)
     assert.ok((state.bolts[0]?.splinters.length ?? 0) >= 8)
     assert.ok((state.bolts[0]?.wisps.length ?? 0) >= 5)
 

@@ -2128,10 +2128,9 @@ function shockArc(state: GameState, x: number, y: number, reactor: boolean): voi
 }
 
 function jaggedStrike(state: GameState, skyY: number, enemy: Enemy): Jagged {
-  const fromX = enemy.x + (state.rng() - 0.5) * 18
-  const raw = displace(state, fromX, skyY - 4, enemy.x, enemy.y, 3, 34)
-  const pts = soften(soften(raw))
-  return { pts, half: flowWidths(state, pts.length, 11.2, 0.34) }
+  const fromX = enemy.x + (state.rng() - 0.5) * 36
+  const pts = displace(state, fromX, skyY - 4, enemy.x, enemy.y, 4, 78)
+  return { pts, half: inkWidths(state, pts.length, 6.6, 0.16) }
 }
 
 function jaggedArc(state: GameState, from: Enemy, to: Enemy): Jagged {
@@ -2234,43 +2233,6 @@ function impactWisps(state: GameState, x: number, y: number): Wisp[] {
     })
   }
   return wisps
-}
-
-function soften(pts: { x: number; y: number }[]): { x: number; y: number }[] {
-  if (pts.length < 3) return pts
-  const eased = [pts[0]!]
-  for (let i = 1; i < pts.length - 1; i++) {
-    const prev = pts[i - 1]
-    const point = pts[i]
-    const next = pts[i + 1]
-    if (!prev || !point || !next) continue
-    eased.push({
-      x: prev.x * 0.22 + point.x * 0.56 + next.x * 0.22,
-      y: prev.y * 0.22 + point.y * 0.56 + next.y * 0.22,
-    })
-  }
-  const end = pts[pts.length - 1]
-  if (end) eased.push(end)
-  return eased
-}
-
-function flowWidths(state: GameState, count: number, base: number, taperEnd: number): number[] {
-  const raw: number[] = []
-  let wave = 0
-  for (let i = 0; i < count; i++) {
-    wave = wave * 0.65 + (state.rng() - 0.5) * 0.28
-    const t = i / Math.max(1, count - 1)
-    const taper = 1 - t * (1 - taperEnd)
-    raw.push(Math.max(0.8, base * taper * (0.9 + wave)))
-  }
-  const half = raw.slice()
-  for (let i = 1; i < count - 1; i++) {
-    const prev = raw[i - 1] ?? raw[i] ?? 1
-    const mid = raw[i] ?? 1
-    const next = raw[i + 1] ?? mid
-    half[i] = prev * 0.22 + mid * 0.56 + next * 0.22
-  }
-  return half
 }
 
 function inkWidths(state: GameState, count: number, base: number, taperEnd: number): number[] {
