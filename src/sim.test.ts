@@ -779,6 +779,7 @@ describe('orbs', () => {
     assert.equal(teslaBolts(5, true), 1)
     assert.ok(teslaDamage(4, false) > teslaDamage(1, false))
     assert.ok(teslaDamage(5, true) > teslaDamage(4, false))
+    assert.ok(teslaInterval(1, false) > 1.6)
     assert.ok(teslaInterval(4, false) < teslaInterval(1, false))
     assert.ok(teslaInterval(5, true) < teslaInterval(4, false))
   })

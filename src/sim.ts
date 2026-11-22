@@ -393,8 +393,8 @@ export function teslaDamage(rank: number, reactor: boolean): number {
 
 export function teslaInterval(rank: number, reactor: boolean): number {
   if (rank <= 0) return 0
-  const wait = Math.max(0.62, 1.4 - Math.max(0, rank - 1) * 0.18)
-  return reactor ? Math.max(0.28, wait * 0.48) : wait
+  const wait = Math.max(0.95, 1.9 - Math.max(0, rank - 1) * 0.16)
+  return reactor ? Math.max(0.62, wait * 0.7) : wait
 }
 
 export function droneBurst(rank: number): number {
@@ -2122,7 +2122,7 @@ function callBolt(
     let from = enemy
     let hopDamage = Math.round(dealt * 0.62)
     for (let hop = 0; hop < 3 && hopDamage > 0; hop++) {
-      const next = nearestArc(state, from, taken, 210, viewW, viewH)
+      const next = nearestArc(state, from, taken, 135, viewW, viewH)
       if (!next) break
       taken.add(next)
       const arc = jaggedArc(state, from, next)
