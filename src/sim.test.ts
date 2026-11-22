@@ -743,38 +743,38 @@ describe('orbs', () => {
     assert.equal(state.offers.some((offer) => offer.id === 'pulse'), false)
   })
 
-  it('always offers Tesla Coil, then Arc Reactor at the last rank', () => {
+  it('offers Arc Reactor and Bulletstorm on the first upgrade', () => {
     const state = createGame(0, 5)
     state.spawnCd = 999
     state.fireCd = 10
-    for (let n = 0; n < 4; n++) {
-      state.phase = 'play'
-      state.xp = state.xpNeed
-      step(state, input({ aimActive: false }), 1 / 60)
-      const card = state.offers.find((offer) => offer.id === 'tesla')
-      assert.ok(card)
-      assert.equal(card.title, 'Tesla Coil')
-      assert.match(card.detail, /one (lightning )?bolt/i)
-      assert.equal(teslaBolts(n + 1, false), 1)
-      chooseUpgrade(state, state.offers.indexOf(card))
-    }
-    assert.equal(state.mods.tesla, 4)
     state.phase = 'play'
     state.xp = state.xpNeed
     step(state, input({ aimActive: false }), 1 / 60)
-    const evolved = state.offers.find((offer) => offer.id === 'tesla')
-    assert.ok(evolved)
-    assert.equal(evolved.title, 'Arc Reactor')
-    assert.match(evolved.detail, /one red bolt/i)
-    assert.match(evolved.detail, /chain-arcs/i)
-    assert.equal(evolved.overdrive, true)
-    chooseUpgrade(state, state.offers.indexOf(evolved))
+    const reactor = state.offers.find((offer) => offer.id === 'tesla')
+    const storm = state.offers.find((offer) => offer.id === 'drone')
+    assert.ok(reactor)
+    assert.ok(storm)
+    assert.equal(reactor.title, 'Arc Reactor')
+    assert.match(reactor.detail, /one red bolt/i)
+    assert.match(reactor.detail, /chain-arcs/i)
+    assert.equal(reactor.overdrive, true)
+    assert.equal(storm.title, 'Bulletstorm')
+    assert.equal(storm.overdrive, true)
+    chooseUpgrade(state, state.offers.indexOf(reactor))
     assert.equal(state.mods.tesla, 5)
     assert.equal(arcReactor(state.mods.tesla), true)
-    state.phase = 'play'
+    assert.equal(state.phase, 'play')
     state.xp = state.xpNeed
     step(state, input({ aimActive: false }), 1 / 60)
     assert.equal(state.offers.some((offer) => offer.id === 'tesla'), false)
+    assert.ok(state.offers.some((offer) => offer.id === 'drone' && offer.title === 'Bulletstorm'))
+    chooseUpgrade(state, state.offers.findIndex((offer) => offer.id === 'drone'))
+    assert.equal(state.mods.drone, 5)
+    assert.equal(droneStorm(state.mods.drone), true)
+    state.phase = 'play'
+    state.xp = state.xpNeed
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(state.offers.some((offer) => offer.id === 'drone'), false)
     assert.equal(teslaBolts(4, false), 1)
     assert.equal(teslaBolts(5, true), 1)
     assert.ok(teslaDamage(4, false) > teslaDamage(1, false))
@@ -917,6 +917,8 @@ describe('orbs', () => {
     assert.equal(state.bullets.length, 0)
     chooseUpgrade(state, 0)
     if (chosen.id === 'cache') assert.equal(state.score, 40)
+    else if (chosen.id === 'tesla') assert.equal(state.mods.tesla, 5)
+    else if (chosen.id === 'drone') assert.equal(state.mods.drone, 5)
     else assert.equal(state.mods[chosen.id], 1)
     assert.equal(state.phase, 'play')
   })
@@ -1368,16 +1370,14 @@ describe('orbs', () => {
     assert.equal(state.enemies[0]?.hp, HIT)
   })
 
-  it('offers Drone, then Bulletstorm at rank 5, and shells only burst when they land', () => {
+  it('offers Bulletstorm on the first drone card, and shells only burst when they land', () => {
     const state = createGame(0, 46)
     state.spawnCd = 999
     state.fireCd = 10
-    for (let n = 0; n < 5; n++) {
-      const offer = takeOffer(state, 'drone')
-      assert.equal(offer.title, n === 4 ? 'Bulletstorm' : 'Drone')
-      assert.equal(offer.overdrive, n === 4)
-      chooseUpgrade(state, state.offers.indexOf(offer))
-    }
+    const offer = takeOffer(state, 'drone')
+    assert.equal(offer.title, 'Bulletstorm')
+    assert.equal(offer.overdrive, true)
+    chooseUpgrade(state, state.offers.indexOf(offer))
     assert.equal(state.mods.drone, 5)
     assert.equal(droneStorm(4), false)
     assert.equal(droneStorm(5), true)
@@ -1902,7 +1902,7 @@ describe('orbs', () => {
     state.time = 12
     state.offers = [{ id: 'drone', title: 'Drone', detail: '', rank: 1, max: 5, overdrive: false }]
     chooseUpgrade(state, 0)
-    assert.deepEqual(state.upgradeMarks[0], { t: 12, source: 'drone', name: 'Drone', rank: 1 })
+    assert.deepEqual(state.upgradeMarks[0], { t: 12, source: 'drone', name: 'Bulletstorm', rank: 5 })
 
     state.phase = 'level'
     state.time = 40

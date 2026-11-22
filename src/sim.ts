@@ -2321,12 +2321,17 @@ function rollOffers(state: GameState): Offer[] {
     }
   }
   const picked: UpgradeId[] = pool.slice(0, 3)
-  if (state.mods.tesla < UPGRADE_MAX.tesla && !picked.includes('tesla')) {
-    if (picked.length < 3) picked.push('tesla')
-    else picked[picked.length - 1] = 'tesla'
-  }
+  pinOffer(picked, 'tesla', state.mods.tesla < UPGRADE_MAX.tesla)
+  pinOffer(picked, 'drone', state.mods.drone < UPGRADE_MAX.drone)
   while (picked.length < 3) picked.push('cache')
   return picked.map((id) => describeOffer(state, id))
+}
+
+function pinOffer(picked: UpgradeId[], id: UpgradeId, needed: boolean): void {
+  if (!needed || picked.includes(id)) return
+  const spare = picked.findIndex((item) => item !== 'tesla' && item !== 'drone')
+  if (spare >= 0) picked[spare] = id
+  else if (picked.length < 3) picked.push(id)
 }
 
 function describeOffer(state: GameState, id: UpgradeId): Offer {
@@ -2336,12 +2341,32 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
   const rank = state.mods[id] + 1
   const max = UPGRADE_MAX[id]
   const overdrive = rank >= OVERDRIVE && (id === 'orbiter' || id === 'field' || id === 'ball')
+  if (id === 'tesla' && state.mods.tesla === 0) {
+    return {
+      id,
+      title: 'Arc Reactor',
+      detail: 'One red bolt strikes, then chain-arcs through nearby hostiles. It hits harder and falls again sooner.',
+      rank: TESLA.evolveRank,
+      max,
+      overdrive: true,
+    }
+  }
   if (id === 'tesla' && arcReactor(rank)) {
     return {
       id,
       title: 'Arc Reactor',
       detail: 'One red bolt strikes, then chain-arcs through nearby hostiles. It hits harder and falls again sooner.',
       rank,
+      max,
+      overdrive: true,
+    }
+  }
+  if (id === 'drone' && state.mods.drone === 0) {
+    return {
+      id,
+      title: 'Bulletstorm',
+      detail: 'The drone turns red. Each volley is a wide fan of rockets, and the wait between them is short.',
+      rank: DRONE.stormRank,
       max,
       overdrive: true,
     }
@@ -2421,6 +2446,20 @@ function applyUpgrade(state: GameState, id: UpgradeId): void {
   if (id === 'cache') {
     state.score += 40
     if (state.score > state.best) state.best = state.score
+    return
+  }
+  if (id === 'drone' && state.mods.drone === 0) {
+    state.mods.drone = DRONE.stormRank
+    const mark = upgradeSource(id, state.mods.drone)
+    if (mark) state.upgradeMarks.push({ t: state.time, source: mark.source, name: mark.name, rank: state.mods.drone })
+    state.droneReload = 0.25
+    return
+  }
+  if (id === 'tesla' && state.mods.tesla === 0) {
+    state.mods.tesla = TESLA.evolveRank
+    const mark = upgradeSource(id, state.mods.tesla)
+    if (mark) state.upgradeMarks.push({ t: state.time, source: mark.source, name: mark.name, rank: state.mods.tesla })
+    state.teslaCd = 0.2
     return
   }
   state.mods[id] += 1
