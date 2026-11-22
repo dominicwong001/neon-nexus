@@ -456,18 +456,28 @@ function drawBolts(
     const glow = red ? '#ff1a2e' : '#ffffff'
     const core = '#ffffff'
     const crack = Math.max(0.07, fade ** 1.7)
-    const glowAlpha = (red ? 0.78 : 0.62) * flicker * (0.35 + fade * 0.65)
+    const glowAlpha = (red ? 0.9 : 0.72) * flicker * (0.45 + fade * 0.55)
     const coreAlpha = Math.min(1, 0.55 + fade * 0.45)
     const strikeTop = bolt.strike.pts[0]
     const strikeBottom = bolt.strike.pts[bolt.strike.pts.length - 1]
     const strike = jitterPts(placeStrikeTop(bolt.strike.pts, cameraTop), state.time, bolt.x, still ? 0 : 6, true)
-    fillJag(ctx, { pts: strike, half: bolt.strike.half }, X, Y, 2.9 * crack, glow, glowAlpha)
-    fillJag(ctx, { pts: strike, half: bolt.strike.half }, X, Y, crack, core, coreAlpha)
+    if (!lean) ctx.globalCompositeOperation = 'lighter'
+    fillJag(ctx, { pts: strike, half: bolt.strike.half }, X, Y, 5.4 * crack, glow, glowAlpha * (red ? 0.55 : 0.38))
+    fillJag(ctx, { pts: strike, half: bolt.strike.half }, X, Y, 2.8 * crack, glow, glowAlpha)
+    if (!lean) stampAura(ctx, strike, X, Y, glow, glowAlpha * 0.7, red ? 62 : 50)
+    paintMotes(ctx, strike, state.time, fade, glow, core, X, Y)
     for (const arc of bolt.arcs) {
       const pts = jitterPts(arc.pts, state.time, bolt.y + arc.pts.length, still ? 0 : 3.5, true)
-      fillJag(ctx, { pts, half: arc.half }, X, Y, 2.6 * crack, glow, glowAlpha)
+      fillJag(ctx, { pts, half: arc.half }, X, Y, 4.4 * crack, glow, glowAlpha * (red ? 0.5 : 0.34))
+      fillJag(ctx, { pts, half: arc.half }, X, Y, 2.5 * crack, glow, glowAlpha)
+      if (!lean) stampAura(ctx, pts, X, Y, glow, glowAlpha * 0.55, red ? 40 : 32)
+      paintMotes(ctx, pts, state.time, fade, glow, core, X, Y)
+      ctx.globalCompositeOperation = 'source-over'
       fillJag(ctx, { pts, half: arc.half }, X, Y, crack, core, coreAlpha)
+      if (!lean) ctx.globalCompositeOperation = 'lighter'
     }
+    ctx.globalCompositeOperation = 'source-over'
+    fillJag(ctx, { pts: strike, half: bolt.strike.half }, X, Y, crack, core, coreAlpha)
     const ink = red ? '#ff2436' : '#ffffff'
     for (const ray of bolt.splinters) {
       const lifted = ray.pts.map((point) => ({
@@ -486,6 +496,67 @@ function drawBolts(
     paintShards(ctx, bolt.shards, X, Y, fade, ink)
   }
   ctx.restore()
+}
+
+function stampAura(
+  ctx: CanvasRenderingContext2D,
+  pts: { x: number; y: number }[],
+  X: (x: number) => number,
+  Y: (y: number) => number,
+  color: string,
+  alpha: number,
+  size: number,
+): void {
+  if (pts.length < 2 || alpha <= 0) return
+  const sprite = glowFor(color)
+  ctx.globalAlpha = alpha
+  for (let i = 1; i < pts.length - 1; i += 2) {
+    const point = pts[i]
+    if (!point) continue
+    const x = X(point.x)
+    const y = Y(point.y)
+    ctx.drawImage(sprite, x - size / 2, y - size / 2, size, size)
+  }
+}
+
+function paintMotes(
+  ctx: CanvasRenderingContext2D,
+  pts: { x: number; y: number }[],
+  time: number,
+  fade: number,
+  glow: string,
+  core: string,
+  X: (x: number) => number,
+  Y: (y: number) => number,
+): void {
+  if (pts.length < 2 || fade <= 0) return
+  const age = 1 - fade
+  const last = pts.length - 1
+  const count = Math.min(12, last)
+  for (let i = 0; i < count; i++) {
+    const index = 1 + Math.floor(((i + 0.5) / count) * (last - 1))
+    const point = pts[index]
+    const prev = pts[Math.max(0, index - 1)]
+    const next = pts[Math.min(last, index + 1)]
+    if (!point || !prev || !next) continue
+    const dx = next.x - prev.x
+    const dy = next.y - prev.y
+    const len = Math.hypot(dx, dy) || 1
+    const side = i % 2 === 0 ? 1 : -1
+    const reach = (4 + age * (16 + (i % 4) * 7)) * side
+    const nx = (-dy / len) * reach
+    const ny = (dx / len) * reach
+    const blink = 0.35 + 0.65 * Math.abs(Math.sin(time * 58 + i * 2.3))
+    const x = X(point.x + nx)
+    const y = Y(point.y + ny)
+    const spark = i % 3 === 0 ? 2.4 : 1.3
+    ctx.fillStyle = glow
+    ctx.globalAlpha = fade * blink * 0.9
+    ctx.fillRect(x - spark, y - spark, spark * 2, spark * 2)
+    ctx.fillStyle = core
+    ctx.globalAlpha = fade * blink
+    ctx.fillRect(x - 0.6, y - 0.6, 1.2, 1.2)
+  }
 }
 
 function liftWithStrike(y: number, strikeTop: number, strikeBottom: number, cameraTop: number): number {
