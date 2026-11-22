@@ -2075,16 +2075,28 @@ function teslaTargets(state: GameState, count: number, viewW: number, viewH: num
   const pool = state.enemies.filter(
     (enemy) => !enemy.immortal && !enemy.ballistic && enemyOnScreen(state, enemy, viewW, viewH),
   )
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(state.rng() * (i + 1))
-    const swap = pool[i]
-    const other = pool[j]
-    if (swap && other) {
-      pool[i] = other
-      pool[j] = swap
-    }
+  const open = pool.slice()
+  const picked: Enemy[] = []
+  while (picked.length < count && open.length > 0) {
+    const tough = state.rng() < 0.68
+    const choice = tough ? weightedByHull(state, open) : open[Math.floor(state.rng() * open.length)]
+    if (!choice) break
+    picked.push(choice)
+    const at = open.indexOf(choice)
+    if (at >= 0) open.splice(at, 1)
   }
-  return pool.slice(0, count)
+  return picked
+}
+
+function weightedByHull(state: GameState, pool: Enemy[]): Enemy | undefined {
+  let total = 0
+  for (const enemy of pool) total += Math.max(1, enemy.maxHp)
+  let roll = state.rng() * total
+  for (const enemy of pool) {
+    roll -= Math.max(1, enemy.maxHp)
+    if (roll <= 0) return enemy
+  }
+  return pool[pool.length - 1]
 }
 
 function callBolt(
@@ -2386,7 +2398,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off giant circles and any hostile whose hull is 1000 or more, no matter how much health is left.' },
     drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
-    tesla: { title: 'Tesla Coil', detail: 'One lightning bolt falls on a hostile in view. Later ranks hit harder and strike again sooner.' },
+    tesla: { title: 'Tesla Coil', detail: 'One lightning bolt falls on a hostile in view, leaning toward the tougher ones. Later ranks hit harder and strike again sooner.' },
   }
   const detail =
     id === 'orbiter' && rank > 1

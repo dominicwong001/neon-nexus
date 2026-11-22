@@ -874,6 +874,27 @@ describe('orbs', () => {
     assert.ok(state.bolts.every((bolt) => Math.hypot(bolt.x - hidden.x, bolt.y - hidden.y) > 40))
   })
 
+  it('leans toward a tougher hostile without always striking it', () => {
+    let strongHits = 0
+    const trials = 80
+    for (let n = 0; n < trials; n++) {
+      const state = createGame(0, n + 1)
+      state.spawnCd = 999
+      state.fireCd = 10
+      state.mods.tesla = 1
+      state.teslaCd = 0
+      const strong = enemy({ x: 90, y: -10, hp: 8000, maxHp: 1200, radius: 28, speed: 0 })
+      state.enemies.push(
+        enemy({ x: -80, y: 20, hp: 8000, maxHp: 120, radius: 12, speed: 0 }),
+        strong,
+      )
+      step(state, input({ aimActive: false }), 1 / 60)
+      if (state.bolts.some((bolt) => Math.hypot(bolt.x - strong.x, bolt.y - strong.y) < 4)) strongHits += 1
+    }
+    assert.ok(strongHits > trials * 0.55)
+    assert.ok(strongHits < trials)
+  })
+
   it('opens three upgrades when the bar fills and freezes the pit', () => {
     const state = createGame(0, 42)
     state.spawnCd = 999
