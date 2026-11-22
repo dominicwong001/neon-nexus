@@ -380,9 +380,9 @@ export function arcReactor(rank: number): boolean {
   return rank >= TESLA.evolveRank
 }
 
-export function teslaBolts(rank: number, reactor: boolean): number {
+export function teslaBolts(rank: number, _reactor: boolean): number {
   if (rank <= 0) return 0
-  return reactor ? 3 : 1
+  return 1
 }
 
 export function teslaDamage(rank: number, reactor: boolean): number {
@@ -2328,7 +2328,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     return {
       id,
       title: 'Arc Reactor',
-      detail: 'Three red bolts strike at once. Each one chain-arcs through nearby hostiles, hits harder, and falls again sooner.',
+      detail: 'One red bolt strikes, then chain-arcs through nearby hostiles. It hits harder and falls again sooner.',
       rank,
       max,
       overdrive: true,
