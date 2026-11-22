@@ -382,8 +382,7 @@ export function arcReactor(rank: number): boolean {
 
 export function teslaBolts(rank: number, reactor: boolean): number {
   if (rank <= 0) return 0
-  if (reactor) return rank + 1
-  return rank
+  return reactor ? 3 : 1
 }
 
 export function teslaDamage(rank: number, reactor: boolean): number {
@@ -2329,7 +2328,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     return {
       id,
       title: 'Arc Reactor',
-      detail: 'Supercharged bolts fall faster and chain-arc through nearby hostiles.',
+      detail: 'Three red bolts strike at once. Each one chain-arcs through nearby hostiles, hits harder, and falls again sooner.',
       rank,
       max,
       overdrive: true,
@@ -2387,7 +2386,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off giant circles and any hostile whose hull is 1000 or more, no matter how much health is left.' },
     drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
-    tesla: { title: 'Tesla Coil', detail: 'Lightning falls on random hostiles. Each rank adds bolts, damage, and strike speed.' },
+    tesla: { title: 'Tesla Coil', detail: 'One lightning bolt falls on a hostile in view. Later ranks hit harder and strike again sooner.' },
   }
   const detail =
     id === 'orbiter' && rank > 1
@@ -2399,7 +2398,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
             : id === 'drone' && rank > 1
               ? 'More rockets in each fan, a wider blast, and a shorter wait between volleys.'
               : id === 'tesla' && rank > 1 && rank < TESLA.evolveRank
-                ? 'More bolts strike at once. They hit harder and fall sooner.'
+                ? 'Still one bolt. It hits harder, and the pause before the next strike is shorter.'
                 : id === 'regen' && rank > 1
               ? 'Each level restores more health.'
               : copy[id].detail

@@ -754,6 +754,8 @@ describe('orbs', () => {
       const card = state.offers.find((offer) => offer.id === 'tesla')
       assert.ok(card)
       assert.equal(card.title, 'Tesla Coil')
+      assert.match(card.detail, /one (lightning )?bolt/i)
+      assert.equal(teslaBolts(n + 1, false), 1)
       chooseUpgrade(state, state.offers.indexOf(card))
     }
     assert.equal(state.mods.tesla, 4)
@@ -763,6 +765,8 @@ describe('orbs', () => {
     const evolved = state.offers.find((offer) => offer.id === 'tesla')
     assert.ok(evolved)
     assert.equal(evolved.title, 'Arc Reactor')
+    assert.match(evolved.detail, /three red bolts/i)
+    assert.match(evolved.detail, /chain-arcs/i)
     assert.equal(evolved.overdrive, true)
     chooseUpgrade(state, state.offers.indexOf(evolved))
     assert.equal(state.mods.tesla, 5)
@@ -771,9 +775,12 @@ describe('orbs', () => {
     state.xp = state.xpNeed
     step(state, input({ aimActive: false }), 1 / 60)
     assert.equal(state.offers.some((offer) => offer.id === 'tesla'), false)
-    assert.ok(teslaBolts(5, true) > teslaBolts(4, false))
+    assert.equal(teslaBolts(4, false), 1)
+    assert.equal(teslaBolts(5, true), 3)
+    assert.ok(teslaDamage(4, false) > teslaDamage(1, false))
     assert.ok(teslaDamage(5, true) > teslaDamage(4, false))
-    assert.ok(teslaInterval(5, true) < teslaInterval(1, false))
+    assert.ok(teslaInterval(4, false) < teslaInterval(1, false))
+    assert.ok(teslaInterval(5, true) < teslaInterval(4, false))
   })
 
   it('drops lightning on a hostile and chain-arcs Arc Reactor', () => {
@@ -787,7 +794,7 @@ describe('orbs', () => {
     step(state, input({ aimActive: false }), 1 / 60)
     assert.ok(foe.hp < 500)
     assert.ok(state.dealt.tesla > 0)
-    assert.ok(state.bolts.length >= 1)
+    assert.equal(state.bolts.length, 1)
     const sky = state.bolts[0]?.strike.pts
     const widths = state.bolts[0]?.strike.half ?? []
     assert.ok(sky && sky.length >= 8)
@@ -813,6 +820,19 @@ describe('orbs', () => {
     assert.ok(Math.hypot(flown.x - bornX, flown.y - bornY) > 8)
     assert.ok(Math.hypot(flown.vx, flown.vy) < speed)
 
+    const single = createGame(0, 3)
+    single.spawnCd = 999
+    single.fireCd = 10
+    single.mods.tesla = 4
+    single.teslaCd = 0
+    single.enemies.push(
+      enemy({ x: 80, y: 20, hp: 900, radius: 16, speed: 0 }),
+      enemy({ x: 160, y: -30, hp: 900, radius: 16, speed: 0 }),
+      enemy({ x: -40, y: 50, hp: 900, radius: 16, speed: 0 }),
+    )
+    step(single, input({ aimActive: false }), 1 / 60)
+    assert.equal(single.bolts.length, 1)
+
     const reactor = createGame(0, 9)
     reactor.spawnCd = 999
     reactor.fireCd = 10
@@ -820,8 +840,11 @@ describe('orbs', () => {
     reactor.teslaCd = 0
     const near = enemy({ x: 180, y: 0, hp: 900, radius: 18, speed: 0 })
     const beside = enemy({ x: 250, y: 16, hp: 900, radius: 18, speed: 0 })
-    reactor.enemies.push(near, beside)
+    const third = enemy({ x: 140, y: 36, hp: 900, radius: 18, speed: 0 })
+    const fourth = enemy({ x: 300, y: -24, hp: 900, radius: 18, speed: 0 })
+    reactor.enemies.push(near, beside, third, fourth)
     step(reactor, input({ aimActive: false }), 1 / 60)
+    assert.equal(reactor.bolts.length, 3)
     assert.ok(near.hp < 900)
     assert.ok(beside.hp < 900)
     assert.ok(
