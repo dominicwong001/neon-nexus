@@ -475,12 +475,14 @@ function followDrone(state: GameState, dt: number): void {
     state.droneVx += (vx - state.droneVx) * k
     state.droneVy += (vy - state.droneVy) * k
   }
+  faceDrone(state)
+}
+
+function faceDrone(state: GameState): void {
   const want = state.reticleOn
     ? Math.atan2(state.reticleY - state.droneY, state.reticleX - state.droneX)
     : state.aim
-  const diff = Math.atan2(Math.sin(want - state.droneFace), Math.cos(want - state.droneFace))
-  const maxStep = 2.4 * dt
-  state.droneFace += Math.max(-maxStep, Math.min(maxStep, diff))
+  state.droneFace = want
 }
 
 function droneAimed(state: GameState): boolean {
@@ -702,6 +704,7 @@ function simulate(state: GameState, input: Input, dt: number, events: StepEvents
   launchBalls(state, dt)
   moveBalls(state, input, dt, events)
   updateDrone(state, dt, events)
+  faceDrone(state)
   updateTesla(state, dt, events, input.viewW, input.viewH)
   moveOrbs(state, input, dt, events)
   touchPlayer(state, events)
@@ -1707,7 +1710,9 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
         hopStormArea(state, true)
       }
     }
-  } else if (!roundOpen && !droneAimed(state)) return
+  }
+  faceDrone(state)
+  if (!storm && !roundOpen && !droneAimed(state)) return
   state.droneBurst = Math.max(0, state.droneBurst - dt)
   state.droneCd -= dt
   if (state.droneCd <= 0 && state.mortars.length < 72) {

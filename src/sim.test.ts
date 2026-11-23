@@ -1436,12 +1436,6 @@ describe('orbs', () => {
     assert.equal(lob.reticleOn, true)
     assert.equal(lob.reticleX, 220)
     assert.equal(lob.enemies[0]?.hp, 800)
-    assert.equal(lob.mortars.length, 0)
-    let turned = 0
-    while (lob.mortars.length < 1 && turned < 90) {
-      step(lob, input({ aimActive: false }), 1 / 60)
-      turned += 1
-    }
     assert.ok(lob.mortars.length >= 1)
     const aim = Math.atan2(lob.reticleY - lob.droneY, lob.reticleX - lob.droneX)
     const gap = Math.atan2(Math.sin(aim - lob.droneFace), Math.cos(aim - lob.droneFace))
@@ -1650,8 +1644,9 @@ describe('orbs', () => {
     yaw.enemies.push(enemy({ x: yaw.droneX, y: yaw.droneY - 240, hp: 400, radius: 16, speed: 0 }))
     yaw.droneFace = 0
     for (let n = 0; n < 8; n++) step(yaw, input({ aimActive: false }), 1 / 60)
-    assert.ok(yaw.droneFace < -0.2)
-    assert.ok(yaw.droneFace > -0.7)
+    const faced = Math.atan2(yaw.reticleY - yaw.droneY, yaw.reticleX - yaw.droneX)
+    const yawGap = Math.atan2(Math.sin(faced - yaw.droneFace), Math.cos(faced - yaw.droneFace))
+    assert.ok(Math.abs(yawGap) < 0.02)
     let up = 0
     let down = 0
     let near = storm.mortars[0]
@@ -1772,7 +1767,20 @@ describe('orbs', () => {
     assert.ok(turning.mortars.length >= 3)
     const want = Math.atan2(turning.reticleY - turning.droneY, turning.reticleX - turning.droneX)
     const still = Math.atan2(Math.sin(want - turning.droneFace), Math.cos(want - turning.droneFace))
-    assert.ok(Math.abs(still) > 0.4)
+    assert.ok(Math.abs(still) < 0.02)
+
+    const sweep = createGame(0, 63, false)
+    sweep.spawnCd = 999
+    sweep.fireCd = 10
+    sweep.mods.drone = 1
+    sweep.reticleOn = false
+    sweep.droneFace = 0
+    const aimX = sweep.playerX + 40
+    const aimY = sweep.playerY - 280
+    step(sweep, input({ aimX, aimY, aimActive: true }), 1 / 60)
+    const swept = Math.atan2(aimY - sweep.playerY, aimX - sweep.playerX)
+    const sweptGap = Math.atan2(Math.sin(swept - sweep.droneFace), Math.cos(swept - sweep.droneFace))
+    assert.ok(Math.abs(sweptGap) < 0.02)
 
     const away = createGame(0, 62, false)
     away.spawnCd = 999
