@@ -761,27 +761,28 @@ describe('orbs', () => {
     assert.equal(state.offers.some((offer) => offer.id === 'pulse'), false)
   })
 
-  it('always offers Tesla Coil, then Arc Reactor at the last rank', () => {
+  it('offers Tesla Coil through the ranks, then Arc Reactor at the last rank', () => {
     const state = createGame(0, 5)
     state.spawnCd = 999
     state.fireCd = 10
-    for (let n = 0; n < 4; n++) {
+    let missed = 0
+    for (let n = 0; n < 36; n++) {
       state.phase = 'play'
       state.xp = state.xpNeed
       step(state, input({ aimActive: false }), 1 / 60)
-      const card = state.offers.find((offer) => offer.id === 'tesla')
-      assert.ok(card)
+      if (!state.offers.some((offer) => offer.id === 'tesla')) missed += 1
+      state.xp = 0
+    }
+    assert.ok(missed >= 5)
+    for (let n = 0; n < 4; n++) {
+      const card = takeOffer(state, 'tesla')
       assert.equal(card.title, 'Tesla Coil')
       assert.match(card.detail, /one (lightning )?bolt/i)
       assert.equal(teslaBolts(n + 1, false), 1)
       chooseUpgrade(state, state.offers.indexOf(card))
     }
     assert.equal(state.mods.tesla, 4)
-    state.phase = 'play'
-    state.xp = state.xpNeed
-    step(state, input({ aimActive: false }), 1 / 60)
-    const evolved = state.offers.find((offer) => offer.id === 'tesla')
-    assert.ok(evolved)
+    const evolved = takeOffer(state, 'tesla')
     assert.equal(evolved.title, 'Arc Reactor')
     assert.match(evolved.detail, /one red bolt/i)
     assert.match(evolved.detail, /chain-arcs/i)
@@ -817,7 +818,7 @@ describe('orbs', () => {
     const sky = state.bolts[0]?.strike.pts
     const widths = state.bolts[0]?.strike.half ?? []
     assert.ok(sky && sky.length >= 8)
-    assert.ok(Math.abs((sky[0]?.y ?? 0) - (state.playerY - 720 / 2)) < 12)
+    assert.ok((sky[0]?.y ?? 0) < state.playerY - 720 / 2 - 200)
     assert.ok((sky[sky.length - 1]?.y ?? 0) > (sky[0]?.y ?? 0))
     assert.ok(Math.max(...widths) > Math.min(...widths) * 2)
     assert.ok(strikeDrift(sky) > 24)
@@ -876,6 +877,27 @@ describe('orbs', () => {
         }),
       ),
     )
+  })
+
+  it('keeps a top-of-screen bolt from whipping wider than the drop', () => {
+    const state = createGame(0, 6)
+    state.spawnCd = 999
+    state.fireCd = 10
+    state.mods.tesla = 1
+    state.teslaCd = 0
+    const top = state.playerY - 720 / 2 + 24
+    state.enemies.push(enemy({ x: 40, y: top, hp: 500, radius: 16, speed: 0 }))
+    step(state, input({ aimActive: false, viewH: 720, viewW: 1280 }), 1 / 60)
+    const bolt = state.bolts[0]
+    assert.ok(bolt)
+    const cameraTop = state.playerY - 360
+    const lifted = placeStrikeTop(bolt.strike.pts, cameraTop)
+    const drop = (lifted[lifted.length - 1]?.y ?? 0) - (lifted[0]?.y ?? 0)
+    let widest = 0
+    for (const point of lifted) widest = Math.max(widest, Math.abs(point.x - 40))
+    assert.ok(drop > 200)
+    assert.ok(widest < drop * 0.55)
+    assert.ok(widest < 160)
   })
 
   it('strikes only enemies inside the camera', () => {

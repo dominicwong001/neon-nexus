@@ -2179,7 +2179,10 @@ function shockArc(state: GameState, x: number, y: number, reactor: boolean): voi
 
 function jaggedStrike(state: GameState, skyY: number, enemy: Enemy): Jagged {
   const fromX = enemy.x + (state.rng() - 0.5) * 36
-  const pts = displace(state, fromX, skyY - 4, enemy.x, enemy.y, 4, 78)
+  const fromY = Math.min(skyY - BOLT_SKY_PAD, enemy.y - BOLT_SKY_PAD - 40)
+  const drop = Math.max(120, enemy.y - fromY)
+  const spread = Math.min(78, drop * 0.2)
+  const pts = displace(state, fromX, fromY, enemy.x, enemy.y, 4, spread)
   return { pts, half: inkWidths(state, pts.length, 6.6, 0.16) }
 }
 
@@ -2331,10 +2334,6 @@ function rollOffers(state: GameState): Offer[] {
     }
   }
   const picked: UpgradeId[] = pool.slice(0, 3)
-  if (state.mods.tesla < UPGRADE_MAX.tesla && !picked.includes('tesla')) {
-    if (picked.length < 3) picked.push('tesla')
-    else picked[picked.length - 1] = 'tesla'
-  }
   while (picked.length < 3) picked.push('cache')
   return picked.map((id) => describeOffer(state, id))
 }
