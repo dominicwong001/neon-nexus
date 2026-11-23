@@ -1016,7 +1016,7 @@ export const HEX_FUSE = 1.75
 
 export function hexFuseLit(fuse: number): boolean {
   const elapsed = Math.max(0, HEX_FUSE - fuse)
-  const beat = elapsed * (1.1 + elapsed * 2.4)
+  const beat = elapsed * (3.4 + elapsed * 7.2)
   return Math.floor(beat) % 2 === 0
 }
 

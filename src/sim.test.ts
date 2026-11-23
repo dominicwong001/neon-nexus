@@ -7,6 +7,8 @@ import {
   DISC,
   chooseUpgrade,
   createGame,
+  HEX_FUSE,
+  hexFuseLit,
   hexRingReach,
   orbitActive,
   orbitDiscs,
@@ -684,6 +686,22 @@ describe('orbs', () => {
       bits = state.enemies.filter((hostile) => hostile.ballistic && hostile.kind === 3)
     }
     assert.ok(blinked >= 8)
+    let flips = 0
+    let prev = hexFuseLit(HEX_FUSE)
+    for (let n = 1; n <= 105; n++) {
+      const lit = hexFuseLit(HEX_FUSE - n / 60)
+      if (lit !== prev) flips += 1
+      prev = lit
+    }
+    assert.ok(flips >= 24)
+    let late = 0
+    prev = hexFuseLit(0.4)
+    for (let n = 1; n <= 24; n++) {
+      const lit = hexFuseLit(0.4 - n / 60)
+      if (lit !== prev) late += 1
+      prev = lit
+    }
+    assert.ok(late >= 8)
     assert.equal(bits.length, 6)
     const angles = bits
       .map((hostile) => Math.atan2(hostile.vy, hostile.vx))
