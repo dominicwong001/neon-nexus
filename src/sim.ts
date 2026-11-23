@@ -2120,7 +2120,7 @@ function callBolt(
   shockArc(state, enemy.x, enemy.y, reactor)
   if (reactor) {
     let from = enemy
-    let hopDamage = Math.round(dealt * 0.62)
+    let hopDamage = Math.round(dealt * 0.35)
     for (let hop = 0; hop < 3 && hopDamage > 0; hop++) {
       const next = nearestArc(state, from, taken, 135, viewW, viewH)
       if (!next) break
@@ -2133,7 +2133,7 @@ function callBolt(
       damageEnemy(state, next, events, hopDamage, ink, 'tesla')
       shockArc(state, next.x, next.y, true)
       from = next
-      hopDamage = Math.round(hopDamage * 0.62)
+      hopDamage = Math.round(hopDamage * 0.35)
     }
   }
   if (state.bolts.length > 28) state.bolts.shift()
