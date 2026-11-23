@@ -25,6 +25,14 @@ import {
   teslaBolts,
   teslaDamage,
   teslaInterval,
+  singularity,
+  holeRadius,
+  holeDuration,
+  holeDamage,
+  holePull,
+  holeInterval,
+  holeBlastRadius,
+  holeBlastDamage,
   placeStrikeTop,
   BOLT_SKY_PAD,
   orbiterCount,
@@ -953,6 +961,97 @@ describe('orbs', () => {
     }
     assert.ok(strongHits > trials * 0.55)
     assert.ok(strongHits < trials)
+  })
+
+  it('offers Black Hole through the ranks, then Singularity that detonates from absorbed damage', () => {
+    const state = createGame(0, 27)
+    state.spawnCd = 999
+    state.fireCd = 10
+    for (let n = 0; n < 4; n++) {
+      const card = takeOffer(state, 'hole')
+      assert.equal(card.title, 'Black Hole')
+      assert.equal(card.overdrive, false)
+      if (n === 0) assert.match(card.detail, /pull/i)
+      else assert.match(card.detail, /wider|longer|harder/i)
+      chooseUpgrade(state, state.offers.indexOf(card))
+      assert.ok(holeRadius(n + 1) > 0)
+      assert.ok(holeDuration(n + 1) >= 2)
+      assert.ok(holeDamage(n + 1) >= 7)
+      assert.ok(holePull(n + 1) >= 150)
+    }
+    assert.equal(state.mods.hole, 4)
+    assert.ok(holeRadius(4) > holeRadius(1))
+    assert.ok(holeDuration(4) > holeDuration(1))
+    assert.ok(holeDamage(4) > holeDamage(1))
+    assert.ok(holePull(4) > holePull(1))
+    assert.ok(holeInterval(4) < holeInterval(1))
+    const evolved = takeOffer(state, 'hole')
+    assert.equal(evolved.title, 'Singularity')
+    assert.equal(evolved.overdrive, true)
+    assert.match(evolved.detail, /crimson|collapse|blast/i)
+    chooseUpgrade(state, state.offers.indexOf(evolved))
+    assert.equal(state.mods.hole, 5)
+    assert.equal(singularity(5), true)
+    assert.ok(holeRadius(5) > holeRadius(4))
+    assert.ok(holePull(5) > holePull(4))
+    assert.ok(holeBlastRadius(200) > holeBlastRadius(40))
+    assert.ok(holeBlastDamage(200) > holeBlastDamage(40))
+
+    const well = createGame(0, 28)
+    well.spawnCd = 999
+    well.fireCd = 10
+    well.invuln = 5
+    well.mods.hole = 2
+    well.holeCd = 0
+    well.enemies.push(enemy({ x: 160, y: 20, hp: 800, radius: 16, speed: 0, vx: 0, vy: 0 }))
+    step(well, input({ aimActive: false }), 1 / 60)
+    assert.equal(well.holes.length, 1)
+    const hole = well.holes[0]
+    assert.ok(hole)
+    assert.equal(hole.singularity, false)
+    const foe = well.enemies[0]
+    assert.ok(foe)
+    foe.x = hole.x + hole.radius * 0.55
+    foe.y = hole.y
+    foe.vx = 0
+    foe.vy = 0
+    const startX = foe.x
+    const startHp = foe.hp
+    run(well, input({ aimActive: false }), 0.6)
+    assert.ok(foe.x < startX - 4)
+    assert.ok(foe.hp < startHp)
+    assert.ok(well.dealt.hole > 0)
+
+    const nova = createGame(0, 29)
+    nova.spawnCd = 999
+    nova.fireCd = 10
+    nova.invuln = 5
+    nova.mods.hole = 5
+    nova.holeCd = 999
+    nova.holes.push({
+      x: 0,
+      y: 0,
+      life: 0.01,
+      max: 2.5,
+      radius: holeRadius(5),
+      pull: holePull(5),
+      damage: holeDamage(5),
+      tickCd: 1,
+      absorbed: 180,
+      singularity: true,
+      blast: 0,
+      blastMax: 0,
+      blastRadius: 0,
+    })
+    const near = enemy({ x: 40, y: 0, hp: 2000, radius: 16, speed: 0 })
+    const far = enemy({ x: 900, y: 0, hp: 2000, radius: 16, speed: 0 })
+    nova.enemies.push(near, far)
+    step(nova, input({ aimActive: false }), 1 / 30)
+    assert.ok(nova.holes[0]?.blast > 0)
+    assert.ok((nova.holes[0]?.blastRadius ?? 0) >= holeBlastRadius(180) - 1)
+    assert.ok(near.hp < 2000)
+    assert.equal(far.hp, 2000)
+    assert.ok(nova.dealt.hole >= holeBlastDamage(180))
   })
 
   it('opens three upgrades when the bar fills and freezes the pit', () => {

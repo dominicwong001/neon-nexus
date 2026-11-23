@@ -343,6 +343,7 @@ const SERIES: { source: DamageSource; color: string }[] = [
   { source: 'ball', color: '#ffd166' },
   { source: 'drone', color: '#ff5d73' },
   { source: 'tesla', color: '#ffffff' },
+  { source: 'hole', color: '#ff6b4a' },
 ]
 const TOTAL_COLOR = '#9dffb0'
 
@@ -514,7 +515,7 @@ function legendItem(color: string, name: string, amount: number, total: boolean)
 type DamageSample = Record<DamageSource, number> & { t: number; total: number }
 
 function damageSamples(game: GameState): DamageSample[] {
-  const acc: Record<DamageSource, number> = { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0 }
+  const acc: Record<DamageSource, number> = { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0, hole: 0 }
   const samples: DamageSample[] = []
   const push = (t: number) => {
     samples.push({
@@ -525,7 +526,8 @@ function damageSamples(game: GameState): DamageSample[] {
       ball: acc.ball,
       drone: acc.drone,
       tesla: acc.tesla,
-      total: acc.stream + acc.orbiter + acc.field + acc.ball + acc.drone + acc.tesla,
+      hole: acc.hole,
+      total: acc.stream + acc.orbiter + acc.field + acc.ball + acc.drone + acc.tesla + acc.hole,
     })
   }
   push(0)
@@ -536,6 +538,7 @@ function damageSamples(game: GameState): DamageSample[] {
     acc.ball += bin.ball
     acc.drone += bin.drone
     acc.tesla += bin.tesla
+    acc.hole += bin.hole
     const at = Math.min(Math.max(game.time, 0), bin.t + 0.5)
     if (at > samples[samples.length - 1].t) push(at)
   }

@@ -23,8 +23,8 @@ export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a', '#ff2d3a'] as const
 
 export type EnemyKind = 0 | 1 | 2 | 3
 export type Phase = 'play' | 'dead' | 'level'
-export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'regen' | 'orbiter' | 'field' | 'ball' | 'drone' | 'tesla' | 'cache'
-export type DamageSource = 'stream' | 'orbiter' | 'field' | 'ball' | 'drone' | 'tesla'
+export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'regen' | 'orbiter' | 'field' | 'ball' | 'drone' | 'tesla' | 'hole' | 'cache'
+export type DamageSource = 'stream' | 'orbiter' | 'field' | 'ball' | 'drone' | 'tesla' | 'hole'
 
 export interface Bullet {
   x: number
@@ -127,6 +127,23 @@ export interface Mods {
   ball: number
   drone: number
   tesla: number
+  hole: number
+}
+
+export interface Hole {
+  x: number
+  y: number
+  life: number
+  max: number
+  radius: number
+  pull: number
+  damage: number
+  tickCd: number
+  absorbed: number
+  singularity: boolean
+  blast: number
+  blastMax: number
+  blastRadius: number
 }
 
 export interface Jagged {
@@ -219,6 +236,7 @@ export interface DamageBin {
   ball: number
   drone: number
   tesla: number
+  hole: number
 }
 
 export interface UpgradeMark {
@@ -287,6 +305,7 @@ export interface GameState {
   reticleVx: number
   reticleVy: number
   teslaCd: number
+  holeCd: number
   mods: Mods
   dealt: Record<DamageSource, number>
   damageBins: DamageBin[]
@@ -296,6 +315,7 @@ export interface GameState {
   balls: Ricochet[]
   mortars: Mortar[]
   bolts: Bolt[]
+  holes: Hole[]
   enemies: Enemy[]
   orbs: Orb[]
   particles: Particle[]
@@ -347,6 +367,7 @@ const UPGRADE_MAX: Record<Exclude<UpgradeId, 'cache'>, number> = {
   ball: OVERDRIVE,
   drone: 5,
   tesla: 5,
+  hole: 5,
 }
 
 export const DISC = {
@@ -378,6 +399,53 @@ export const TESLA = {
 
 export function arcReactor(rank: number): boolean {
   return rank >= TESLA.evolveRank
+}
+
+export const HOLE = {
+  evolveRank: 5,
+  tick: 0.2,
+} as const
+
+export function singularity(rank: number): boolean {
+  return rank >= HOLE.evolveRank
+}
+
+export function holeRadius(rank: number): number {
+  if (rank <= 0) return 0
+  const base = (88 + Math.max(0, rank - 1) * 26) * BODY
+  return singularity(rank) ? base + 48 * BODY : base
+}
+
+export function holeDuration(rank: number): number {
+  if (rank <= 0) return 0
+  const life = 2 + Math.max(0, rank - 1) * 0.4
+  return singularity(rank) ? life + 0.55 : life
+}
+
+export function holeDamage(rank: number): number {
+  if (rank <= 0) return 0
+  const dealt = 7 + Math.max(0, rank - 1) * 3
+  return singularity(rank) ? Math.round(dealt * 1.25) : dealt
+}
+
+export function holePull(rank: number): number {
+  if (rank <= 0) return 0
+  const force = 150 + Math.max(0, rank - 1) * 55
+  return singularity(rank) ? force * 1.55 : force
+}
+
+export function holeInterval(rank: number): number {
+  if (rank <= 0) return 0
+  const wait = Math.max(2.4, 4.5 - Math.max(0, rank - 1) * 0.38)
+  return singularity(rank) ? Math.max(2, wait * 0.82) : wait
+}
+
+export function holeBlastRadius(absorbed: number): number {
+  return Math.min(420 * BODY, (140 + absorbed * 0.12) * BODY)
+}
+
+export function holeBlastDamage(absorbed: number): number {
+  return Math.min(900, 55 + Math.round(absorbed * 0.55))
 }
 
 export function teslaBolts(rank: number, _reactor: boolean): number {
@@ -543,7 +611,7 @@ export function orbGain(value: number, rank: number): number {
 }
 
 function freshMods(): Mods {
-  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, regen: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0 }
+  return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, regen: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0, hole: 0 }
 }
 
 export function createGame(best = 0, seed = 1): GameState {
@@ -601,8 +669,9 @@ export function createGame(best = 0, seed = 1): GameState {
     reticleVx: 0,
     reticleVy: 0,
     teslaCd: 0.45,
+    holeCd: 0.8,
     mods: freshMods(),
-    dealt: { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0 },
+    dealt: { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0, hole: 0 },
     damageBins: [],
     upgradeMarks: [],
     offers: [],
@@ -610,6 +679,7 @@ export function createGame(best = 0, seed = 1): GameState {
     balls: [],
     mortars: [],
     bolts: [],
+    holes: [],
     enemies: [],
     orbs: [],
     particles: [],
@@ -690,6 +760,7 @@ function simulate(state: GameState, input: Input, dt: number, events: StepEvents
   updateDrone(state, dt, events)
   faceDrone(state)
   updateTesla(state, dt, events, input.viewW, input.viewH)
+  updateHoles(state, dt, events, input.viewW, input.viewH)
   moveOrbs(state, input, dt, events)
   touchPlayer(state, events)
   if (state.phase === 'play' && openLevel(state)) {
@@ -830,6 +901,9 @@ export function damageReport(state: GameState): { name: string; amount: number }
   if (state.mods.tesla > 0 || state.dealt.tesla > 0) {
     rows.push({ name: arcReactor(state.mods.tesla) ? 'Arc Reactor' : 'Tesla Coil', amount: state.dealt.tesla })
   }
+  if (state.mods.hole > 0 || state.dealt.hole > 0) {
+    rows.push({ name: singularity(state.mods.hole) ? 'Singularity' : 'Black Hole', amount: state.dealt.hole })
+  }
   rows.sort((a, b) => b.amount - a.amount)
   return rows
 }
@@ -840,6 +914,7 @@ export function sourceLabel(source: DamageSource, rank: number): string {
   if (source === 'field') return rank >= OVERDRIVE ? 'Null Zone' : 'Force Field'
   if (source === 'ball') return rank >= OVERDRIVE ? 'Quantum Core' : 'Bouncy Ball'
   if (source === 'tesla') return arcReactor(rank) ? 'Arc Reactor' : 'Tesla Coil'
+  if (source === 'hole') return singularity(rank) ? 'Singularity' : 'Black Hole'
   return droneStorm(rank) ? 'Bulletstorm' : 'Drone'
 }
 
@@ -848,7 +923,7 @@ function noteDamage(state: GameState, source: DamageSource, amount: number): voi
   const slot = Math.floor(state.time / 0.5) * 0.5
   let bin = state.damageBins[state.damageBins.length - 1]
   if (!bin || bin.t !== slot) {
-    bin = { t: slot, stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0 }
+    bin = { t: slot, stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0, hole: 0 }
     state.damageBins.push(bin)
   }
   bin[source] += amount
@@ -858,7 +933,7 @@ function upgradeSource(id: UpgradeId, rank: number): { source: DamageSource; nam
   if (id === 'pulse') return { source: 'stream', name: 'Pulse' }
   if (id === 'caliber') return { source: 'stream', name: 'Caliber' }
   if (id === 'fork') return { source: 'stream', name: 'Fork' }
-  if (id === 'orbiter' || id === 'field' || id === 'ball' || id === 'drone' || id === 'tesla') {
+  if (id === 'orbiter' || id === 'field' || id === 'ball' || id === 'drone' || id === 'tesla' || id === 'hole') {
     return { source: id, name: sourceLabel(id, rank) }
   }
   return null
@@ -2056,6 +2131,148 @@ function explodeShell(state: GameState, shell: Mortar, events: StepEvents): void
   }
 }
 
+function updateHoles(state: GameState, dt: number, events: StepEvents, viewW: number, viewH: number): void {
+  const rank = state.mods.hole
+  for (let i = state.holes.length - 1; i >= 0; i--) {
+    const well = state.holes[i]
+    if (!well) continue
+    if (well.blast > 0) {
+      well.blast -= dt
+      if (well.blast <= 0) state.holes.splice(i, 1)
+      continue
+    }
+    well.life -= dt
+    well.tickCd -= dt
+    pullIntoHole(state, well, dt)
+    if (well.tickCd <= 0) {
+      well.tickCd += HOLE.tick
+      tickHole(state, well, events)
+    }
+    if (well.life > 0) continue
+    if (well.singularity) collapseHole(state, well, events)
+    else state.holes.splice(i, 1)
+  }
+  if (rank <= 0) return
+  state.holeCd -= dt
+  if (state.holeCd > 0 || state.holes.length >= 3) return
+  spawnHole(state, rank, viewW, viewH)
+  state.holeCd = holeInterval(rank)
+}
+
+function spawnHole(state: GameState, rank: number, viewW: number, viewH: number): void {
+  const spot = holeSpot(state, viewW, viewH)
+  const life = holeDuration(rank)
+  state.holes.push({
+    x: spot.x,
+    y: spot.y,
+    life,
+    max: life,
+    radius: holeRadius(rank),
+    pull: holePull(rank),
+    damage: holeDamage(rank),
+    tickCd: HOLE.tick * 0.35,
+    absorbed: 0,
+    singularity: singularity(rank),
+    blast: 0,
+    blastMax: 0,
+    blastRadius: 0,
+  })
+}
+
+function holeSpot(state: GameState, viewW: number, viewH: number): { x: number; y: number } {
+  const halfW = Math.max(80, viewW) / 2
+  const halfH = Math.max(80, viewH) / 2
+  let best: Enemy | null = null
+  let bestScore = -1
+  for (const enemy of state.enemies) {
+    if (enemy.immortal && enemy.fuse > 0) continue
+    if (!enemyOnScreen(state, enemy, viewW, viewH)) continue
+    let score = Math.max(1, enemy.maxHp)
+    for (const other of state.enemies) {
+      if (other === enemy) continue
+      const dist = Math.hypot(other.x - enemy.x, other.y - enemy.y)
+      if (dist < 150) score += Math.max(1, other.maxHp) * 0.45
+    }
+    if (score > bestScore) {
+      bestScore = score
+      best = enemy
+    }
+  }
+  let x = best ? best.x : state.playerX + (state.rng() - 0.5) * halfW * 1.2
+  let y = best ? best.y : state.playerY + (state.rng() - 0.5) * halfH * 1.2
+  const dx = x - state.playerX
+  const dy = y - state.playerY
+  const dist = Math.hypot(dx, dy)
+  if (dist < 96) {
+    const ang = dist < 0.01 ? state.rng() * Math.PI * 2 : Math.atan2(dy, dx)
+    x = state.playerX + Math.cos(ang) * 110
+    y = state.playerY + Math.sin(ang) * 110
+  }
+  x = Math.max(state.playerX - halfW + 40, Math.min(state.playerX + halfW - 40, x))
+  y = Math.max(state.playerY - halfH + 40, Math.min(state.playerY + halfH - 40, y))
+  return { x, y }
+}
+
+function pullIntoHole(state: GameState, well: Hole, dt: number): void {
+  const reach = well.radius
+  for (const enemy of state.enemies) {
+    if (enemy.fuse > 0) continue
+    const dx = well.x - enemy.x
+    const dy = well.y - enemy.y
+    const dist = Math.hypot(dx, dy)
+    if (dist > reach + enemy.radius || dist < 0.01) continue
+    const fall = 1 - Math.min(1, dist / (reach + enemy.radius))
+    const force = well.pull * (0.35 + fall * 0.9)
+    const nx = dx / dist
+    const ny = dy / dist
+    enemy.vx += nx * force * dt
+    enemy.vy += ny * force * dt
+    enemy.x += nx * force * dt * 0.22
+    enemy.y += ny * force * dt * 0.22
+  }
+}
+
+function tickHole(state: GameState, well: Hole, events: StepEvents): void {
+  const ink = well.singularity ? '#ff2d3a' : '#ffffff'
+  const before = state.dealt.hole
+  for (let j = state.enemies.length - 1; j >= 0; j--) {
+    const enemy = state.enemies[j]
+    if (!enemy || enemy.immortal) continue
+    const dist = Math.hypot(enemy.x - well.x, enemy.y - well.y)
+    if (dist > well.radius + enemy.radius) continue
+    damageEnemy(state, enemy, events, well.damage, ink, 'hole')
+  }
+  well.absorbed += Math.max(0, state.dealt.hole - before)
+}
+
+function collapseHole(state: GameState, well: Hole, events: StepEvents): void {
+  const radius = holeBlastRadius(well.absorbed)
+  const dealt = holeBlastDamage(well.absorbed)
+  well.blastRadius = radius
+  well.blastMax = 0.48
+  well.blast = well.blastMax
+  well.life = 0
+  well.radius = 0
+  state.shake = Math.min(10, state.shake + 3.2 + Math.min(4, well.absorbed * 0.004))
+  state.flash = Math.min(0.55, 0.22 + Math.min(0.3, well.absorbed * 0.0004))
+  state.shocks.push({ x: well.x, y: well.y, life: 0.5, max: 0.5, color: '#ff2d3a' })
+  burst(state, well.x, well.y, '#ff2d3a', 22, 420)
+  for (let j = state.enemies.length - 1; j >= 0; j--) {
+    const enemy = state.enemies[j]
+    if (!enemy || enemy.immortal) continue
+    const dist = Math.hypot(enemy.x - well.x, enemy.y - well.y)
+    if (dist > radius + enemy.radius) continue
+    damageEnemy(state, enemy, events, dealt, '#ff2d3a', 'hole')
+    if (enemy.fuse > 0) continue
+    const dx = enemy.x - well.x
+    const dy = enemy.y - well.y
+    const span = Math.hypot(dx, dy) || 1
+    const kick = 220 + Math.min(280, well.absorbed * 0.08)
+    enemy.vx += (dx / span) * kick
+    enemy.vy += (dy / span) * kick
+  }
+}
+
 function updateTesla(state: GameState, dt: number, events: StepEvents, viewW: number, viewH: number): void {
   const rank = state.mods.tesla
   if (rank <= 0) return
@@ -2396,6 +2613,16 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
       overdrive: true,
     }
   }
+  if (id === 'hole' && singularity(rank)) {
+    return {
+      id,
+      title: 'Singularity',
+      detail: 'A crimson well pulls harder and banks the damage it deals. When it ends, it collapses into a red blast that grows with everything it absorbed.',
+      rank,
+      max,
+      overdrive: true,
+    }
+  }
   const copy: Record<Exclude<UpgradeId, 'cache'>, { title: string; detail: string }> = {
     pulse: { title: 'Pulse', detail: 'Shots leave the core sooner.' },
     caliber: { title: 'Caliber', detail: 'Each round hits a little harder.' },
@@ -2409,6 +2636,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off giant circles and any hostile whose hull is 1000 or more, no matter how much health is left.' },
     drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
     tesla: { title: 'Tesla Coil', detail: 'One lightning bolt falls on a hostile in view, leaning toward the tougher ones. Later ranks hit harder and strike again sooner.' },
+    hole: { title: 'Black Hole', detail: 'A glowing white-rimmed well opens on screen, pulls hostiles in, and burns them while it lasts.' },
   }
   const detail =
     id === 'orbiter' && rank > 1
@@ -2421,11 +2649,13 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
               ? 'More rockets in each fan, a wider blast, and a shorter wait between volleys.'
               : id === 'tesla' && rank > 1 && rank < TESLA.evolveRank
                 ? 'Still one bolt. It hits harder, and the pause before the next strike is shorter.'
-                : id === 'magnet' && rank > 1
-                  ? 'Orbs snap in faster, and the pull reaches a little farther.'
-                  : id === 'regen' && rank > 1
-                    ? 'Each level restores a little more health.'
-                    : copy[id].detail
+                : id === 'hole' && rank > 1 && rank < HOLE.evolveRank
+                  ? 'A wider well, a longer burn, and harder continuous damage.'
+                  : id === 'magnet' && rank > 1
+                    ? 'Orbs snap in faster, and the pull reaches a little farther.'
+                    : id === 'regen' && rank > 1
+                      ? 'Each level restores a little more health.'
+                      : copy[id].detail
   return { id, title: copy[id].title, detail, rank, max, overdrive: false }
 }
 
@@ -2443,6 +2673,7 @@ function applyUpgrade(state: GameState, id: UpgradeId): void {
   if (id === 'ball') state.ballCd = 0.2
   if (id === 'drone' && state.mods.drone === 1) state.droneReload = 0.25
   if (id === 'tesla' && state.mods.tesla === 1) state.teslaCd = 0.2
+  if (id === 'hole' && state.mods.hole === 1) state.holeCd = 0.25
 }
 
 function spawnImpact(state: GameState, x: number, y: number): void {

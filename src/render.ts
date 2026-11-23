@@ -1,4 +1,4 @@
-import { BODY, ENEMY_COLOR, TUNING, droneAnchor, droneBlasterTips, droneStorm, fieldColor, fieldRadius, fieldRipple, hexFuseLit, orbitDiscs, placeStrikeTop, shellPose, type GameState } from './sim.ts'
+import { BODY, ENEMY_COLOR, TUNING, droneAnchor, droneBlasterTips, droneStorm, fieldColor, fieldRadius, fieldRipple, hexFuseLit, orbitDiscs, placeStrikeTop, shellPose, type GameState, type Hole } from './sim.ts'
 
 export interface StickView {
   x: number
@@ -47,6 +47,7 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
 
   drawGrid(ctx, state, width, height)
   drawField(ctx, state)
+  drawHoles(ctx, state, X, Y, view.reduceMotion)
   drawReticle(ctx, state, X, Y)
   drawShocks(ctx, state, X, Y)
   drawOrbs(ctx, state, X, Y)
@@ -111,6 +112,164 @@ function drawField(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.stroke()
     ctx.restore()
   }
+}
+
+function drawHoles(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  X: (x: number) => number,
+  Y: (y: number) => number,
+  still: boolean,
+): void {
+  for (const well of state.holes) {
+    if (well.blast > 0) {
+      paintHoleBlast(ctx, well, X, Y, still)
+      continue
+    }
+    paintHole(ctx, well, state.time, X, Y, still)
+  }
+}
+
+function paintHole(
+  ctx: CanvasRenderingContext2D,
+  well: Hole,
+  time: number,
+  X: (x: number) => number,
+  Y: (y: number) => number,
+  still: boolean,
+): void {
+  const x = X(well.x)
+  const y = Y(well.y)
+  const fade = Math.min(1, well.life / Math.max(0.2, well.max * 0.2), well.max > 0 ? Math.min(1, (well.max - well.life) / 0.18 + 0.35) : 1)
+  const red = well.singularity
+  const rim = red ? '#ff2d3a' : '#ffffff'
+  const ink = red ? '255, 45, 58' : '255, 255, 255'
+  const spin = time * (red ? 2.4 : 1.7) + well.x * 0.01
+  const core = well.radius * 0.22
+  const rimR = well.radius * 0.92
+
+  if (!lean) {
+    const glow = glowFor(rim)
+    const aura = well.radius * (red ? 2.4 : 2.1)
+    ctx.save()
+    ctx.globalCompositeOperation = 'lighter'
+    ctx.globalAlpha = 0.34 * fade
+    ctx.drawImage(glow, x - aura / 2, y - aura / 2, aura, aura)
+    ctx.restore()
+  }
+
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.globalAlpha = fade
+  const voidFill = ctx.createRadialGradient(0, 0, core * 0.15, 0, 0, rimR)
+  voidFill.addColorStop(0, 'rgba(0, 0, 0, 0.95)')
+  voidFill.addColorStop(0.55, 'rgba(0, 0, 0, 0.82)')
+  voidFill.addColorStop(1, `rgba(${ink}, 0)`)
+  ctx.fillStyle = voidFill
+  ctx.beginPath()
+  ctx.arc(0, 0, rimR, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.strokeStyle = rim
+  ctx.lineWidth = (red ? 3.4 : 2.6) * BODY
+  ctx.beginPath()
+  ctx.arc(0, 0, rimR, 0, Math.PI * 2)
+  ctx.stroke()
+
+  if (red) {
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)'
+    ctx.lineWidth = 1.4 * BODY
+    ctx.beginPath()
+    ctx.arc(0, 0, rimR * 0.72, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+
+  const swirls = red ? 5 : 4
+  for (let i = 0; i < swirls; i++) {
+    const a0 = spin + (i / swirls) * Math.PI * 2
+    const a1 = a0 + 1.1
+    const r0 = rimR * (0.35 + (i % 3) * 0.12)
+    const r1 = rimR * (0.78 + (i % 2) * 0.08)
+    ctx.strokeStyle = `rgba(${ink}, ${0.45 + (i % 2) * 0.2})`
+    ctx.lineWidth = (1.2 + (i % 2)) * BODY
+    ctx.beginPath()
+    ctx.arc(0, 0, (r0 + r1) * 0.5, a0, a1)
+    ctx.stroke()
+  }
+
+  if (!still) {
+    const pulse = 0.85 + 0.15 * Math.sin(time * 18 + well.y * 0.03)
+    ctx.strokeStyle = `rgba(${ink}, 0.55)`
+    ctx.lineWidth = 1.5 * BODY
+    ctx.beginPath()
+    ctx.arc(0, 0, rimR * pulse, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+
+  ctx.fillStyle = '#000'
+  ctx.beginPath()
+  ctx.arc(0, 0, core, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
+function paintHoleBlast(
+  ctx: CanvasRenderingContext2D,
+  well: Hole,
+  X: (x: number) => number,
+  Y: (y: number) => number,
+  still: boolean,
+): void {
+  const x = X(well.x)
+  const y = Y(well.y)
+  const phase = 1 - Math.max(0, well.blast) / Math.max(0.01, well.blastMax)
+  const radius = Math.max(8, well.blastRadius * phase)
+  const fade = (1 - phase) * (1 - phase * 0.35)
+
+  if (!lean) {
+    const glow = glowFor('#ff2d3a')
+    const aura = radius * 2.6
+    ctx.save()
+    ctx.globalCompositeOperation = 'lighter'
+    ctx.globalAlpha = 0.5 * fade
+    ctx.drawImage(glow, x - aura / 2, y - aura / 2, aura, aura)
+    ctx.restore()
+  }
+
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.globalAlpha = fade
+  const fill = ctx.createRadialGradient(0, 0, radius * 0.08, 0, 0, radius)
+  fill.addColorStop(0, 'rgba(255, 255, 255, 0.55)')
+  fill.addColorStop(0.35, 'rgba(255, 45, 58, 0.4)')
+  fill.addColorStop(1, 'rgba(255, 45, 58, 0)')
+  ctx.fillStyle = fill
+  ctx.beginPath()
+  ctx.arc(0, 0, radius, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = '#ff2d3a'
+  ctx.lineWidth = (3.2 - phase * 1.4) * BODY
+  ctx.beginPath()
+  ctx.arc(0, 0, radius, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)'
+  ctx.lineWidth = 1.6 * BODY
+  ctx.beginPath()
+  ctx.arc(0, 0, radius * 0.72, 0, Math.PI * 2)
+  ctx.stroke()
+  if (!still) {
+    for (let i = 0; i < 8; i++) {
+      const ang = (i / 8) * Math.PI * 2 + phase * 1.4
+      const len = radius * (0.55 + (i % 2) * 0.2)
+      ctx.strokeStyle = 'rgba(255, 45, 58, 0.75)'
+      ctx.lineWidth = 2 * BODY
+      ctx.beginPath()
+      ctx.moveTo(Math.cos(ang) * radius * 0.2, Math.sin(ang) * radius * 0.2)
+      ctx.lineTo(Math.cos(ang) * len, Math.sin(ang) * len)
+      ctx.stroke()
+    }
+  }
+  ctx.restore()
 }
 
 function drawGrid(ctx: CanvasRenderingContext2D, state: GameState, width: number, height: number): void {
