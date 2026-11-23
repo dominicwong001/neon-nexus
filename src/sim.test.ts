@@ -602,6 +602,25 @@ describe('orbs', () => {
     assert.equal(state.orbs.length, 1)
     assert.equal(state.orbs[0]?.x, 420)
     assert.equal(state.orbs[0]?.homing, false)
+
+    const slow = createGame(0, 33)
+    slow.spawnCd = 999
+    slow.fireCd = 10
+    slow.mods.magnet = 1
+    const fast = createGame(0, 33)
+    fast.spawnCd = 999
+    fast.fireCd = 10
+    fast.mods.magnet = 3
+    slow.orbs.push(orb({ x: 140, y: 0, value: 1 }))
+    fast.orbs.push(orb({ x: 140, y: 0, value: 1 }))
+    step(slow, input({ aimActive: false }), 1 / 60)
+    step(fast, input({ aimActive: false }), 1 / 60)
+    const slowOrb = slow.orbs[0]
+    const fastOrb = fast.orbs[0]
+    assert.ok(slowOrb)
+    assert.ok(fastOrb)
+    assert.ok(Math.hypot(fastOrb.vx, fastOrb.vy) > Math.hypot(slowOrb.vx, slowOrb.vy) + 150)
+    assert.ok(fastOrb.x < slowOrb.x)
   })
 
   it('asks for more experience on every level', () => {
@@ -1984,6 +2003,13 @@ describe('orbs', () => {
     state.xp = state.xpNeed
     step(state, input({ aimActive: false }), 1 / 60)
     assert.equal(state.hull, 4)
+
+    state.phase = 'play'
+    state.mods.regen = 3
+    state.hull = 2
+    state.xp = state.xpNeed
+    step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(state.hull, 5)
 
     const bite = createGame(0, 82)
     bite.spawnCd = 999

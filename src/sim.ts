@@ -534,7 +534,8 @@ export function streamDamage(rank: number): number {
 }
 
 export function levelMend(rank: number): number {
-  return 1 + Math.max(0, rank)
+  if (rank <= 0) return 1
+  return 1 + Math.ceil(rank / 2)
 }
 
 export function orbGain(value: number, rank: number): number {
@@ -1358,7 +1359,7 @@ function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents
     }
     if (dist < magnet) orb.homing = true
     if (orb.homing) {
-      const speed = 300 + state.mods.magnet * 55 + (1 - Math.min(1, dist / magnet)) * 130
+      const speed = 260 + state.mods.magnet * 110 + (1 - Math.min(1, dist / magnet)) * 120
       orb.vx = (dx / dist) * speed
       orb.vy = (dy / dist) * speed
     } else {
@@ -2399,7 +2400,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     pulse: { title: 'Pulse', detail: 'Shots leave the core sooner.' },
     caliber: { title: 'Caliber', detail: 'Each round hits a little harder.' },
     drift: { title: 'Drift', detail: 'Top speed climbs.' },
-    magnet: { title: 'Magnet', detail: 'Nearby orbs move a little faster. Each rank reaches a little farther.' },
+    magnet: { title: 'Magnet', detail: 'Orbs race toward the core faster. Each rank pulls harder and reaches a little farther.' },
     fork: { title: 'Fork', detail: 'Two streams sit on the reticle. The next rank adds a third, still tight on the aim.' },
     greed: { title: 'Greed', detail: 'Every orb pays a bonus, and bigger orbs pay a little more.' },
     regen: { title: 'Regeneration', detail: 'Each level restores one health. Ranks restore more.' },
@@ -2420,9 +2421,11 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
               ? 'More rockets in each fan, a wider blast, and a shorter wait between volleys.'
               : id === 'tesla' && rank > 1 && rank < TESLA.evolveRank
                 ? 'Still one bolt. It hits harder, and the pause before the next strike is shorter.'
-                : id === 'regen' && rank > 1
-              ? 'Each level restores more health.'
-              : copy[id].detail
+                : id === 'magnet' && rank > 1
+                  ? 'Orbs snap in faster, and the pull reaches a little farther.'
+                  : id === 'regen' && rank > 1
+                    ? 'Each level restores a little more health.'
+                    : copy[id].detail
   return { id, title: copy[id].title, detail, rank, max, overdrive: false }
 }
 
