@@ -539,11 +539,28 @@ export function orbGain(value: number, rank: number): number {
   return Math.max(1, Math.round(value * (1 + Math.max(0, rank) * 0.12)) + Math.max(0, rank))
 }
 
-function freshMods(): Mods {
+function zeroMods(): Mods {
   return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, regen: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0 }
 }
 
-export function createGame(best = 0, seed = 1): GameState {
+function maxMods(): Mods {
+  return {
+    pulse: UPGRADE_MAX.pulse,
+    caliber: UPGRADE_MAX.caliber,
+    drift: UPGRADE_MAX.drift,
+    magnet: UPGRADE_MAX.magnet,
+    fork: UPGRADE_MAX.fork,
+    greed: UPGRADE_MAX.greed,
+    regen: UPGRADE_MAX.regen,
+    orbiter: UPGRADE_MAX.orbiter,
+    field: UPGRADE_MAX.field,
+    ball: UPGRADE_MAX.ball,
+    drone: UPGRADE_MAX.drone,
+    tesla: UPGRADE_MAX.tesla,
+  }
+}
+
+export function createGame(best = 0, seed = 1, maxed = true): GameState {
   let s = seed >>> 0 || 1
   const rng = () => {
     s = (Math.imul(s, 1664525) + 1013904223) >>> 0
@@ -575,12 +592,12 @@ export function createGame(best = 0, seed = 1): GameState {
     xp: 0,
     xpNeed: xpNeedFor(1),
     hullMax: TUNING.hullMax,
-    orbitTime: 0,
+    orbitTime: maxed ? 0.35 : 0,
     fieldTick: 0,
-    ballCd: 0.45,
+    ballCd: maxed ? 0.2 : 0.45,
     droneCd: 0,
     droneBurst: 0,
-    droneReload: 0.4,
+    droneReload: maxed ? 0.2 : 0.4,
     droneX: -52 * BODY + 5,
     droneY: -64 * BODY,
     droneLag: 0,
@@ -597,8 +614,8 @@ export function createGame(best = 0, seed = 1): GameState {
     reticleY: 0,
     reticleVx: 0,
     reticleVy: 0,
-    teslaCd: 0.45,
-    mods: freshMods(),
+    teslaCd: maxed ? 0.35 : 0.45,
+    mods: maxed ? maxMods() : zeroMods(),
     dealt: { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0 },
     damageBins: [],
     upgradeMarks: [],
@@ -2321,17 +2338,12 @@ function rollOffers(state: GameState): Offer[] {
     }
   }
   const picked: UpgradeId[] = pool.slice(0, 3)
-  pinOffer(picked, 'tesla', state.mods.tesla < UPGRADE_MAX.tesla)
-  pinOffer(picked, 'drone', state.mods.drone < UPGRADE_MAX.drone)
+  if (state.mods.tesla < UPGRADE_MAX.tesla && !picked.includes('tesla')) {
+    if (picked.length < 3) picked.push('tesla')
+    else picked[picked.length - 1] = 'tesla'
+  }
   while (picked.length < 3) picked.push('cache')
   return picked.map((id) => describeOffer(state, id))
-}
-
-function pinOffer(picked: UpgradeId[], id: UpgradeId, needed: boolean): void {
-  if (!needed || picked.includes(id)) return
-  const spare = picked.findIndex((item) => item !== 'tesla' && item !== 'drone')
-  if (spare >= 0) picked[spare] = id
-  else if (picked.length < 3) picked.push(id)
 }
 
 function describeOffer(state: GameState, id: UpgradeId): Offer {
@@ -2341,32 +2353,12 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
   const rank = state.mods[id] + 1
   const max = UPGRADE_MAX[id]
   const overdrive = rank >= OVERDRIVE && (id === 'orbiter' || id === 'field' || id === 'ball')
-  if (id === 'tesla' && state.mods.tesla === 0) {
-    return {
-      id,
-      title: 'Arc Reactor',
-      detail: 'One red bolt strikes, then chain-arcs through nearby hostiles. It hits harder and falls again sooner.',
-      rank: TESLA.evolveRank,
-      max,
-      overdrive: true,
-    }
-  }
   if (id === 'tesla' && arcReactor(rank)) {
     return {
       id,
       title: 'Arc Reactor',
       detail: 'One red bolt strikes, then chain-arcs through nearby hostiles. It hits harder and falls again sooner.',
       rank,
-      max,
-      overdrive: true,
-    }
-  }
-  if (id === 'drone' && state.mods.drone === 0) {
-    return {
-      id,
-      title: 'Bulletstorm',
-      detail: 'The drone turns red. Each volley is a wide fan of rockets, and the wait between them is short.',
-      rank: DRONE.stormRank,
       max,
       overdrive: true,
     }
@@ -2446,20 +2438,6 @@ function applyUpgrade(state: GameState, id: UpgradeId): void {
   if (id === 'cache') {
     state.score += 40
     if (state.score > state.best) state.best = state.score
-    return
-  }
-  if (id === 'drone' && state.mods.drone === 0) {
-    state.mods.drone = DRONE.stormRank
-    const mark = upgradeSource(id, state.mods.drone)
-    if (mark) state.upgradeMarks.push({ t: state.time, source: mark.source, name: mark.name, rank: state.mods.drone })
-    state.droneReload = 0.25
-    return
-  }
-  if (id === 'tesla' && state.mods.tesla === 0) {
-    state.mods.tesla = TESLA.evolveRank
-    const mark = upgradeSource(id, state.mods.tesla)
-    if (mark) state.upgradeMarks.push({ t: state.time, source: mark.source, name: mark.name, rank: state.mods.tesla })
-    state.teslaCd = 0.2
     return
   }
   state.mods[id] += 1
