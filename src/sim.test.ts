@@ -1253,6 +1253,70 @@ describe('orbs', () => {
     assert.equal(far.hp, 400)
     assert.ok(Math.hypot(inside.vx, inside.vy) < Math.hypot(far.vx, far.vy) * 0.9)
     assert.ok(burn.floaters.some((floater) => floater.text === String(fieldDamage(1)) && floater.color === '#ffffff'))
+
+    const zone = createGame(0, 14)
+    zone.spawnCd = 999
+    zone.fireCd = 10
+    zone.invuln = 5
+    zone.mods.field = 6
+    const shard = enemy({
+      x: 40,
+      y: 0,
+      vx: 220,
+      vy: 0,
+      radius: 18,
+      kind: 3,
+      hp: 1,
+      speed: 220,
+      immortal: true,
+      ballistic: true,
+      orbitCd: 2,
+      phase: 40,
+    })
+    const clear = enemy({
+      x: 900,
+      y: 0,
+      vx: 220,
+      vy: 0,
+      radius: 18,
+      kind: 3,
+      hp: 1,
+      speed: 220,
+      immortal: true,
+      ballistic: true,
+      orbitCd: 2,
+      phase: 40,
+    })
+    zone.enemies.push(shard, clear)
+    const shardStart = shard.x
+    const clearStart = clear.x
+    run(zone, input({ aimActive: false }), 0.2)
+    assert.ok(shard.x - shardStart < (clear.x - clearStart) * 0.7)
+    assert.ok(shard.x > shardStart)
+
+    const plain = createGame(0, 15)
+    plain.spawnCd = 999
+    plain.fireCd = 10
+    plain.invuln = 5
+    plain.mods.field = 5
+    const near = enemy({
+      x: 40,
+      y: 0,
+      vx: 220,
+      vy: 0,
+      radius: 18,
+      kind: 3,
+      hp: 1,
+      speed: 220,
+      immortal: true,
+      ballistic: true,
+      orbitCd: 2,
+      phase: 40,
+    })
+    plain.enemies.push(near)
+    const nearStart = near.x
+    run(plain, input({ aimActive: false }), 0.2)
+    assert.ok(Math.abs(near.x - nearStart - 44) < 0.5)
   })
 
   it('lets the discs bite, then hides them while they recharge', () => {
@@ -1278,7 +1342,8 @@ describe('orbs', () => {
     assert.equal(bitten.hp, HIT - orbiterDamage(1))
     assert.ok(orbiterDamage(1) > 40)
     assert.ok(orbiterDamage(1) < HIT)
-    assert.ok(orbiterDamage(6) > orbiterDamage(5) + 15)
+    assert.ok(orbiterDamage(6) - orbiterDamage(5) >= 25)
+    assert.ok(orbiterDamage(6) - orbiterDamage(5) <= 28)
     assert.ok(state.floaters.some((floater) => floater.text === String(orbiterDamage(1))))
     assert.equal(state.floaters.some((floater) => floater.text.startsWith('+')), false)
     assert.ok(orbitActive(2) > orbitActive(1))

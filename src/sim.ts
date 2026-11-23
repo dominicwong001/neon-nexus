@@ -865,7 +865,7 @@ function upgradeSource(id: UpgradeId, rank: number): { source: DamageSource; nam
 
 export function orbiterDamage(rank: number): number {
   const dealt = 46 + Math.max(0, rank - 1) * 11
-  return rank >= OVERDRIVE ? dealt + 18 : dealt
+  return rank >= OVERDRIVE ? dealt + 16 : dealt
 }
 
 export function ballCount(rank: number): number {
@@ -1169,15 +1169,20 @@ function moveEnemies(state: GameState, input: Input, dt: number): void {
       state.enemies.splice(j, 1)
       continue
     }
+    const fieldRank = state.mods.field
+    const inside = fieldRank > 0 && dist < fieldRadius(fieldRank) + e.radius
     if (!e.ballistic) {
-      const inside = state.mods.field > 0 && dist < fieldRadius(state.mods.field) + e.radius
-      const speed = e.speed * (inside ? fieldSlow(state.mods.field) : 1)
+      const speed = e.speed * (inside ? fieldSlow(fieldRank) : 1)
       const steer = 1 - Math.exp(-3.1 * dt)
       e.vx += ((dx / dist) * speed - e.vx) * steer
       e.vy += ((dy / dist) * speed - e.vy) * steer
+      e.x += e.vx * dt
+      e.y += e.vy * dt
+    } else {
+      const crawl = inside && fieldOverdrive(fieldRank) ? fieldSlow(fieldRank) : 1
+      e.x += e.vx * dt * crawl
+      e.y += e.vy * dt * crawl
     }
-    e.x += e.vx * dt
-    e.y += e.vy * dt
     e.angle += e.spin * dt
   }
   separateEnemies(state)
@@ -2385,7 +2390,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     return {
       id,
       title: 'Null Zone',
-      detail: 'The field turns red, reaches farther, burns harder, and slows more.',
+      detail: 'The field turns red, reaches farther, burns harder, and slows hostiles and flying shards inside it.',
       rank,
       max,
       overdrive: true,
