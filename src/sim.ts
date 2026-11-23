@@ -140,7 +140,7 @@ export interface Hole {
   damage: number
   tickCd: number
   absorbed: number
-  singularity: boolean
+  crimson: boolean
   blast: number
   blastMax: number
   blastRadius: number
@@ -406,38 +406,38 @@ export const HOLE = {
   tick: 0.2,
 } as const
 
-export function singularity(rank: number): boolean {
+export function crimsonCollapse(rank: number): boolean {
   return rank >= HOLE.evolveRank
 }
 
 export function holeRadius(rank: number): number {
   if (rank <= 0) return 0
   const base = (88 + Math.max(0, rank - 1) * 26) * BODY
-  return singularity(rank) ? base + 48 * BODY : base
+  return crimsonCollapse(rank) ? base + 48 * BODY : base
 }
 
 export function holeDuration(rank: number): number {
   if (rank <= 0) return 0
   const life = 2 + Math.max(0, rank - 1) * 0.4
-  return singularity(rank) ? life + 0.55 : life
+  return crimsonCollapse(rank) ? life + 0.55 : life
 }
 
 export function holeDamage(rank: number): number {
   if (rank <= 0) return 0
   const dealt = 7 + Math.max(0, rank - 1) * 3
-  return singularity(rank) ? Math.round(dealt * 1.25) : dealt
+  return crimsonCollapse(rank) ? Math.round(dealt * 1.25) : dealt
 }
 
 export function holePull(rank: number): number {
   if (rank <= 0) return 0
   const force = 150 + Math.max(0, rank - 1) * 55
-  return singularity(rank) ? force * 1.55 : force
+  return crimsonCollapse(rank) ? force * 1.55 : force
 }
 
 export function holeInterval(rank: number): number {
   if (rank <= 0) return 0
   const wait = Math.max(2.4, 4.5 - Math.max(0, rank - 1) * 0.38)
-  return singularity(rank) ? Math.max(2, wait * 0.82) : wait
+  return crimsonCollapse(rank) ? Math.max(2, wait * 0.82) : wait
 }
 
 export function holeBlastRadius(absorbed: number): number {
@@ -902,7 +902,7 @@ export function damageReport(state: GameState): { name: string; amount: number }
     rows.push({ name: arcReactor(state.mods.tesla) ? 'Arc Reactor' : 'Tesla Coil', amount: state.dealt.tesla })
   }
   if (state.mods.hole > 0 || state.dealt.hole > 0) {
-    rows.push({ name: singularity(state.mods.hole) ? 'Singularity' : 'Black Hole', amount: state.dealt.hole })
+    rows.push({ name: crimsonCollapse(state.mods.hole) ? 'Crimson Collapse' : 'Singularity', amount: state.dealt.hole })
   }
   rows.sort((a, b) => b.amount - a.amount)
   return rows
@@ -914,7 +914,7 @@ export function sourceLabel(source: DamageSource, rank: number): string {
   if (source === 'field') return rank >= OVERDRIVE ? 'Null Zone' : 'Force Field'
   if (source === 'ball') return rank >= OVERDRIVE ? 'Quantum Core' : 'Bouncy Ball'
   if (source === 'tesla') return arcReactor(rank) ? 'Arc Reactor' : 'Tesla Coil'
-  if (source === 'hole') return singularity(rank) ? 'Singularity' : 'Black Hole'
+  if (source === 'hole') return crimsonCollapse(rank) ? 'Crimson Collapse' : 'Singularity'
   return droneStorm(rank) ? 'Bulletstorm' : 'Drone'
 }
 
@@ -2149,7 +2149,7 @@ function updateHoles(state: GameState, dt: number, events: StepEvents, viewW: nu
       tickHole(state, well, events)
     }
     if (well.life > 0) continue
-    if (well.singularity) collapseHole(state, well, events)
+    if (well.crimson) collapseHole(state, well, events)
     else state.holes.splice(i, 1)
   }
   if (rank <= 0) return
@@ -2172,7 +2172,7 @@ function spawnHole(state: GameState, rank: number, viewW: number, viewH: number)
     damage: holeDamage(rank),
     tickCd: HOLE.tick * 0.35,
     absorbed: 0,
-    singularity: singularity(rank),
+    crimson: crimsonCollapse(rank),
     blast: 0,
     blastMax: 0,
     blastRadius: 0,
@@ -2233,7 +2233,7 @@ function pullIntoHole(state: GameState, well: Hole, dt: number): void {
 }
 
 function tickHole(state: GameState, well: Hole, events: StepEvents): void {
-  const ink = well.singularity ? '#ff2d3a' : '#ffffff'
+  const ink = well.crimson ? '#ff2d3a' : '#ffffff'
   const before = state.dealt.hole
   for (let j = state.enemies.length - 1; j >= 0; j--) {
     const enemy = state.enemies[j]
@@ -2613,11 +2613,11 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
       overdrive: true,
     }
   }
-  if (id === 'hole' && singularity(rank)) {
+  if (id === 'hole' && crimsonCollapse(rank)) {
     return {
       id,
-      title: 'Singularity',
-      detail: 'A crimson well pulls harder and banks the damage it deals. When it ends, it collapses into a red blast that grows with everything it absorbed.',
+      title: 'Crimson Collapse',
+      detail: 'A crimson well pulls harder and banks the damage it deals. When it ends, it implodes into a red blast that grows with everything it absorbed.',
       rank,
       max,
       overdrive: true,
@@ -2636,7 +2636,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off giant circles and any hostile whose hull is 1000 or more, no matter how much health is left.' },
     drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
     tesla: { title: 'Tesla Coil', detail: 'One lightning bolt falls on a hostile in view, leaning toward the tougher ones. Later ranks hit harder and strike again sooner.' },
-    hole: { title: 'Black Hole', detail: 'A glowing white-rimmed well opens on screen, pulls hostiles in, and burns them while it lasts.' },
+    hole: { title: 'Singularity', detail: 'A pitch-black well with a white accretion ring opens on screen, pulls hostiles in, and burns them while it lasts.' },
   }
   const detail =
     id === 'orbiter' && rank > 1

@@ -25,7 +25,7 @@ import {
   teslaBolts,
   teslaDamage,
   teslaInterval,
-  singularity,
+  crimsonCollapse,
   holeRadius,
   holeDuration,
   holeDamage,
@@ -963,15 +963,15 @@ describe('orbs', () => {
     assert.ok(strongHits < trials)
   })
 
-  it('offers Black Hole through the ranks, then Singularity that detonates from absorbed damage', () => {
+  it('offers Singularity through the ranks, then Crimson Collapse that detonates from absorbed damage', () => {
     const state = createGame(0, 27)
     state.spawnCd = 999
     state.fireCd = 10
     for (let n = 0; n < 4; n++) {
       const card = takeOffer(state, 'hole')
-      assert.equal(card.title, 'Black Hole')
+      assert.equal(card.title, 'Singularity')
       assert.equal(card.overdrive, false)
-      if (n === 0) assert.match(card.detail, /pull/i)
+      if (n === 0) assert.match(card.detail, /pull|accretion/i)
       else assert.match(card.detail, /wider|longer|harder/i)
       chooseUpgrade(state, state.offers.indexOf(card))
       assert.ok(holeRadius(n + 1) > 0)
@@ -986,12 +986,12 @@ describe('orbs', () => {
     assert.ok(holePull(4) > holePull(1))
     assert.ok(holeInterval(4) < holeInterval(1))
     const evolved = takeOffer(state, 'hole')
-    assert.equal(evolved.title, 'Singularity')
+    assert.equal(evolved.title, 'Crimson Collapse')
     assert.equal(evolved.overdrive, true)
-    assert.match(evolved.detail, /crimson|collapse|blast/i)
+    assert.match(evolved.detail, /crimson|implode|blast/i)
     chooseUpgrade(state, state.offers.indexOf(evolved))
     assert.equal(state.mods.hole, 5)
-    assert.equal(singularity(5), true)
+    assert.equal(crimsonCollapse(5), true)
     assert.ok(holeRadius(5) > holeRadius(4))
     assert.ok(holePull(5) > holePull(4))
     assert.ok(holeBlastRadius(200) > holeBlastRadius(40))
@@ -1008,7 +1008,7 @@ describe('orbs', () => {
     assert.equal(well.holes.length, 1)
     const hole = well.holes[0]
     assert.ok(hole)
-    assert.equal(hole.singularity, false)
+    assert.equal(hole.crimson, false)
     const foe = well.enemies[0]
     assert.ok(foe)
     foe.x = hole.x + hole.radius * 0.55
@@ -1038,7 +1038,7 @@ describe('orbs', () => {
       damage: holeDamage(5),
       tickCd: 1,
       absorbed: 180,
-      singularity: true,
+      crimson: true,
       blast: 0,
       blastMax: 0,
       blastRadius: 0,
