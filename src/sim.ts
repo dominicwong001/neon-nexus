@@ -541,28 +541,11 @@ export function orbGain(value: number, rank: number): number {
   return Math.max(1, Math.round(value * (1 + Math.max(0, rank) * 0.12)) + Math.max(0, rank))
 }
 
-function zeroMods(): Mods {
+function freshMods(): Mods {
   return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, regen: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0 }
 }
 
-function maxMods(): Mods {
-  return {
-    pulse: UPGRADE_MAX.pulse,
-    caliber: UPGRADE_MAX.caliber,
-    drift: UPGRADE_MAX.drift,
-    magnet: UPGRADE_MAX.magnet,
-    fork: UPGRADE_MAX.fork,
-    greed: UPGRADE_MAX.greed,
-    regen: UPGRADE_MAX.regen,
-    orbiter: UPGRADE_MAX.orbiter,
-    field: UPGRADE_MAX.field,
-    ball: UPGRADE_MAX.ball,
-    drone: UPGRADE_MAX.drone,
-    tesla: UPGRADE_MAX.tesla,
-  }
-}
-
-export function createGame(best = 0, seed = 1, maxed = true): GameState {
+export function createGame(best = 0, seed = 1): GameState {
   let s = seed >>> 0 || 1
   const rng = () => {
     s = (Math.imul(s, 1664525) + 1013904223) >>> 0
@@ -594,12 +577,12 @@ export function createGame(best = 0, seed = 1, maxed = true): GameState {
     xp: 0,
     xpNeed: xpNeedFor(1),
     hullMax: TUNING.hullMax,
-    orbitTime: maxed ? 0.35 : 0,
+    orbitTime: 0,
     fieldTick: 0,
-    ballCd: maxed ? 0.2 : 0.45,
+    ballCd: 0.45,
     droneCd: 0,
     droneBurst: 0,
-    droneReload: maxed ? 0.2 : 0.4,
+    droneReload: 0.4,
     droneX: -52 * BODY + 5,
     droneY: -64 * BODY,
     droneLag: 0,
@@ -616,8 +599,8 @@ export function createGame(best = 0, seed = 1, maxed = true): GameState {
     reticleY: 0,
     reticleVx: 0,
     reticleVy: 0,
-    teslaCd: maxed ? 0.35 : 0.45,
-    mods: maxed ? maxMods() : zeroMods(),
+    teslaCd: 0.45,
+    mods: freshMods(),
     dealt: { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0 },
     damageBins: [],
     upgradeMarks: [],

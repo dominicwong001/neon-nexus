@@ -163,7 +163,7 @@ describe('arena camera', () => {
 
 describe('drift', () => {
   it('moves up the infinite field on W and stays finite', () => {
-    const state = createGame(0, 3, false)
+    const state = createGame(0, 3)
     state.spawnCd = 999
     run(state, input({ moveY: -1, aimActive: false }), 0.6)
     assert.ok(state.playerY < -80)
@@ -171,7 +171,7 @@ describe('drift', () => {
   })
 
   it('never wraps back toward the origin', () => {
-    const state = createGame(0, 4, false)
+    const state = createGame(0, 4)
     state.spawnCd = 999
     run(state, input({ moveX: 1, aimActive: false }), 10)
     assert.ok(state.playerX > TUNING.maxSpeed * 7)
@@ -179,7 +179,7 @@ describe('drift', () => {
   })
 
   it('caps a diagonal at max speed', () => {
-    const state = createGame(0, 5, false)
+    const state = createGame(0, 5)
     state.spawnCd = 999
     run(state, input({ moveX: 1, moveY: 1, aimActive: false }), 2)
     const speed = Math.hypot(state.playerVx, state.playerVy)
@@ -188,7 +188,7 @@ describe('drift', () => {
   })
 
   it('bleeds speed when the keys come up', () => {
-    const state = createGame(0, 6, false)
+    const state = createGame(0, 6)
     state.spawnCd = 999
     run(state, input({ moveX: 1, aimActive: false }), 1)
     run(state, input({ aimActive: false }), 1.4)
@@ -198,7 +198,7 @@ describe('drift', () => {
 
 describe('cursor stream', () => {
   it('fires toward the cursor without a click', () => {
-    const state = createGame(0, 7, false)
+    const state = createGame(0, 7)
     const events = step(state, input({ aimX: 0, aimY: 300 }), 1 / 60)
     assert.equal(events.shots, 1)
     assert.equal(state.bullets.length, 1)
@@ -209,7 +209,7 @@ describe('cursor stream', () => {
   })
 
   it('flies straight and does not follow a later change in drift', () => {
-    const state = createGame(0, 8, false)
+    const state = createGame(0, 8)
     state.playerVx = 220
     state.playerVy = -80
     step(state, input({ aimX: 400, aimY: 0, moveX: 0, moveY: 0 }), 1 / 60)
@@ -231,7 +231,7 @@ describe('cursor stream', () => {
   })
 
   it('adds one stream per Fork rank and stops at three', () => {
-    const state = createGame(0, 3, false)
+    const state = createGame(0, 3)
     state.spawnCd = 999
     state.mods.fork = 1
     state.fireCd = 0
@@ -260,7 +260,7 @@ describe('cursor stream', () => {
   })
 
   it('holds the last aim when the cursor sits on the core', () => {
-    const state = createGame(0, 9, false)
+    const state = createGame(0, 9)
     step(state, input({ aimX: 0, aimY: 220 }), 1 / 60)
     const aim = state.aim
     step(state, input({ aimX: state.playerX, aimY: state.playerY }), 1 / 60)
@@ -270,7 +270,7 @@ describe('cursor stream', () => {
 
 describe('hostiles', () => {
   it('shatters a shape the stream touches and banks the score', () => {
-    const state = createGame(0, 2, false)
+    const state = createGame(0, 2)
     state.spawnCd = 50
     state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, radius: 24 }))
     const events = step(state, input(), 1 / 60)
@@ -282,7 +282,7 @@ describe('hostiles', () => {
   })
 
   it('splits a normal circle once and a big circle into normals that split again', () => {
-    const state = createGame(0, 19, false)
+    const state = createGame(0, 19)
     state.spawnCd = 50
     state.xpNeed = 999
     state.enemies.push(enemy({ x: TUNING.muzzle + 30, y: 0, radius: 14, kind: 2, hp: 1, generation: 0, speed: 0 }))
@@ -340,7 +340,7 @@ describe('hostiles', () => {
   })
 
   it('needs two hits to break a block', () => {
-    const state = createGame(0, 11, false)
+    const state = createGame(0, 11)
     state.spawnCd = 50
     state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, radius: 26, kind: 1, hp: HIT * 2 }))
     step(state, input(), 1 / 60)
@@ -355,7 +355,7 @@ describe('hostiles', () => {
   })
 
   it('builds a combo when shapes break in a chain', () => {
-    const state = createGame(0, 12, false)
+    const state = createGame(0, 12)
     state.spawnCd = 50
     state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, radius: 24 }))
     step(state, input(), 1 / 60)
@@ -368,7 +368,7 @@ describe('hostiles', () => {
   })
 
   it('sends a rare red hex with a much thicker hull', () => {
-    const early = createGame(0, 7, false)
+    const early = createGame(0, 7)
     early.fireCd = 10
     const earlyCounts = [0, 0, 0, 0]
     for (let i = 0; i < 80; i++) {
@@ -386,7 +386,7 @@ describe('hostiles', () => {
     assert.ok((earlyCounts[2] ?? 0) < (earlyCounts[1] ?? 0))
     assert.ok((earlyCounts[0] ?? 0) > 0)
 
-    const state = createGame(0, 7, false)
+    const state = createGame(0, 7)
     state.fireCd = 10
     state.time = 70
     state.level = 9
@@ -414,7 +414,7 @@ describe('hostiles', () => {
   })
 
   it('spawns outside the view', () => {
-    const state = createGame(0, 13, false)
+    const state = createGame(0, 13)
     state.spawnCd = 0
     step(state, input({ viewRadius: 400, aimActive: false }), 1 / 60)
     assert.ok(state.enemies.length >= 1)
@@ -425,7 +425,7 @@ describe('hostiles', () => {
   })
 
   it('keeps hostiles from sitting on each other', () => {
-    const state = createGame(0, 21, false)
+    const state = createGame(0, 21)
     state.spawnCd = 999
     state.enemies.push(enemy({ x: 240, y: 30, speed: 120, hp: 8 }))
     state.enemies.push(enemy({ x: 240, y: 30, speed: 120, hp: 8, phase: 2 }))
@@ -438,7 +438,7 @@ describe('hostiles', () => {
   })
 
   it('closes distance on the core', () => {
-    const state = createGame(0, 14, false)
+    const state = createGame(0, 14)
     state.spawnCd = 80
     state.enemies.push(enemy({ x: 420, y: 0, hp: 30, radius: 16, speed: 160, kind: 0 }))
     run(state, input({ aimX: 0, aimY: -400, viewRadius: 220 }), 1)
@@ -448,7 +448,7 @@ describe('hostiles', () => {
   })
 
   it('shoves every hostile inside the hex ring when the hull cracks', () => {
-    const state = createGame(0, 16, false)
+    const state = createGame(0, 16)
     state.spawnCd = 999
     state.fireCd = 10
     state.invuln = 0
@@ -477,7 +477,7 @@ describe('hostiles', () => {
   })
 
   it('keeps a blinking giant hex fixed while others push', () => {
-    const state = createGame(0, 21, false)
+    const state = createGame(0, 21)
     state.spawnCd = 999
     state.fireCd = 10
     state.invuln = 0
@@ -522,7 +522,7 @@ describe('hostiles', () => {
   })
 
   it('bursts a shard on the core and knocks the core back', () => {
-    const state = createGame(0, 4, false)
+    const state = createGame(0, 4)
     state.spawnCd = 999
     state.fireCd = 10
     state.invuln = 0
@@ -551,7 +551,7 @@ describe('hostiles', () => {
   })
 
   it('cracks the hull once, then goes dark at zero', () => {
-    const state = createGame(0, 15, false)
+    const state = createGame(0, 15)
     state.spawnCd = 80
     state.invuln = 0
     state.enemies.push(enemy({ x: 0, y: 0, radius: 20, hp: 8 }))
@@ -576,7 +576,7 @@ describe('hostiles', () => {
 
 describe('orbs', () => {
   it('drops a richer orb from a healthier shape', () => {
-    const state = createGame(0, 31, false)
+    const state = createGame(0, 31)
     state.spawnCd = 999
     state.xpNeed = 9999
     state.enemies.push(enemy({ x: 220, y: 0, kind: 1, hp: 200, speed: 0, radius: 16 }))
@@ -593,7 +593,7 @@ describe('orbs', () => {
   })
 
   it('pulls a nearby orb into the bar and ignores one out of range', () => {
-    const state = createGame(0, 32, false)
+    const state = createGame(0, 32)
     state.spawnCd = 999
     state.orbs.push(orb({ x: 70, value: 1 }))
     state.orbs.push(orb({ x: 420, value: 4 }))
@@ -616,11 +616,11 @@ describe('orbs', () => {
   })
 
   it('sends thicker waves as the run goes on', () => {
-    const early = createGame(0, 11, false)
+    const early = createGame(0, 11)
     early.spawnCd = 0
     early.fireCd = 10
     step(early, input({ viewRadius: 400, aimActive: false }), 1 / 60)
-    const late = createGame(0, 11, false)
+    const late = createGame(0, 11)
     late.time = 70
     late.level = 8
     late.spawnCd = 0
@@ -631,7 +631,7 @@ describe('orbs', () => {
   })
 
   it('hardens late shapes and throws hex pieces that cannot break', () => {
-    const state = createGame(0, 23, false)
+    const state = createGame(0, 23)
     state.fireCd = 10
     state.time = 56
     state.level = 8
@@ -738,7 +738,7 @@ describe('orbs', () => {
   })
 
   it('offers any three upgrades that are still available', () => {
-    const state = createGame(0, 90, false)
+    const state = createGame(0, 90)
     state.spawnCd = 999
     state.fireCd = 10
     const seen = new Set<string>()
@@ -761,29 +761,8 @@ describe('orbs', () => {
     assert.equal(state.offers.some((offer) => offer.id === 'pulse'), false)
   })
 
-  it('starts with every ability already at its last rank', () => {
-    const state = createGame(0, 2)
-    assert.equal(state.mods.pulse, 5)
-    assert.equal(state.mods.caliber, 3)
-    assert.equal(state.mods.drift, 4)
-    assert.equal(state.mods.magnet, 4)
-    assert.equal(state.mods.fork, 2)
-    assert.equal(state.mods.greed, 3)
-    assert.equal(state.mods.regen, 3)
-    assert.equal(state.mods.orbiter, 6)
-    assert.equal(state.mods.field, 6)
-    assert.equal(state.mods.ball, 6)
-    assert.equal(arcReactor(state.mods.tesla), true)
-    assert.equal(droneStorm(state.mods.drone), true)
-    state.spawnCd = 999
-    state.fireCd = 10
-    state.xp = state.xpNeed
-    step(state, input({ aimActive: false }), 1 / 60)
-    assert.equal(state.offers.every((offer) => offer.id === 'cache'), true)
-  })
-
   it('always offers Tesla Coil, then Arc Reactor at the last rank', () => {
-    const state = createGame(0, 5, false)
+    const state = createGame(0, 5)
     state.spawnCd = 999
     state.fireCd = 10
     for (let n = 0; n < 4; n++) {
@@ -824,7 +803,7 @@ describe('orbs', () => {
   })
 
   it('drops lightning on a hostile and chain-arcs Arc Reactor', () => {
-    const state = createGame(0, 8, false)
+    const state = createGame(0, 8)
     state.spawnCd = 999
     state.fireCd = 10
     state.mods.tesla = 1
@@ -860,7 +839,7 @@ describe('orbs', () => {
     assert.ok(Math.hypot(flown.x - bornX, flown.y - bornY) > 8)
     assert.ok(Math.hypot(flown.vx, flown.vy) < speed)
 
-    const single = createGame(0, 3, false)
+    const single = createGame(0, 3)
     single.spawnCd = 999
     single.fireCd = 10
     single.mods.tesla = 4
@@ -873,7 +852,7 @@ describe('orbs', () => {
     step(single, input({ aimActive: false }), 1 / 60)
     assert.equal(single.bolts.length, 1)
 
-    const reactor = createGame(0, 9, false)
+    const reactor = createGame(0, 9)
     reactor.spawnCd = 999
     reactor.fireCd = 10
     reactor.mods.tesla = 5
@@ -900,7 +879,7 @@ describe('orbs', () => {
   })
 
   it('strikes only enemies inside the camera', () => {
-    const state = createGame(0, 4, false)
+    const state = createGame(0, 4)
     state.spawnCd = 999
     state.fireCd = 10
     state.mods.tesla = 1
@@ -918,7 +897,7 @@ describe('orbs', () => {
     let strongHits = 0
     const trials = 80
     for (let n = 0; n < trials; n++) {
-      const state = createGame(0, n + 1, false)
+      const state = createGame(0, n + 1)
       state.spawnCd = 999
       state.fireCd = 10
       state.mods.tesla = 1
@@ -936,7 +915,7 @@ describe('orbs', () => {
   })
 
   it('opens three upgrades when the bar fills and freezes the pit', () => {
-    const state = createGame(0, 42, false)
+    const state = createGame(0, 42)
     state.spawnCd = 999
     assert.equal(state.xpNeed, xpNeedFor(1))
     state.fireCd = 10
@@ -961,7 +940,7 @@ describe('orbs', () => {
   })
 
   it('adds a disc on every Orbiter rank', () => {
-    const state = createGame(0, 11, false)
+    const state = createGame(0, 11)
     state.spawnCd = 999
     state.fireCd = 10
     for (let n = 0; n < 6; n++) {
@@ -994,7 +973,7 @@ describe('orbs', () => {
   })
 
   it('ricochets, pierces, and splits a Bouncy Ball', () => {
-    const state = createGame(0, 5, false)
+    const state = createGame(0, 5)
     state.spawnCd = 999
     state.fireCd = 10
     for (let n = 0; n < 6; n++) {
@@ -1018,7 +997,7 @@ describe('orbs', () => {
     step(state, input({ aimActive: false }), 1 / 60)
     assert.equal(state.offers.some((offer) => offer.id === 'ball'), false)
 
-    const pierce = createGame(0, 6, false)
+    const pierce = createGame(0, 6)
     pierce.spawnCd = 999
     pierce.fireCd = 10
     pierce.invuln = 5
@@ -1050,7 +1029,7 @@ describe('orbs', () => {
     assert.equal(pebble.flex, 0)
     assert.ok(pierce.balls.some((ball) => !ball.echo))
 
-    const stuck = createGame(0, 7, false)
+    const stuck = createGame(0, 7)
     stuck.spawnCd = 999
     stuck.fireCd = 10
     stuck.invuln = 5
@@ -1077,7 +1056,7 @@ describe('orbs', () => {
     step(stuck, input({ aimActive: false }), 1 / 60)
     assert.equal(sitting.hp, 180)
 
-    const wall = createGame(0, 8, false)
+    const wall = createGame(0, 8)
     wall.spawnCd = 999
     wall.fireCd = 10
     const shot = {
@@ -1105,7 +1084,7 @@ describe('orbs', () => {
     assert.ok(shot.spin !== 0)
     assert.equal(wall.balls.filter((ball) => ball.echo).length, 0)
 
-    const split = createGame(0, 9, false)
+    const split = createGame(0, 9)
     split.spawnCd = 999
     split.fireCd = 10
     split.invuln = 5
@@ -1138,7 +1117,7 @@ describe('orbs', () => {
     assert.ok((echoes[0]?.radius ?? 99) < 10)
     assert.equal(ballDamage(6), 36)
 
-    const tank = createGame(0, 10, false)
+    const tank = createGame(0, 10)
     tank.spawnCd = 999
     tank.fireCd = 10
     tank.invuln = 5
@@ -1167,7 +1146,7 @@ describe('orbs', () => {
     assert.ok(brute.hp < 1000)
     assert.ok(incoming.x < brute.x)
 
-    const blob = createGame(0, 12, false)
+    const blob = createGame(0, 12)
     blob.spawnCd = 999
     blob.fireCd = 10
     blob.invuln = 5
@@ -1197,7 +1176,7 @@ describe('orbs', () => {
     assert.ok(giant.hp < 80)
     assert.equal(plain.hp, 300)
 
-    const chipped = createGame(0, 11, false)
+    const chipped = createGame(0, 11)
     chipped.spawnCd = 999
     chipped.fireCd = 10
     chipped.invuln = 5
@@ -1228,7 +1207,7 @@ describe('orbs', () => {
   })
 
   it('burns and slows inside a wider Force Field ring', () => {
-    const state = createGame(0, 3, false)
+    const state = createGame(0, 3)
     state.spawnCd = 999
     state.fireCd = 10
     for (let n = 0; n < 6; n++) {
@@ -1257,7 +1236,7 @@ describe('orbs', () => {
     assert.ok(fieldRipple(5) < fieldRipple(1))
     assert.ok(fieldRipple(1) < 0.5)
 
-    const burn = createGame(0, 4, false)
+    const burn = createGame(0, 4)
     burn.spawnCd = 999
     burn.fireCd = 10
     burn.invuln = 5
@@ -1277,7 +1256,7 @@ describe('orbs', () => {
   })
 
   it('lets the discs bite, then hides them while they recharge', () => {
-    const state = createGame(0, 12, false)
+    const state = createGame(0, 12)
     state.spawnCd = 999
     state.fireCd = 10
     state.invuln = 5
@@ -1304,13 +1283,13 @@ describe('orbs', () => {
     assert.equal(state.floaters.some((floater) => floater.text.startsWith('+')), false)
     assert.ok(orbitActive(2) > orbitActive(1))
     assert.ok(orbitRate(2) > orbitRate(1))
-    const held = createGame(0, 18, false)
+    const held = createGame(0, 18)
     held.mods.orbiter = 2
     held.time = 0.4
     held.orbitTime = orbitActive(1) + 0.12
     assert.ok(orbitDiscs(held).length >= 3)
 
-    const quiet = createGame(0, 13, false)
+    const quiet = createGame(0, 13)
     quiet.spawnCd = 999
     quiet.fireCd = 10
     quiet.invuln = 5
@@ -1324,7 +1303,7 @@ describe('orbs', () => {
 
   it('nudges a hostile off a disc, a little harder at each rank', () => {
     const bump = (rank: number) => {
-      const state = createGame(0, 4, false)
+      const state = createGame(0, 4)
       state.spawnCd = 999
       state.fireCd = 10
       state.invuln = 5
@@ -1347,7 +1326,7 @@ describe('orbs', () => {
 
   it('lets a hostile walk through the discs', () => {
     for (const rank of [1, 6]) {
-      const state = createGame(0, 8, false)
+      const state = createGame(0, 8)
       state.spawnCd = 999
       state.fireCd = 10
       state.invuln = 30
@@ -1369,7 +1348,7 @@ describe('orbs', () => {
   })
 
   it('never offers Reach', () => {
-    const state = createGame(0, 9, false)
+    const state = createGame(0, 9)
     state.spawnCd = 999
     state.fireCd = 10
     const titles = new Set<string>()
@@ -1385,7 +1364,7 @@ describe('orbs', () => {
   })
 
   it('queues another choice when one orb covers two levels', () => {
-    const state = createGame(0, 43, false)
+    const state = createGame(0, 43)
     state.spawnCd = 999
     state.orbs.push(orb({ value: 70 }))
     step(state, input({ aimActive: false }), 1 / 60)
@@ -1398,7 +1377,7 @@ describe('orbs', () => {
   })
 
   it('paints a collision burst when a round hits', () => {
-    const state = createGame(0, 44, false)
+    const state = createGame(0, 44)
     state.spawnCd = 999
     state.enemies.push(enemy({ x: TUNING.muzzle, y: 0, kind: 1, hp: HIT * 2, radius: 22 }))
     step(state, input(), 1 / 60)
@@ -1408,7 +1387,7 @@ describe('orbs', () => {
   })
 
   it('offers Drone, then Bulletstorm at rank 5, and shells only burst when they land', () => {
-    const state = createGame(0, 46, false)
+    const state = createGame(0, 46)
     state.spawnCd = 999
     state.fireCd = 10
     for (let n = 0; n < 5; n++) {
@@ -1441,7 +1420,7 @@ describe('orbs', () => {
     assert.ok(droneDamage(5) > droneDamage(4))
     assert.ok(droneDamage(5) < droneDamage(1) + 12)
 
-    const lob = createGame(0, 47, false)
+    const lob = createGame(0, 47)
     lob.spawnCd = 999
     lob.fireCd = 10
     lob.invuln = 5
@@ -1496,7 +1475,7 @@ describe('orbs', () => {
     assert.ok((lob.enemies[0]?.hp ?? 800) < 800)
     assert.equal(lob.mortars.includes(landing), false)
 
-    const rich = createGame(0, 49, false)
+    const rich = createGame(0, 49)
     rich.spawnCd = 999
     rich.fireCd = 10
     rich.invuln = 5
@@ -1511,7 +1490,7 @@ describe('orbs', () => {
     step(rich, input({ aimActive: false }), 1 / 60)
     assert.ok(rich.reticleX < 0)
 
-    const ahead = createGame(0, 50, false)
+    const ahead = createGame(0, 50)
     ahead.spawnCd = 999
     ahead.fireCd = 10
     ahead.invuln = 5
@@ -1522,7 +1501,7 @@ describe('orbs', () => {
     assert.ok(ahead.reticleX < 180)
     assert.ok(ahead.reticleX > 90)
 
-    const round = createGame(0, 54, false)
+    const round = createGame(0, 54)
     round.spawnCd = 999
     round.fireCd = 10
     round.invuln = 5
@@ -1540,7 +1519,7 @@ describe('orbs', () => {
     assert.equal(round.droneReload, 0)
     assert.ok(round.droneBurst > 0.2)
 
-    const shift = createGame(0, 56, false)
+    const shift = createGame(0, 56)
     shift.spawnCd = 999
     shift.fireCd = 10
     shift.invuln = 5
@@ -1562,7 +1541,7 @@ describe('orbs', () => {
     for (let n = 0; n < 50; n++) step(shift, input({ aimActive: false }), 1 / 60)
     assert.ok(shift.reticleY < shift.droneY - 40)
 
-    const moving = createGame(0, 58, false)
+    const moving = createGame(0, 58)
     moving.spawnCd = 999
     moving.fireCd = 10
     moving.invuln = 5
@@ -1588,7 +1567,7 @@ describe('orbs', () => {
     }
     assert.ok(Math.hypot(moving.reticleX - parkedX, moving.reticleY - parkedY) > 160)
 
-    const quiet = createGame(0, 59, false)
+    const quiet = createGame(0, 59)
     quiet.spawnCd = 999
     quiet.fireCd = 10
     quiet.invuln = 5
@@ -1612,7 +1591,7 @@ describe('orbs', () => {
     }
     assert.equal(resumed, true)
 
-    const slide = createGame(0, 55, false)
+    const slide = createGame(0, 55)
     slide.spawnCd = 999
     slide.fireCd = 10
     slide.invuln = 5
@@ -1634,7 +1613,7 @@ describe('orbs', () => {
     const across = Math.abs(leave.vx * -shot.by + leave.vy * shot.bx)
     assert.ok(along > across)
 
-    const storm = createGame(0, 48, false)
+    const storm = createGame(0, 48)
     storm.spawnCd = 999
     storm.fireCd = 10
     storm.invuln = 5
@@ -1644,7 +1623,7 @@ describe('orbs', () => {
     storm.enemies.push(enemy({ x: 180, y: 40, hp: 2000, radius: 16, speed: 0 }))
     for (let n = 0; n < 40; n++) step(storm, input({ aimActive: false }), 1 / 30)
     assert.ok(storm.mortars.length >= 3)
-    const tail = createGame(0, 51, false)
+    const tail = createGame(0, 51)
     tail.spawnCd = 999
     tail.fireCd = 10
     tail.mods.drone = 1
@@ -1655,7 +1634,7 @@ describe('orbs', () => {
     assert.ok(tail.playerX > origin + 8)
     for (let n = 0; n < 30; n++) step(tail, input({ moveX: 1, aimActive: false }), 1 / 60)
     assert.ok(tail.droneX > parked + 40)
-    const yaw = createGame(0, 52, false)
+    const yaw = createGame(0, 52)
     yaw.mods.drone = 1
     yaw.spawnCd = 999
     yaw.fireCd = 10
@@ -1692,7 +1671,7 @@ describe('orbs', () => {
     assert.ok(near && far)
     assert.ok(Math.hypot(near.tx - near.sx, near.ty - near.sy) <= Math.hypot(far.tx - far.sx, far.ty - far.sy))
 
-    const farAim = createGame(0, 53, false)
+    const farAim = createGame(0, 53)
     farAim.spawnCd = 999
     farAim.fireCd = 10
     farAim.invuln = 5
@@ -1725,7 +1704,7 @@ describe('orbs', () => {
     }
     assert.ok(closest > 0.5)
 
-    const nearCrowd = createGame(0, 60, false)
+    const nearCrowd = createGame(0, 60)
     nearCrowd.spawnCd = 999
     nearCrowd.fireCd = 10
     nearCrowd.invuln = 5
@@ -1738,7 +1717,7 @@ describe('orbs', () => {
     nearCrowd.reticleX = nearCrowd.playerX + 100
     nearCrowd.reticleY = nearCrowd.playerY
     nearCrowd.enemies.push(enemy({ x: nearCrowd.reticleX, y: nearCrowd.reticleY, hp: 9000, radius: 14, speed: 0 }))
-    const farCrowd = createGame(0, 60, false)
+    const farCrowd = createGame(0, 60)
     farCrowd.spawnCd = 999
     farCrowd.fireCd = 10
     farCrowd.invuln = 5
@@ -1768,7 +1747,7 @@ describe('orbs', () => {
     assert.ok(tight < 80)
     assert.ok(wide > tight + 30)
 
-    const turning = createGame(0, 61, false)
+    const turning = createGame(0, 61)
     turning.spawnCd = 999
     turning.fireCd = 10
     turning.invuln = 5
@@ -1787,7 +1766,7 @@ describe('orbs', () => {
     const still = Math.atan2(Math.sin(want - turning.droneFace), Math.cos(want - turning.droneFace))
     assert.ok(Math.abs(still) < 0.02)
 
-    const sweep = createGame(0, 63, false)
+    const sweep = createGame(0, 63)
     sweep.spawnCd = 999
     sweep.fireCd = 10
     sweep.mods.drone = 1
@@ -1800,7 +1779,7 @@ describe('orbs', () => {
     const sweptGap = Math.atan2(Math.sin(swept - sweep.droneFace), Math.cos(swept - sweep.droneFace))
     assert.ok(Math.abs(sweptGap) < 0.02)
 
-    const away = createGame(0, 62, false)
+    const away = createGame(0, 62)
     away.spawnCd = 999
     away.fireCd = 10
     away.invuln = 5
@@ -1840,7 +1819,7 @@ describe('orbs', () => {
   })
 
   it('counts damage from the stream and each ability', () => {
-    const state = createGame(0, 70, false)
+    const state = createGame(0, 70)
     state.spawnCd = 999
     state.fireCd = 0
     state.invuln = 5
@@ -1893,14 +1872,14 @@ describe('orbs', () => {
   })
 
   it('restores health only when you level, and Regeneration restores more', () => {
-    const quiet = createGame(0, 80, false)
+    const quiet = createGame(0, 80)
     quiet.spawnCd = 999
     quiet.fireCd = 10
     quiet.hull = 4
     run(quiet, input({ aimActive: false }), 8.5)
     assert.equal(quiet.hull, 4)
 
-    const state = createGame(0, 81, false)
+    const state = createGame(0, 81)
     state.spawnCd = 999
     state.fireCd = 10
     state.hull = 6
@@ -1919,7 +1898,7 @@ describe('orbs', () => {
     step(state, input({ aimActive: false }), 1 / 60)
     assert.equal(state.hull, 4)
 
-    const bite = createGame(0, 82, false)
+    const bite = createGame(0, 82)
     bite.spawnCd = 999
     bite.mods.caliber = 1
     bite.enemies.push(enemy({ x: TUNING.muzzle, y: 0, radius: 26, kind: 1, hp: 200 }))
@@ -1928,7 +1907,7 @@ describe('orbs', () => {
   })
 
   it('bins damage by time and marks weapon upgrades', () => {
-    const state = createGame(0, 71, false)
+    const state = createGame(0, 71)
     state.spawnCd = 999
     state.fireCd = 0
     state.invuln = 5
@@ -1970,7 +1949,7 @@ describe('orbs', () => {
 
 describe('clock', () => {
   it('ignores a backwards tick', () => {
-    const state = createGame(0, 16, false)
+    const state = createGame(0, 16)
     step(state, input({ moveX: 1 }), -2)
     assert.equal(state.playerX, 0)
     assert.equal(state.bullets.length, 0)
