@@ -1717,6 +1717,8 @@ describe('orbs', () => {
     round.reticleOn = true
     round.reticleX = round.droneX + 180
     round.reticleY = round.droneY
+    round.droneAimX = round.reticleX
+    round.droneAimY = round.reticleY
     round.droneFace = 0
     const started = round.mortars.length
     for (let n = 0; n < 20; n++) step(round, input({ aimActive: false }), 1 / 60)
@@ -1736,15 +1738,29 @@ describe('orbs', () => {
     shift.reticleOn = true
     shift.reticleX = shift.droneX + 200
     shift.reticleY = shift.droneY
+    shift.droneAimX = shift.reticleX
+    shift.droneAimY = shift.reticleY
     shift.droneFace = 0
     shift.enemies.push(
       enemy({ x: shift.reticleX, y: shift.reticleY, hp: 40, radius: 16, speed: 0 }),
       enemy({ x: shift.droneX, y: shift.droneY - 220, hp: 900, radius: 16, speed: 0 }),
     )
-    for (let n = 0; n < 30; n++) step(shift, input({ aimActive: false }), 1 / 60)
+    for (let n = 0; n < 40; n++) step(shift, input({ aimActive: false }), 1 / 60)
     assert.ok(shift.reticleX > shift.droneX + 80)
-    for (let n = 0; n < 50; n++) step(shift, input({ aimActive: false }), 1 / 60)
+    let shiftLeap = 0
+    let prevShiftX = shift.reticleX
+    let prevShiftY = shift.reticleY
+    for (let n = 0; n < 90; n++) {
+      step(shift, input({ aimActive: false }), 1 / 60)
+      shiftLeap = Math.max(
+        shiftLeap,
+        Math.hypot(shift.reticleX - prevShiftX, shift.reticleY - prevShiftY),
+      )
+      prevShiftX = shift.reticleX
+      prevShiftY = shift.reticleY
+    }
     assert.ok(shift.reticleY < shift.droneY - 40)
+    assert.ok(shiftLeap < 40)
 
     const moving = createGame(0, 58)
     moving.spawnCd = 999
@@ -1758,6 +1774,8 @@ describe('orbs', () => {
     moving.reticleOn = true
     moving.reticleX = moving.droneX + 180
     moving.reticleY = moving.droneY
+    moving.droneAimX = moving.reticleX
+    moving.droneAimY = moving.reticleY
     moving.droneFace = 0
     moving.enemies.push(
       enemy({ x: moving.reticleX, y: moving.reticleY, hp: 40, radius: 16, speed: 0 }),
@@ -1766,11 +1784,21 @@ describe('orbs', () => {
     step(moving, input({ aimActive: false }), 1 / 60)
     const parkedX = moving.reticleX
     const parkedY = moving.reticleY
-    for (let n = 0; n < 80; n++) {
+    let moveLeap = 0
+    let prevMoveX = parkedX
+    let prevMoveY = parkedY
+    for (let n = 0; n < 120; n++) {
       moving.droneFace = Math.PI
       step(moving, input({ moveX: 1, aimActive: false }), 1 / 60)
+      moveLeap = Math.max(
+        moveLeap,
+        Math.hypot(moving.reticleX - prevMoveX, moving.reticleY - prevMoveY),
+      )
+      prevMoveX = moving.reticleX
+      prevMoveY = moving.reticleY
     }
     assert.ok(Math.hypot(moving.reticleX - parkedX, moving.reticleY - parkedY) > 160)
+    assert.ok(moveLeap < 40)
 
     const quiet = createGame(0, 59)
     quiet.spawnCd = 999
@@ -1807,6 +1835,8 @@ describe('orbs', () => {
     slide.reticleOn = true
     slide.reticleX = slide.droneX + 200
     slide.reticleY = slide.droneY
+    slide.droneAimX = slide.reticleX
+    slide.droneAimY = slide.reticleY
     slide.droneFace = 0
     slide.droneVx = 0
     slide.droneVy = 240
@@ -1921,6 +1951,8 @@ describe('orbs', () => {
     nearCrowd.reticleOn = true
     nearCrowd.reticleX = nearCrowd.playerX + 100
     nearCrowd.reticleY = nearCrowd.playerY
+    nearCrowd.droneAimX = nearCrowd.reticleX
+    nearCrowd.droneAimY = nearCrowd.reticleY
     nearCrowd.enemies.push(enemy({ x: nearCrowd.reticleX, y: nearCrowd.reticleY, hp: 9000, radius: 14, speed: 0 }))
     const farCrowd = createGame(0, 60)
     farCrowd.spawnCd = 999
@@ -1934,6 +1966,8 @@ describe('orbs', () => {
     farCrowd.reticleOn = true
     farCrowd.reticleX = farCrowd.playerX + 280
     farCrowd.reticleY = farCrowd.playerY
+    farCrowd.droneAimX = farCrowd.reticleX
+    farCrowd.droneAimY = farCrowd.reticleY
     farCrowd.enemies.push(enemy({ x: farCrowd.reticleX, y: farCrowd.reticleY, hp: 9000, radius: 14, speed: 0 }))
     const reachOf = (state: ReturnType<typeof createGame>) => {
       let reach = 0
@@ -1964,6 +1998,8 @@ describe('orbs', () => {
     turning.reticleOn = true
     turning.reticleX = turning.droneX + 220
     turning.reticleY = turning.droneY
+    turning.droneAimX = turning.reticleX
+    turning.droneAimY = turning.reticleY
     turning.enemies.push(enemy({ x: turning.reticleX, y: turning.reticleY, hp: 9000, radius: 16, speed: 0 }))
     for (let n = 0; n < 40; n++) step(turning, input({ aimActive: false }), 1 / 60)
     assert.ok(turning.mortars.length >= 3)
@@ -1996,6 +2032,8 @@ describe('orbs', () => {
     away.reticleOn = true
     away.reticleX = away.playerX + 260
     away.reticleY = away.playerY
+    away.droneAimX = away.reticleX
+    away.droneAimY = away.reticleY
     away.droneAreaHot = true
     away.droneAreaCd = 4
     away.droneMarkX = away.droneX

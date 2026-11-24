@@ -304,6 +304,8 @@ export interface GameState {
   reticleY: number
   reticleVx: number
   reticleVy: number
+  droneAimX: number
+  droneAimY: number
   teslaCd: number
   holeCd: number
   mods: Mods
@@ -668,6 +670,8 @@ export function createGame(best = 0, seed = 1): GameState {
     reticleY: 0,
     reticleVx: 0,
     reticleVy: 0,
+    droneAimX: 0,
+    droneAimY: 0,
     teslaCd: 0.45,
     holeCd: 0.8,
     mods: freshMods(),
@@ -1746,8 +1750,10 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     if (storm) hopStormArea(state, false)
     else if (!trackLiveAim(state)) state.reticleOn = false
   }
+  glideDroneReticle(state, dt)
   if (state.droneReload > 0) {
     state.droneReload = Math.max(0, state.droneReload - dt)
+    faceDrone(state)
     return
   }
   if (storm && !enemiesInDroneRange(state)) {
@@ -1770,7 +1776,8 @@ function updateDrone(state: GameState, dt: number, events: StepEvents): void {
     if (state.droneAreaHot) {
       state.droneAreaCd -= dt
       const left = Math.hypot(state.droneX - state.droneMarkX, state.droneY - state.droneMarkY)
-      if (state.droneAreaCd <= 0 || left > 220 || !stormAreaLive(state)) {
+      const settled = droneAimSettled(state)
+      if (settled && (state.droneAreaCd <= 0 || left > 220 || !stormAreaLive(state))) {
         hopStormArea(state, true)
       }
     }
@@ -1838,12 +1845,41 @@ function hopStormArea(state: GameState, force: boolean): void {
     return
   }
   const spot = stormSpot(state, live, force)
-  state.reticleX = spot.x
-  state.reticleY = spot.y
-  state.reticleVx = live.vx
-  state.reticleVy = live.vy
-  state.reticleOn = true
+  setDroneAim(state, spot.x, spot.y, live.vx, live.vy)
   state.droneAreaCd = 1
+}
+
+function setDroneAim(state: GameState, x: number, y: number, vx: number, vy: number): void {
+  const first = !state.reticleOn
+  state.droneAimX = x
+  state.droneAimY = y
+  state.reticleVx = vx
+  state.reticleVy = vy
+  state.reticleOn = true
+  if (first) {
+    state.reticleX = x
+    state.reticleY = y
+  }
+}
+
+function glideDroneReticle(state: GameState, dt: number): void {
+  if (!state.reticleOn) return
+  const dx = state.droneAimX - state.reticleX
+  const dy = state.droneAimY - state.reticleY
+  const dist = Math.hypot(dx, dy)
+  if (dist < 1.5) {
+    state.reticleX = state.droneAimX
+    state.reticleY = state.droneAimY
+    return
+  }
+  const pace = 480 + Math.min(420, dist * 1.1)
+  const step = Math.min(dist, pace * dt)
+  state.reticleX += (dx / dist) * step
+  state.reticleY += (dy / dist) * step
+}
+
+function droneAimSettled(state: GameState): boolean {
+  return Math.hypot(state.droneAimX - state.reticleX, state.droneAimY - state.reticleY) < 28
 }
 
 function stormShift(state: GameState): number {
@@ -1859,7 +1895,7 @@ function nextStormArea(
   if (!first) return null
   if (!force || !state.reticleOn) return first
   const minShift = stormShift(state)
-  const elsewhere = areas.find((area) => Math.hypot(area.x - state.reticleX, area.y - state.reticleY) > minShift)
+  const elsewhere = areas.find((area) => Math.hypot(area.x - state.droneAimX, area.y - state.droneAimY) > minShift)
   if (elsewhere) return elsewhere
   return first
 }
@@ -1872,15 +1908,15 @@ function stormSpot(
   const spot = leadPoint(state, live)
   if (!force || !state.reticleOn) return spot
   const minShift = stormShift(state)
-  if (Math.hypot(spot.x - state.reticleX, spot.y - state.reticleY) >= minShift) return spot
-  let ang = Math.atan2(state.reticleY - live.y, state.reticleX - live.x) + 2.2
+  if (Math.hypot(spot.x - state.droneAimX, spot.y - state.droneAimY) >= minShift) return spot
+  let ang = Math.atan2(state.droneAimY - live.y, state.droneAimX - live.x) + 2.2
   for (let n = 0; n < 6; n++) {
-    const x = state.reticleX + Math.cos(ang) * minShift
-    const y = state.reticleY + Math.sin(ang) * minShift
+    const x = state.droneAimX + Math.cos(ang) * minShift
+    const y = state.droneAimY + Math.sin(ang) * minShift
     if (Math.hypot(x - state.playerX, y - state.playerY) >= 72) return { x, y }
     ang += 1.05
   }
-  return { x: state.reticleX + minShift, y: state.reticleY }
+  return { x: state.droneAimX + minShift, y: state.droneAimY }
 }
 
 function enemiesInDroneRange(state: GameState): boolean {
@@ -1908,11 +1944,7 @@ function trackLiveAim(state: GameState): boolean {
   const live = richestDroneArea(state)
   if (!live) return false
   const spot = leadPoint(state, live)
-  state.reticleX = spot.x
-  state.reticleY = spot.y
-  state.reticleVx = live.vx
-  state.reticleVy = live.vy
-  state.reticleOn = true
+  setDroneAim(state, spot.x, spot.y, live.vx, live.vy)
   return true
 }
 
