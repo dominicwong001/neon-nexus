@@ -2186,7 +2186,7 @@ function updateHoles(state: GameState, dt: number, events: StepEvents, viewW: nu
   }
   if (rank <= 0) return
   state.holeCd -= dt
-  if (state.holeCd > 0 || state.holes.length >= 3) return
+  if (state.holeCd > 0 || state.holes.length >= 1) return
   spawnHole(state, rank, viewW, viewH)
   state.holeCd = holeInterval(rank)
 }

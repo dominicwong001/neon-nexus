@@ -1021,6 +1021,9 @@ describe('orbs', () => {
     const hole = well.holes[0]
     assert.ok(hole)
     assert.equal(hole.crimson, false)
+    well.holeCd = 0
+    step(well, input({ aimActive: false }), 1 / 60)
+    assert.equal(well.holes.length, 1)
     const foe = well.enemies[0]
     assert.ok(foe)
     foe.x = hole.x + hole.radius * 0.55
@@ -1033,6 +1036,7 @@ describe('orbs', () => {
     assert.ok(foe.x < startX - 4)
     assert.ok(foe.hp < startHp)
     assert.ok(well.dealt.hole > 0)
+    assert.equal(well.holes.length, 1)
 
     const nova = createGame(0, 29)
     nova.spawnCd = 999
