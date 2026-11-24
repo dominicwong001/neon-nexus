@@ -2617,7 +2617,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     return {
       id,
       title: 'Crimson Collapse',
-      detail: 'A crimson well pulls harder and banks the damage it deals. When it ends, it implodes into a red blast that grows with everything it absorbed.',
+      detail: 'A crimson photon ring and spiral arms pull harder and bank the damage dealt. When it ends, the core implodes into a red blast that grows with everything it absorbed.',
       rank,
       max,
       overdrive: true,
@@ -2636,7 +2636,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off giant circles and any hostile whose hull is 1000 or more, no matter how much health is left.' },
     drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
     tesla: { title: 'Tesla Coil', detail: 'One lightning bolt falls on a hostile in view, leaning toward the tougher ones. Later ranks hit harder and strike again sooner.' },
-    hole: { title: 'Singularity', detail: 'A pitch-black well with a white accretion ring opens on screen, pulls hostiles in, and burns them while it lasts.' },
+    hole: { title: 'Singularity', detail: 'A pitch-black core with a blazing white photon ring and sweeping spiral arms opens on screen, pulls hostiles in, and burns them while it lasts.' },
   }
   const detail =
     id === 'orbiter' && rank > 1

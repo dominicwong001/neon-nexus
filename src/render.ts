@@ -146,18 +146,19 @@ function paintHole(
   const red = well.crimson
   const rim = red ? '#ff2d3a' : '#ffffff'
   const ink = red ? '255, 45, 58' : '255, 255, 255'
-  const spin = time * (red ? 2.6 : 1.9) + well.x * 0.01
-  const core = well.radius * 0.2
-  const rimR = well.radius * 0.9
-  const arms = lean ? 3 : 4
-  const motes = lean || still ? 6 : 10
+  const spin = time * (red ? 2.8 : 2.1) + well.x * 0.01
+  const core = Math.max(14 * BODY, well.radius * 0.28)
+  const reach = well.radius * 1.12
+  const arms = lean ? 4 : 6
+  const motes = lean || still ? 14 : 22
+  const steps = lean ? 9 : 12
 
   if (!lean) {
     const glow = glowFor(rim)
-    const aura = well.radius * (red ? 2.35 : 2.05)
+    const aura = reach * 2.2
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
-    ctx.globalAlpha = 0.3 * fade
+    ctx.globalAlpha = 0.22 * fade
     ctx.drawImage(glow, x - aura / 2, y - aura / 2, aura, aura)
     ctx.restore()
   }
@@ -166,73 +167,78 @@ function paintHole(
   ctx.translate(x, y)
   ctx.globalAlpha = fade
 
-  const voidFill = ctx.createRadialGradient(0, 0, core * 0.2, 0, 0, rimR)
-  voidFill.addColorStop(0, '#000000')
-  voidFill.addColorStop(0.42, 'rgba(0, 0, 0, 0.96)')
-  voidFill.addColorStop(0.78, `rgba(${ink}, 0.08)`)
-  voidFill.addColorStop(1, `rgba(${ink}, 0)`)
-  ctx.fillStyle = voidFill
-  ctx.beginPath()
-  ctx.arc(0, 0, rimR, 0, Math.PI * 2)
-  ctx.fill()
-
+  if (!lean) ctx.globalCompositeOperation = 'lighter'
   for (let arm = 0; arm < arms; arm++) {
     const base = spin + (arm / arms) * Math.PI * 2
-    ctx.beginPath()
-    for (let step = 0; step <= 10; step++) {
-      const t = step / 10
-      const ang = base + t * 2.55
-      const r = core * 1.15 + (rimR - core) * t * t
+    let prevX = Math.cos(base) * core
+    let prevY = Math.sin(base) * core
+    for (let step = 1; step <= steps; step++) {
+      const t = step / steps
+      const ang = base + t * 3.15
+      const r = core + (reach - core) * (t * t * (3 - 2 * t))
       const px = Math.cos(ang) * r
       const py = Math.sin(ang) * r
-      if (step === 0) ctx.moveTo(px, py)
-      else ctx.lineTo(px, py)
+      const taper = (1 - t) * (1 - t)
+      ctx.strokeStyle = `rgba(${ink}, ${0.18 + taper * 0.62})`
+      ctx.lineWidth = Math.max(0.6, (3.4 * taper + 0.55) * BODY)
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(prevX, prevY)
+      ctx.lineTo(px, py)
+      ctx.stroke()
+      prevX = px
+      prevY = py
     }
-    ctx.strokeStyle = `rgba(${ink}, ${0.28 + (arm % 2) * 0.18})`
-    ctx.lineWidth = (1.1 + (arm % 2) * 0.55) * BODY
-    ctx.stroke()
-  }
-
-  ctx.strokeStyle = rim
-  ctx.lineWidth = (red ? 3.6 : 2.8) * BODY
-  ctx.beginPath()
-  ctx.arc(0, 0, rimR, 0, Math.PI * 2)
-  ctx.stroke()
-  ctx.strokeStyle = `rgba(${ink}, 0.55)`
-  ctx.lineWidth = 1.3 * BODY
-  ctx.beginPath()
-  ctx.arc(0, 0, rimR * 0.86, 0, Math.PI * 2)
-  ctx.stroke()
-
-  if (!lean) {
-    ctx.globalCompositeOperation = 'lighter'
-    ctx.strokeStyle = `rgba(${ink}, 0.7)`
-    ctx.lineWidth = (red ? 2.2 : 1.7) * BODY
-    ctx.beginPath()
-    ctx.arc(0, 0, rimR, 0, Math.PI * 2)
-    ctx.stroke()
-    ctx.globalCompositeOperation = 'source-over'
   }
 
   for (let i = 0; i < motes; i++) {
-    const drift = still ? (i * 0.17) % 1 : (time * (1.7 + (i % 3) * 0.15) + i * 0.31) % 1
-    const inward = 1 - drift
-    const ang = spin * 1.35 + i * 0.95 + drift * 3.6
-    const r = core * 1.1 + (rimR - core) * (0.12 + inward * 0.82)
-    const size = (1.4 + (i % 3) * 0.7) * BODY * (0.45 + inward)
-    ctx.fillStyle = `rgba(${ink}, ${0.35 + inward * 0.55})`
+    const drift = still ? (i * 0.11) % 1 : (time * (1.55 + (i % 4) * 0.12) + i * 0.27) % 1
+    const pull = drift * drift * (3 - 2 * drift)
+    const ang = spin * 1.15 + i * 0.73 + drift * 4.2
+    const r = reach - (reach - core * 1.05) * pull
+    if (r <= core * 1.02) continue
+    const size = (1.2 + (i % 4) * 0.55) * BODY * (0.55 + (1 - pull) * 0.7)
+    ctx.fillStyle = `rgba(${ink}, ${0.25 + (1 - pull) * 0.65})`
     ctx.fillRect(Math.cos(ang) * r - size * 0.5, Math.sin(ang) * r - size * 0.5, size, size)
   }
+  if (!lean) ctx.globalCompositeOperation = 'source-over'
 
+  const ringGlow = ctx.createRadialGradient(0, 0, core * 0.72, 0, 0, core * 1.55)
+  ringGlow.addColorStop(0, `rgba(${ink}, 0)`)
+  ringGlow.addColorStop(0.42, `rgba(${ink}, ${lean ? 0.55 : 0.85})`)
+  ringGlow.addColorStop(0.72, `rgba(${ink}, 0.35)`)
+  ringGlow.addColorStop(1, `rgba(${ink}, 0)`)
+  ctx.fillStyle = ringGlow
+  ctx.beginPath()
+  ctx.arc(0, 0, core * 1.55, 0, Math.PI * 2)
+  ctx.fill()
+
+  if (!lean) {
+    ctx.globalCompositeOperation = 'lighter'
+    ctx.strokeStyle = rim
+    ctx.lineWidth = (red ? 4.2 : 3.4) * BODY
+    ctx.beginPath()
+    ctx.arc(0, 0, core * 1.02, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.strokeStyle = `rgba(${ink}, 0.75)`
+    ctx.lineWidth = 1.8 * BODY
+    ctx.beginPath()
+    ctx.arc(0, 0, core * 1.08, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.globalCompositeOperation = 'source-over'
+  } else {
+    ctx.strokeStyle = rim
+    ctx.lineWidth = 2.8 * BODY
+    ctx.beginPath()
+    ctx.arc(0, 0, core * 1.02, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+
+  ctx.globalAlpha = fade
   ctx.fillStyle = '#000000'
   ctx.beginPath()
   ctx.arc(0, 0, core, 0, Math.PI * 2)
   ctx.fill()
-  ctx.strokeStyle = `rgba(${ink}, 0.35)`
-  ctx.lineWidth = 1.1 * BODY
-  ctx.beginPath()
-  ctx.arc(0, 0, core, 0, Math.PI * 2)
-  ctx.stroke()
   ctx.restore()
 }
 
