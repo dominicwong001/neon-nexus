@@ -25,7 +25,7 @@ import {
   teslaBolts,
   teslaDamage,
   teslaInterval,
-  crimsonCollapse,
+  singularity,
   holeRadius,
   holeDuration,
   holeDamage,
@@ -963,15 +963,15 @@ describe('orbs', () => {
     assert.ok(strongHits < trials)
   })
 
-  it('offers Singularity through the ranks, then Crimson Collapse that detonates from absorbed damage', () => {
+  it('always offers Black Hole through the ranks, then Singularity that detonates from absorbed damage', () => {
     const state = createGame(0, 27)
     state.spawnCd = 999
     state.fireCd = 10
     for (let n = 0; n < 4; n++) {
       const card = takeOffer(state, 'hole')
-      assert.equal(card.title, 'Singularity')
+      assert.equal(card.title, 'Black Hole')
       assert.equal(card.overdrive, false)
-      if (n === 0) assert.match(card.detail, /pull|accretion/i)
+      if (n === 0) assert.match(card.detail, /pull|photon|spiral/i)
       else assert.match(card.detail, /wider|longer|harder/i)
       chooseUpgrade(state, state.offers.indexOf(card))
       assert.ok(holeRadius(n + 1) > 0)
@@ -986,16 +986,28 @@ describe('orbs', () => {
     assert.ok(holePull(4) > holePull(1))
     assert.ok(holeInterval(4) < holeInterval(1))
     const evolved = takeOffer(state, 'hole')
-    assert.equal(evolved.title, 'Crimson Collapse')
+    assert.equal(evolved.title, 'Singularity')
     assert.equal(evolved.overdrive, true)
     assert.match(evolved.detail, /crimson|implode|blast/i)
     chooseUpgrade(state, state.offers.indexOf(evolved))
     assert.equal(state.mods.hole, 5)
-    assert.equal(crimsonCollapse(5), true)
+    assert.equal(singularity(5), true)
     assert.ok(holeRadius(5) > holeRadius(4))
     assert.ok(holePull(5) > holePull(4))
     assert.ok(holeBlastRadius(200) > holeBlastRadius(40))
     assert.ok(holeBlastDamage(200) > holeBlastDamage(40))
+
+    const pinned = createGame(0, 31)
+    pinned.spawnCd = 999
+    pinned.fireCd = 10
+    for (let n = 0; n < 20; n++) {
+      pinned.xp = pinned.xpNeed
+      step(pinned, input({ aimActive: false }), 1 / 60)
+      assert.equal(pinned.phase, 'level')
+      assert.ok(pinned.offers.some((card) => card.id === 'hole'))
+      const other = pinned.offers.findIndex((card) => card.id !== 'hole')
+      chooseUpgrade(pinned, other >= 0 ? other : 0)
+    }
 
     const well = createGame(0, 28)
     well.spawnCd = 999
