@@ -138,9 +138,9 @@ function holeArmTone(red: boolean, shade: number): string {
     return '255, 168, 96'
   }
   if (shade === 0) return '255, 255, 255'
-  if (shade === 1) return '255, 214, 140'
-  if (shade === 2) return '210, 96, 255'
-  return '255, 176, 220'
+  if (shade === 1) return '248, 252, 255'
+  if (shade === 2) return '230, 238, 255'
+  return '255, 255, 255'
 }
 
 function paintHole(
@@ -157,25 +157,25 @@ function paintHole(
   const dying = well.max > 0 ? Math.min(1, well.life / Math.max(0.18, well.max * 0.18)) : 1
   const fade = Math.min(1, born, dying)
   const red = well.crimson
-  const rim = red ? '#ff3a2d' : '#fff4d8'
-  const hot = red ? '255, 90, 48' : '255, 236, 190'
+  const rim = red ? '#ff3a2d' : '#ffffff'
+  const hot = red ? '255, 90, 48' : '255, 255, 255'
   const spin = time * (red ? 1.55 : 1.2) + well.x * 0.01
   const core = Math.max(16 * BODY, well.radius * 0.3)
   const reach = well.radius * 1.28
-  const arms = lean ? 5 : 8
-  const layers = lean ? 2 : 3
-  const motes = lean || still ? 28 : 56
-  const steps = lean ? 14 : 22
+  const arms = lean ? (red ? 5 : 10) : red ? 8 : 18
+  const layers = lean ? 2 : red ? 3 : 2
+  const motes = lean || still ? 28 : red ? 56 : 64
+  const steps = lean ? 14 : red ? 22 : 26
 
   if (!lean) {
     const aura = reach * 3.4
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
-    ctx.globalAlpha = 0.34 * fade
+    ctx.globalAlpha = (red ? 0.34 : 0.42) * fade
     ctx.drawImage(glowFor(rim), x - aura / 2, y - aura / 2, aura, aura)
     ctx.globalAlpha = 0.2 * fade
-    ctx.drawImage(glowFor(red ? '#ff6a2a' : '#c86bff'), x - aura * 0.72, y - aura * 0.72, aura * 1.44, aura * 1.44)
-    ctx.globalAlpha = 0.28 * fade
+    ctx.drawImage(glowFor(red ? '#ff6a2a' : '#ffffff'), x - aura * 0.72, y - aura * 0.72, aura * 1.44, aura * 1.44)
+    ctx.globalAlpha = (red ? 0.28 : 0.38) * fade
     const bloom = reach * 1.55
     ctx.drawImage(glowFor('#ffffff'), x - bloom / 2, y - bloom / 2, bloom, bloom)
     ctx.restore()
@@ -188,11 +188,17 @@ function paintHole(
   if (!lean) ctx.globalCompositeOperation = 'lighter'
   for (let arm = 0; arm < arms; arm++) {
     const base = spin + (arm / arms) * Math.PI * 2
-    const fat = 0.72 + (arm % 3) * 0.34
-    const twist = 3.55 + (arm % 4) * 0.22
+    const fat = red
+      ? 0.72 + (arm % 3) * 0.34
+      : arm % 5 === 0
+        ? 1.85 + (arm % 2) * 0.45
+        : arm % 3 === 0
+          ? 1.15
+          : 0.48 + (arm % 4) * 0.12
+    const twist = (red ? 3.55 : 4.65) + (arm % 5) * 0.28
     for (let layer = 0; layer < layers; layer++) {
       const ink = holeArmTone(red, (arm + layer) % 4)
-      const side = (layer - (layers - 1) * 0.5) * 0.085
+      const side = (layer - (layers - 1) * 0.5) * (red ? 0.085 : 0.055)
       let prevX = Math.cos(base + side) * core
       let prevY = Math.sin(base + side) * core
       for (let step = 1; step <= steps; step++) {
@@ -204,8 +210,11 @@ function paintHole(
         const brush = fringe * fringe * (0.55 + Math.sin(t * 9 + arm) * 0.18)
         const px = Math.cos(ang) * r
         const py = Math.sin(ang) * r
-        const width = Math.max(0.8, (11.5 * fat * brush + 1.1 - layer * 1.6) * BODY)
-        ctx.strokeStyle = `rgba(${ink}, ${0.12 + fringe * (lean ? 0.42 : 0.68) - layer * 0.08})`
+        const width = Math.max(0.8, ((red ? 11.5 : 14.5) * fat * brush + 1.1 - layer * 1.6) * BODY)
+        const glow = red
+          ? 0.12 + fringe * (lean ? 0.42 : 0.68) - layer * 0.08
+          : 0.42 + fringe * (lean ? 0.48 : 0.58) - layer * 0.06
+        ctx.strokeStyle = `rgba(${ink}, ${Math.min(1, glow)})`
         ctx.lineWidth = width
         ctx.lineCap = t > 0.78 ? 'butt' : 'round'
         ctx.beginPath()
@@ -213,8 +222,8 @@ function paintHole(
         ctx.lineTo(px, py)
         ctx.stroke()
         if (!lean && t > 0.55 && step % 2 === 0) {
-          const tip = (1 - t) * 4.2 * BODY
-          ctx.fillStyle = `rgba(${ink}, ${0.18 + fringe * 0.35})`
+          const tip = (1 - t) * (red ? 4.2 : 5.2) * BODY
+          ctx.fillStyle = `rgba(${ink}, ${red ? 0.18 + fringe * 0.35 : 0.35 + fringe * 0.5})`
           ctx.fillRect(px - tip * 0.5, py - tip * 0.35, tip, tip * 0.7)
         }
         prevX = px
@@ -228,12 +237,14 @@ function paintHole(
     const drift = still ? (i * 0.097) % 1 : (time * pace + i * 0.173) % 1
     const pull = drift * drift * (3 - 2 * drift)
     const orbit = spin * (0.55 + (i % 6) * 0.18) + i * 0.61 + drift * (2.4 + (i % 4) * 0.7)
-    const r = reach * (0.98 - (0.98 - core * 1.04 / reach) * pull)
+    const r = reach * (0.98 - (0.98 - (core * 1.04) / reach) * pull)
     if (r <= core * 1.01) continue
     const size = (1 + (i % 5) * 0.55 + (i % 3) * 0.35) * BODY
     const spark = i % 3 === 0
     const ink = holeArmTone(red, i % 4)
-    const alpha = spark ? 0.35 + (1 - pull) * 0.65 : 0.12 + (1 - pull) * 0.45
+    const alpha = spark
+      ? (red ? 0.35 : 0.55) + (1 - pull) * (red ? 0.65 : 0.45)
+      : (red ? 0.12 : 0.28) + (1 - pull) * (red ? 0.45 : 0.5)
     ctx.fillStyle = `rgba(${ink}, ${alpha})`
     const px = Math.cos(orbit) * r
     const py = Math.sin(orbit) * r
@@ -255,7 +266,7 @@ function paintHole(
   halo.addColorStop(0, `rgba(${hot}, 0)`)
   halo.addColorStop(0.38, `rgba(${hot}, ${lean ? 0.45 : 0.95})`)
   halo.addColorStop(0.58, `rgba(${hot}, 0.55)`)
-  halo.addColorStop(0.82, red ? 'rgba(255, 48, 72, 0.18)' : 'rgba(200, 120, 255, 0.16)')
+  halo.addColorStop(0.82, red ? 'rgba(255, 48, 72, 0.18)' : 'rgba(255, 255, 255, 0.22)')
   halo.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = halo
   ctx.beginPath()
@@ -265,7 +276,7 @@ function paintHole(
   if (!lean) {
     ctx.globalCompositeOperation = 'lighter'
     ctx.strokeStyle = rim
-    ctx.lineWidth = (red ? 5.4 : 4.6) * BODY
+    ctx.lineWidth = (red ? 5.4 : 5.2) * BODY
     ctx.beginPath()
     ctx.arc(0, 0, core * 1.015, 0, Math.PI * 2)
     ctx.stroke()
@@ -274,7 +285,7 @@ function paintHole(
     ctx.beginPath()
     ctx.arc(0, 0, core * 1.08, 0, Math.PI * 2)
     ctx.stroke()
-    ctx.strokeStyle = red ? 'rgba(255, 210, 160, 0.7)' : 'rgba(255, 255, 255, 0.85)'
+    ctx.strokeStyle = red ? 'rgba(255, 210, 160, 0.7)' : 'rgba(255, 255, 255, 0.95)'
     ctx.lineWidth = 1.2 * BODY
     ctx.beginPath()
     ctx.arc(0, 0, core * 1.14, 0, Math.PI * 2)
