@@ -1146,7 +1146,8 @@ describe('orbs', () => {
     state.orbitTime = DISC.active + DISC.recharge + 3
     assert.equal(orbitDiscs(state).length, 6)
     assert.ok(discTurn(6) > discTurn(5))
-    assert.ok(orbiterShove(6) > orbiterShove(5))
+    assert.equal(orbiterShove(6), 0)
+    assert.ok(orbiterShove(5) > 0)
     state.xp = state.xpNeed
     step(state, input({ aimActive: false }), 1 / 60)
     assert.equal(state.offers.length, 3)
@@ -1563,11 +1564,13 @@ describe('orbs', () => {
       return Math.hypot(hostile.x - disc.x, hostile.y - disc.y)
     }
     const low = bump(1)
-    const high = bump(6)
+    const mid = bump(5)
+    const halo = bump(6)
     assert.ok(Math.abs(low - orbiterShove(1)) < 0.05)
-    assert.ok(high > low)
-    assert.ok(orbiterShove(6) > orbiterShove(5))
-    assert.ok(orbiterShove(6) < 8)
+    assert.ok(mid > low)
+    assert.ok(orbiterShove(5) > orbiterShove(1))
+    assert.equal(orbiterShove(6), 0)
+    assert.ok(halo < 0.05)
   })
 
   it('lets a hostile walk through the discs', () => {

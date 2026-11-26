@@ -996,9 +996,10 @@ export function orbiterCount(rank: number): number {
 }
 
 export function orbiterShove(rank: number): number {
+  // Guardian's Halo deals damage in place — no knockback so enemy glow stays locked to the body.
+  if (rank >= OVERDRIVE) return 0
   const step = Math.min(Math.max(rank, 1), OVERDRIVE - 1)
-  const base = 1.4 + Math.max(0, step - 1) * 0.55
-  return rank >= OVERDRIVE ? base + 1.2 : base
+  return 1.4 + Math.max(0, step - 1) * 0.55
 }
 
 export function orbitActive(rank: number): number {
@@ -1735,9 +1736,10 @@ function strikeOrbits(state: GameState, events: StepEvents): void {
       const reach = disc.radius + enemy.radius
       if (dx * dx + dy * dy > reach * reach) continue
       enemy.orbitCd = 0.42
-      shoveFromDisc(state, enemy, disc.x, disc.y, orbiterShove(state.mods.orbiter))
+      const shove = orbiterShove(state.mods.orbiter)
+      if (shove > 0) shoveFromDisc(state, enemy, disc.x, disc.y, shove)
       spawnImpact(state, disc.x, disc.y)
-      damageEnemy(state, enemy, events, orbiterDamage(state.mods.orbiter), '#ffffff', 'orbiter')
+      damageEnemy(state, enemy, events, orbiterDamage(state.mods.orbiter), disc.halo ? '#ff2d3a' : '#ffffff', 'orbiter')
     }
   }
 }
@@ -2292,8 +2294,13 @@ function tickHole(state: GameState, well: Hole, events: StepEvents): void {
     const enemy = state.enemies[j]
     if (!enemy || enemy.immortal) continue
     const dist = Math.hypot(enemy.x - well.x, enemy.y - well.y)
-    if (dist > well.radius + enemy.radius) continue
-    damageEnemy(state, enemy, events, well.damage, ink, 'hole')
+    const edge = well.radius + enemy.radius
+    if (dist > edge) continue
+    // Full burn near the void; outer rim of the well ticks for much less.
+    const t = Math.min(1, dist / Math.max(1, edge))
+    const falloff = 0.18 + Math.pow(1 - t, 1.55) * 0.82
+    const dealt = Math.max(1, Math.round(well.damage * falloff))
+    damageEnemy(state, enemy, events, dealt, ink, 'hole')
   }
   well.absorbed += Math.max(0, state.dealt.hole - before)
 }
@@ -2708,7 +2715,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     return {
       id,
       title: "Guardian's Halo",
-      detail: 'Six red discs stay out. They spin faster and throw hostiles back harder.',
+      detail: 'Six red discs stay out and spin faster. They carve hostiles without knocking them away.',
       rank,
       max,
       overdrive: true,
