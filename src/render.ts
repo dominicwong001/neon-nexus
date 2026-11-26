@@ -47,12 +47,13 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
 
   drawGrid(ctx, state, width, height)
   drawField(ctx, state)
-  drawHoles(ctx, state, X, Y, view.reduceMotion)
+  drawHoles(ctx, state, X, Y, view.reduceMotion, 'body')
   drawReticle(ctx, state, X, Y)
   drawShocks(ctx, state, X, Y)
   drawOrbs(ctx, state, X, Y)
   drawParticles(ctx, state, X, Y)
   drawEnemies(ctx, state, X, Y)
+  drawHoles(ctx, state, X, Y, view.reduceMotion, 'void')
   drawBullets(ctx, state, X, Y)
   drawMortars(ctx, state, X, Y)
   drawBalls(ctx, state, X, Y)
@@ -114,33 +115,60 @@ function drawField(ctx: CanvasRenderingContext2D, state: GameState): void {
   }
 }
 
+type HoleLayer = 'body' | 'void'
+
+function holePose(well: Hole, time: number): {
+  scale: number
+  core: number
+  reach: number
+  spin: number
+  twistMul: number
+  red: boolean
+} {
+  const age = Math.max(0, well.max - well.life)
+  const bornT = Math.min(1, age / HOLE.spawn)
+  const born = 1 - Math.pow(1 - bornT, 3)
+  const closing = well.closing > 0 && well.closeMax > 0 ? well.closing / well.closeMax : 1
+  const closeScale = well.closing > 0 ? Math.pow(closing, 1.65) : 1
+  const scale = Math.max(0.02, born * closeScale)
+  const red = well.crimson
+  const spinBoost = (1 - born) * 12 + (well.closing > 0 ? (1 - closeScale) * 18 : 0)
+  const spin = -time * (red ? 1.45 : 1.25) - spinBoost - well.x * 0.01
+  const twistMul = 1 + (1 - born) * 0.55 + (well.closing > 0 ? (1 - closeScale) * 2.4 : 0)
+  const core = Math.max(28 * BODY, well.radius * 0.52) * scale
+  const reach = well.radius * (lean ? 2.15 : 2.85) * scale
+  return { scale, core, reach, spin, twistMul, red }
+}
+
 function drawHoles(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   X: (x: number) => number,
   Y: (y: number) => number,
   still: boolean,
+  layer: HoleLayer,
 ): void {
   for (const well of state.holes) {
     if (well.blast > 0) {
-      paintHoleBlast(ctx, well, X, Y, still)
+      if (layer === 'body') paintHoleBlast(ctx, well, X, Y, still)
       continue
     }
-    paintHole(ctx, well, state.time, X, Y, still)
+    if (layer === 'body') paintHoleBody(ctx, well, state.time, X, Y, still)
+    else paintHoleVoid(ctx, well, state.time, X, Y)
   }
 }
 
 function holeShade(red: boolean, shade: number): string {
   if (red) {
-    if (shade === 0) return '255, 230, 210'
-    if (shade === 1) return '255, 70, 48'
-    if (shade === 2) return '220, 28, 55'
-    return '120, 12, 28'
+    if (shade === 0) return '255, 236, 220'
+    if (shade === 1) return '255, 78, 52'
+    if (shade === 2) return '210, 24, 48'
+    return '95, 8, 22'
   }
   if (shade === 0) return '255, 255, 255'
-  if (shade === 1) return '220, 228, 240'
-  if (shade === 2) return '170, 180, 198'
-  return '110, 120, 140'
+  if (shade === 1) return '228, 234, 245'
+  if (shade === 2) return '168, 178, 198'
+  return '100, 108, 128'
 }
 
 function holeNoise(n: number): number {
@@ -163,30 +191,38 @@ function paintHoleWisp(
   suck: number,
 ): void {
   const a0 = Math.max(0, Math.min(0.98, startT))
-  const a1 = Math.max(a0 + 0.04, Math.min(1, endT))
-  const count = Math.max(4, Math.ceil(steps * (a1 - a0)))
-  // Pull the whole ribbon toward the void so arms read as being sucked in.
+  const a1 = Math.max(a0 + 0.04, Math.min(1.08, endT))
+  const count = Math.max(5, Math.ceil(steps * (a1 - a0)))
   const pull = Math.min(0.92, Math.max(0, suck))
-  const span = (reach - core * 1.06) * (1 - pull * 0.82)
-  ctx.strokeStyle = `rgba(${ink}, ${alpha * (1 - pull * 0.25)})`
-  ctx.lineWidth = width * (1 - pull * 0.35)
+  const span = (reach - core * 1.02) * (1 - pull * 0.78)
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
-  ctx.beginPath()
+  let prevX = 0
+  let prevY = 0
   for (let i = 0; i <= count; i++) {
     const u = i / count
     const t = a0 + (a1 - a0) * u
     const ang = base + t * twist
-    const r = core * 1.06 + span * Math.pow(t, 0.72)
+    const r = core * 1.02 + span * Math.pow(Math.min(1, t), 0.68)
     const px = Math.cos(ang) * r
     const py = Math.sin(ang) * r
-    if (i === 0) ctx.moveTo(px, py)
-    else ctx.lineTo(px, py)
+    if (i > 0) {
+      // Feather toward the outer tip: thinner and softer, no hard circular rim.
+      const tip = Math.pow(u, 1.15)
+      const fade = (1 - tip * 0.92) * (1 - pull * 0.22)
+      ctx.strokeStyle = `rgba(${ink}, ${alpha * fade})`
+      ctx.lineWidth = Math.max(0.25, width * (1 - tip * 0.82) * (1 - pull * 0.3))
+      ctx.beginPath()
+      ctx.moveTo(prevX, prevY)
+      ctx.lineTo(px, py)
+      ctx.stroke()
+    }
+    prevX = px
+    prevY = py
   }
-  ctx.stroke()
 }
 
-function paintHole(
+function paintHoleBody(
   ctx: CanvasRenderingContext2D,
   well: Hole,
   time: number,
@@ -196,36 +232,26 @@ function paintHole(
 ): void {
   const x = X(well.x)
   const y = Y(well.y)
-  const age = Math.max(0, well.max - well.life)
-  const bornT = Math.min(1, age / HOLE.spawn)
-  const born = 1 - Math.pow(1 - bornT, 3)
-  const closing = well.closing > 0 && well.closeMax > 0 ? well.closing / well.closeMax : 1
-  const closeScale = well.closing > 0 ? Math.pow(closing, 1.55) : 1
-  const scale = Math.max(0.02, born * closeScale)
-  const red = well.crimson
-  const rim = red ? '#ff3a2d' : '#ffffff'
-  const hot = red ? '255, 120, 80' : '255, 255, 255'
-  const spinBoost = (1 - born) * 10 + (well.closing > 0 ? (1 - closeScale) * 14 : 0)
-  // Opposite spin direction from before (negative time term).
-  const spin = -time * (red ? 1.4 : 1.2) - spinBoost - well.x * 0.01
-  const twistMul = 1 + (well.closing > 0 ? (1 - closeScale) * 2.1 : 0)
-  const core = Math.max(30 * BODY, well.radius * 0.58) * scale
-  const reach = well.radius * (lean ? 1.7 : 2.05) * scale
+  const { scale, core, reach, spin, twistMul, red } = holePose(well, time)
   if (reach < 2) return
-  const steps = lean ? 12 : 18
-  const outerN = lean ? 28 : 56
-  const midN = lean ? 36 : 72
-  const innerN = lean ? 40 : 80
-  const dustN = lean || still ? 36 : 90
+  const rim = red ? '#ff3a2d' : '#ffffff'
+  const hot = red ? '255, 140, 95' : '255, 255, 255'
+  const plasmaR = reach * 0.58
+  const steps = lean ? 10 : 16
+  const outerN = lean ? 22 : 48
+  const midN = lean ? 28 : 58
+  const ribbonN = lean ? 18 : 42
+  const innerN = lean ? 32 : 64
+  const dustN = lean || still ? 40 : 110
 
   if (!lean) {
-    const aura = Math.max(core * 5, reach * 1.45)
+    const aura = Math.max(core * 5.5, reach * 1.35)
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
-    ctx.globalAlpha = (red ? 0.16 : 0.2) * scale
+    ctx.globalAlpha = (red ? 0.14 : 0.18) * scale
     ctx.drawImage(glowFor(rim), x - aura / 2, y - aura / 2, aura, aura)
-    ctx.globalAlpha = (red ? 0.3 : 0.38) * scale
-    const bloom = core * 3.6
+    ctx.globalAlpha = (red ? 0.28 : 0.34) * scale
+    const bloom = core * 3.8
     ctx.drawImage(glowFor('#ffffff'), x - bloom / 2, y - bloom / 2, bloom, bloom)
     ctx.restore()
   }
@@ -233,115 +259,142 @@ function paintHole(
   ctx.save()
   ctx.translate(x, y)
 
-  // Solid glowing plasma behind the wisps — occludes the arena grid near the center,
-  // then fades only toward the outer arm tips.
-  ctx.globalAlpha = Math.min(1, 0.55 + scale * 0.45)
+  // Dense plasma cloud near the horizon — covers the grid, fades before the arm tips.
+  ctx.globalAlpha = Math.min(1, 0.6 + scale * 0.4)
   ctx.globalCompositeOperation = 'source-over'
-  const plasma = ctx.createRadialGradient(0, 0, core * 0.98, 0, 0, reach)
+  const plasma = ctx.createRadialGradient(0, 0, core * 0.55, 0, 0, plasmaR)
   if (red) {
-    plasma.addColorStop(0, 'rgba(255, 210, 190, 1)')
-    plasma.addColorStop(0.12, 'rgba(255, 90, 55, 1)')
-    plasma.addColorStop(0.32, 'rgba(220, 40, 50, 1)')
-    plasma.addColorStop(0.55, 'rgba(150, 20, 38, 0.96)')
-    plasma.addColorStop(0.78, 'rgba(90, 10, 22, 0.55)')
-    plasma.addColorStop(0.92, 'rgba(50, 4, 12, 0.18)')
+    plasma.addColorStop(0, 'rgba(255, 220, 200, 1)')
+    plasma.addColorStop(0.18, 'rgba(255, 95, 58, 1)')
+    plasma.addColorStop(0.4, 'rgba(215, 32, 48, 1)')
+    plasma.addColorStop(0.68, 'rgba(130, 14, 32, 0.92)')
+    plasma.addColorStop(0.88, 'rgba(70, 6, 16, 0.35)')
     plasma.addColorStop(1, 'rgba(40, 0, 8, 0)')
   } else {
     plasma.addColorStop(0, 'rgba(255, 255, 255, 1)')
-    plasma.addColorStop(0.12, 'rgba(245, 248, 255, 1)')
-    plasma.addColorStop(0.32, 'rgba(210, 220, 235, 1)')
-    plasma.addColorStop(0.55, 'rgba(155, 165, 185, 0.96)')
-    plasma.addColorStop(0.78, 'rgba(95, 102, 120, 0.5)')
-    plasma.addColorStop(0.92, 'rgba(55, 60, 72, 0.16)')
+    plasma.addColorStop(0.18, 'rgba(248, 250, 255, 1)')
+    plasma.addColorStop(0.4, 'rgba(210, 218, 232, 1)')
+    plasma.addColorStop(0.68, 'rgba(150, 158, 178, 0.92)')
+    plasma.addColorStop(0.88, 'rgba(88, 94, 112, 0.32)')
     plasma.addColorStop(1, 'rgba(40, 45, 55, 0)')
   }
   ctx.fillStyle = plasma
   ctx.beginPath()
-  ctx.arc(0, 0, reach, 0, Math.PI * 2)
+  ctx.arc(0, 0, plasmaR, 0, Math.PI * 2)
   ctx.fill()
 
-  ctx.globalAlpha = Math.min(1, 0.45 + scale * 0.55)
+  // Soft atmospheric bleed that will sit under the soft void (no hard ring outline).
+  ctx.globalAlpha = 1
+  if (!lean) ctx.globalCompositeOperation = 'lighter'
+  const halo = ctx.createRadialGradient(0, 0, core * 0.35, 0, 0, core * 2.1)
+  halo.addColorStop(0, `rgba(${hot}, ${lean ? 0.55 : 0.85})`)
+  halo.addColorStop(0.35, `rgba(${hot}, ${lean ? 0.35 : 0.55})`)
+  halo.addColorStop(0.65, red ? 'rgba(255, 70, 48, 0.22)' : 'rgba(230, 236, 248, 0.2)')
+  halo.addColorStop(1, 'rgba(0, 0, 0, 0)')
+  ctx.fillStyle = halo
+  ctx.beginPath()
+  ctx.arc(0, 0, core * 2.1, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.globalAlpha = Math.min(1, 0.5 + scale * 0.5)
   if (!lean) ctx.globalCompositeOperation = 'lighter'
 
-  // Outer torn fragments — each arm has its own spin rate and inward suck cycle.
+  // Wide outer sweeping arms — irregular lengths so they taper into open space.
   for (let i = 0; i < outerN; i++) {
     const n0 = holeNoise(i * 3.1 + 1.7)
     const n1 = holeNoise(i * 5.9 + 2.3)
     const n2 = holeNoise(i * 7.3 + 4.1)
-    const rate = 0.35 + n0 * 2.6
-    const base = spin * (0.45 + n1 * 1.4) - time * rate + n0 * Math.PI * 2
-    const twist = -(1.6 + n1 * 1.4) * twistMul
-    const startT = 0.42 + n2 * 0.35
-    const endT = Math.min(1, startT + 0.18 + n1 * 0.4)
-    const suck = still ? n2 * 0.35 : (time * (0.55 + n1 * 1.1) + n0) % 1
-    const ink = holeShade(red, n0 > 0.55 ? 3 : 2)
-    const width = Math.max(0.45, (0.85 + n2 * 1.6) * BODY * scale)
-    paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.16 : 0.3, steps, suck * suck)
+    const rate = 0.28 + n0 * 2.4
+    const base = spin * (0.4 + n1 * 1.5) - time * rate + n0 * Math.PI * 2
+    const twist = -(1.35 + n1 * 1.55) * twistMul
+    const startT = 0.28 + n2 * 0.4
+    const endT = Math.min(1.08, startT + 0.28 + n1 * 0.55 + n0 * 0.22)
+    const suck = still ? n2 * 0.3 : (time * (0.5 + n1 * 1.05) + n0) % 1
+    const ink = holeShade(red, n0 > 0.62 ? 3 : 2)
+    const width = Math.max(0.5, (1.1 + n2 * 2.4) * BODY * scale)
+    paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.14 : 0.28, steps, suck * suck)
   }
 
-  // Mid painterly ribbons — denser pack, independent speeds.
+  // Mid layered ribbons.
   for (let i = 0; i < midN; i++) {
     const n0 = holeNoise(i * 2.7 + 11.2)
     const n1 = holeNoise(i * 4.4 + 8.6)
     const n2 = holeNoise(i * 9.1 + 3.5)
-    const rate = 0.5 + n0 * 3.1
-    const base = spin * (0.6 + n2) - time * rate + n0 * Math.PI * 2
-    const twist = -(2.05 + n1 * 1.1) * twistMul
-    const startT = 0.08 + n2 * 0.22
-    const endT = 0.55 + n1 * 0.35
-    const suck = still ? n1 * 0.4 : (time * (0.7 + n0 * 1.4) + n2 * 3.1) % 1
+    const rate = 0.45 + n0 * 3.0
+    const base = spin * (0.55 + n2) - time * rate + n0 * Math.PI * 2
+    const twist = -(1.9 + n1 * 1.2) * twistMul
+    const startT = 0.05 + n2 * 0.2
+    const endT = 0.48 + n1 * 0.42 + n0 * 0.18
+    const suck = still ? n1 * 0.35 : (time * (0.65 + n0 * 1.35) + n2 * 3.1) % 1
     const ink = holeShade(red, n0 > 0.66 ? 2 : 1)
-    const width = Math.max(0.5, (1.2 + n2 * 2.1) * BODY * scale)
-    paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.26 : 0.46, steps, suck * suck)
-    if (!lean && n1 > 0.35) {
+    const width = Math.max(0.55, (1.35 + n2 * 2.4) * BODY * scale)
+    paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.24 : 0.44, steps, suck * suck)
+    if (!lean && n1 > 0.4) {
       paintHoleWisp(
         ctx,
         core,
-        reach,
-        base - 0.05,
-        twist * 1.08,
-        startT + 0.08,
-        endT,
-        width * 0.5,
+        reach * (0.9 + n2 * 0.2),
+        base - 0.06,
+        twist * 1.1,
+        startT + 0.1,
+        endT + 0.08,
+        width * 0.55,
         holeShade(red, 3),
-        0.18,
+        0.16,
         steps,
-        Math.min(0.95, suck * suck + 0.12),
+        Math.min(0.95, suck * suck + 0.1),
       )
     }
   }
 
-  // Inner dense bright arcs hugging the event horizon.
+  // Broken curved energy ribbon fragments spiraling inward.
+  for (let i = 0; i < ribbonN; i++) {
+    const n0 = holeNoise(i * 1.7 + 33.4)
+    const n1 = holeNoise(i * 5.1 + 29.8)
+    const n2 = holeNoise(i * 8.4 + 19.2)
+    const rate = 0.6 + n0 * 3.4
+    const base = spin * (0.7 + n1) - time * rate + n0 * Math.PI * 2
+    const twist = -(2.15 + n2 * 1.15) * twistMul
+    const startT = 0.12 + n1 * 0.45
+    const endT = Math.min(0.95, startT + 0.08 + n2 * 0.18)
+    const suck = still ? n0 * 0.4 : (time * (0.85 + n1 * 1.5) + n2 * 2.2) % 1
+    const ink = holeShade(red, n0 > 0.55 ? 1 : 0)
+    const width = Math.max(0.4, (0.7 + n2 * 1.6) * BODY * scale)
+    paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.22 : 0.4, steps, suck * suck)
+  }
+
+  // Inner dense bright arcs hugging the horizon.
   for (let i = 0; i < innerN; i++) {
     const n0 = holeNoise(i * 1.9 + 21.4)
     const n1 = holeNoise(i * 6.2 + 17.8)
     const n2 = holeNoise(i * 3.8 + 13.1)
-    const rate = 0.7 + n0 * 3.6
-    const base = spin * (0.8 + n1) - time * rate + n0 * Math.PI * 2
-    const twist = -(2.4 + n1 * 0.9) * twistMul
-    const startT = n2 * 0.06
-    const endT = 0.28 + n1 * 0.32
-    const suck = still ? n0 * 0.45 : (time * (0.9 + n2 * 1.6) + n1 * 2.4) % 1
+    const rate = 0.75 + n0 * 3.5
+    const base = spin * (0.85 + n1) - time * rate + n0 * Math.PI * 2
+    const twist = -(2.35 + n1 * 0.95) * twistMul
+    const startT = n2 * 0.05
+    const endT = 0.26 + n1 * 0.3
+    const suck = still ? n0 * 0.4 : (time * (0.95 + n2 * 1.55) + n1 * 2.4) % 1
     const ink = holeShade(red, n0 > 0.7 ? 1 : 0)
-    const width = Math.max(0.55, (1.4 + n2 * 2.5) * BODY * scale)
-    paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.38 : 0.7, steps, suck * suck)
+    const width = Math.max(0.6, (1.5 + n2 * 2.6) * BODY * scale)
+    paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.36 : 0.68, steps, suck * suck)
   }
 
-  // Dense multi-speed cosmic dust spiraling inward (same reverse direction).
+  // Multi-speed cosmic dust swirling inward until it vanishes into the core.
   for (let i = 0; i < dustN; i++) {
     const n0 = holeNoise(i * 1.3 + 40.2)
     const n1 = holeNoise(i * 2.1 + 44.7)
-    const pace = 0.35 + n0 * 1.4 + (i % 5) * 0.12
+    const pace = 0.3 + n0 * 1.55 + (i % 7) * 0.11
     const drift = still ? (n1 * 0.97) % 1 : (time * pace + i * 0.137) % 1
     const pull = drift * drift * (3 - 2 * drift)
-    const orbit = spin * (0.7 + n0 * 0.9) - time * (0.4 + n1 * 2.8) - i * 0.49 - drift * (2.6 + n1 * 2.2)
-    const r = reach * (0.97 - (0.97 - (core * 1.08) / Math.max(reach, 1)) * pull)
-    if (r <= core * 1.04) continue
-    const size = (0.45 + n1 * 1.8 + (i % 7 === 0 ? 1.2 : 0)) * BODY * scale
-    const ink = holeShade(red, n0 > 0.75 ? 0 : n0 > 0.4 ? 1 : 2)
-    const alpha = 0.15 + (1 - pull) * 0.65 * (0.45 + n1 * 0.55)
+    const orbit = spin * (0.65 + n0 * 0.95) - time * (0.35 + n1 * 3.0) - i * 0.49 - drift * (2.8 + n1 * 2.4)
+    const r = reach * (0.98 - (0.98 - (core * 1.02) / Math.max(reach, 1)) * pull)
+    if (r <= core * 0.98) continue
+    const size = (0.4 + n1 * 2.0 + (i % 6 === 0 ? 1.4 : 0)) * BODY * scale * (1 - pull * 0.55)
+    const ink = holeShade(red, n0 > 0.72 ? 0 : n0 > 0.38 ? 1 : 2)
+    const alpha = (0.12 + (1 - pull) * 0.7 * (0.4 + n1 * 0.6)) * (1 - Math.max(0, (core * 1.15 - r) / (core * 0.35)))
+    if (alpha <= 0.02) continue
     ctx.fillStyle = `rgba(${ink}, ${alpha})`
-    if (size > 1.6 * BODY && i % 4 === 0) {
+    if (size > 1.5 * BODY && i % 3 === 0) {
       ctx.beginPath()
       ctx.arc(Math.cos(orbit) * r, Math.sin(orbit) * r, size * 0.45, 0, Math.PI * 2)
       ctx.fill()
@@ -349,27 +402,54 @@ function paintHole(
       ctx.fillRect(Math.cos(orbit) * r - size * 0.5, Math.sin(orbit) * r - size * 0.5, size, size)
     }
   }
-  if (!lean) ctx.globalCompositeOperation = 'source-over'
 
-  // Blazing horizon ring peaking at the void edge — no flat grey band before the black core.
-  ctx.globalAlpha = 1
+  ctx.restore()
+}
+
+function paintHoleVoid(
+  ctx: CanvasRenderingContext2D,
+  well: Hole,
+  time: number,
+  X: (x: number) => number,
+  Y: (y: number) => number,
+): void {
+  const x = X(well.x)
+  const y = Y(well.y)
+  const { scale, core, red } = holePose(well, time)
+  if (core < 1.2) return
+  const hot = red ? '255, 130, 90' : '255, 255, 255'
+
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.globalCompositeOperation = 'source-over'
+  ctx.globalAlpha = Math.min(1, 0.35 + scale * 0.65)
+
+  // Soft atmospheric rim peaking at the horizon — bleeds into the void, no hard outline.
   if (!lean) ctx.globalCompositeOperation = 'lighter'
-  const ring = ctx.createRadialGradient(0, 0, core * 0.98, 0, 0, core * 1.65)
-  ring.addColorStop(0, `rgba(${hot}, ${lean ? 0.75 : 1})`)
-  ring.addColorStop(0.22, `rgba(${hot}, ${lean ? 0.55 : 0.9})`)
-  ring.addColorStop(0.5, red ? 'rgba(255, 90, 55, 0.45)' : 'rgba(255, 255, 255, 0.4)')
-  ring.addColorStop(0.78, red ? 'rgba(255, 50, 40, 0.12)' : 'rgba(230, 235, 245, 0.1)')
-  ring.addColorStop(1, 'rgba(0, 0, 0, 0)')
-  ctx.fillStyle = ring
+  const rim = ctx.createRadialGradient(0, 0, core * 0.55, 0, 0, core * 1.55)
+  rim.addColorStop(0, `rgba(${hot}, 0)`)
+  rim.addColorStop(0.42, `rgba(${hot}, ${lean ? 0.25 : 0.45})`)
+  rim.addColorStop(0.72, `rgba(${hot}, ${lean ? 0.4 : 0.7})`)
+  rim.addColorStop(0.9, red ? 'rgba(255, 70, 45, 0.18)' : 'rgba(235, 240, 250, 0.16)')
+  rim.addColorStop(1, 'rgba(0, 0, 0, 0)')
+  ctx.fillStyle = rim
   ctx.beginPath()
-  ctx.arc(0, 0, core * 1.65, 0, Math.PI * 2)
+  ctx.arc(0, 0, core * 1.55, 0, Math.PI * 2)
   ctx.fill()
 
-  // Pitch-black event horizon — sharp cut under the bright ring.
+  // Pitch-black center with a soft falloff so plasma bleeds across the edge.
   ctx.globalCompositeOperation = 'source-over'
-  ctx.fillStyle = '#000000'
+  ctx.globalAlpha = 1
+  const voidR = core * 1.22
+  const voidFill = ctx.createRadialGradient(0, 0, 0, 0, 0, voidR)
+  voidFill.addColorStop(0, 'rgba(0, 0, 0, 1)')
+  voidFill.addColorStop(0.62, 'rgba(0, 0, 0, 1)')
+  voidFill.addColorStop(0.82, 'rgba(0, 0, 0, 0.92)')
+  voidFill.addColorStop(0.94, 'rgba(0, 0, 0, 0.45)')
+  voidFill.addColorStop(1, 'rgba(0, 0, 0, 0)')
+  ctx.fillStyle = voidFill
   ctx.beginPath()
-  ctx.arc(0, 0, Math.max(1.5, core), 0, Math.PI * 2)
+  ctx.arc(0, 0, voidR, 0, Math.PI * 2)
   ctx.fill()
   ctx.restore()
 }
