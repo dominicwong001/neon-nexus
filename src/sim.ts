@@ -2399,13 +2399,15 @@ const SINGULARITY_DUST = [
 
 function singularityDust(state: GameState, x: number, y: number, absorbed: number): void {
   const count = Math.min(1800, 1100 + Math.floor(absorbed * 2.4))
-  // Keep dust near the blast — speed scales with radius so grains don't fly off-screen.
+  // Travel matches the blast ring (particle update damps at ~2.2, so speed is compensated).
   const reach = holeBlastRadius(absorbed)
+  const damp = 2.2
   for (let i = 0; i < count; i++) {
     const a = state.rng() * Math.PI * 2
-    const life = 0.4 + state.rng() * 0.75
-    const travel = reach * (0.2 + state.rng() * 0.85)
-    const s = travel / Math.max(0.2, life)
+    const life = 0.45 + state.rng() * 0.55
+    const travel = reach * (0.88 + state.rng() * 0.14)
+    const frac = 1 - Math.exp(-damp * life)
+    const s = (travel * damp) / Math.max(0.2, frac)
     pushParticle(state, {
       x,
       y,

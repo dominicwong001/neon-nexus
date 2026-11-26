@@ -336,12 +336,12 @@ function paintHoleBody(
   ctx.arc(0, 0, plasmaR, 0, Math.PI * 2)
   ctx.fill()
 
-  // Soft atmospheric bleed under the void (no hard ring outline).
+  // Soft atmospheric bleed under the void — keep the core dim so it stays black.
   if (!lean) ctx.globalCompositeOperation = 'lighter'
-  const halo = ctx.createRadialGradient(0, 0, core * 0.2, 0, 0, core * 2.35)
-  halo.addColorStop(0, `rgba(${hot}, ${lean ? 0.4 : 0.7})`)
-  halo.addColorStop(0.35, red ? `rgba(255, 180, 90, ${lean ? 0.3 : 0.48})` : `rgba(${hot}, ${lean ? 0.28 : 0.42})`)
-  halo.addColorStop(0.7, red ? 'rgba(255, 60, 40, 0.18)' : 'rgba(230, 236, 248, 0.14)')
+  const halo = ctx.createRadialGradient(0, 0, core * 0.55, 0, 0, core * 2.35)
+  halo.addColorStop(0, `rgba(${hot}, 0)`)
+  halo.addColorStop(0.35, red ? `rgba(255, 180, 90, ${lean ? 0.22 : 0.36})` : `rgba(${hot}, ${lean ? 0.18 : 0.28})`)
+  halo.addColorStop(0.7, red ? 'rgba(255, 60, 40, 0.14)' : 'rgba(230, 236, 248, 0.1)')
   halo.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = halo
   ctx.beginPath()
@@ -529,12 +529,12 @@ function paintHoleVoid(
   ctx.translate(x, y)
   ctx.globalAlpha = Math.min(1, 0.4 + scale * 0.6)
 
-  // Soft inward bleed — white (then orange on Singularity) into pitch black, no hard ring.
+  // Soft rim only — no white hot-spot inside the pitch-black core.
   if (!lean) ctx.globalCompositeOperation = 'lighter'
-  const rim = ctx.createRadialGradient(0, 0, core * 0.12, 0, 0, core * 1.5)
-  rim.addColorStop(0, `rgba(${hot}, ${lean ? 0.18 : 0.32})`)
-  rim.addColorStop(0.45, red ? `rgba(255, 190, 110, ${lean ? 0.28 : 0.48})` : `rgba(${hot}, ${lean ? 0.3 : 0.5})`)
-  rim.addColorStop(0.8, red ? 'rgba(255, 90, 40, 0.14)' : 'rgba(235, 240, 250, 0.12)')
+  const rim = ctx.createRadialGradient(0, 0, core * 0.55, 0, 0, core * 1.5)
+  rim.addColorStop(0, 'rgba(0, 0, 0, 0)')
+  rim.addColorStop(0.45, red ? `rgba(255, 190, 110, ${lean ? 0.18 : 0.32})` : `rgba(${hot}, ${lean ? 0.16 : 0.28})`)
+  rim.addColorStop(0.8, red ? 'rgba(255, 90, 40, 0.1)' : 'rgba(235, 240, 250, 0.08)')
   rim.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = rim
   ctx.beginPath()
@@ -559,7 +559,10 @@ function paintHoleVoid(
   ctx.restore()
 }
 
-/** Slight horizon glow drawn above enemies (additive — never hides them). */
+/**
+ * Slight gradient glow above enemies so their black fills pick up a horizon wash
+ * in the void middle — soft enough that the core stays dark.
+ */
 function paintHoleCenterGlow(
   ctx: CanvasRenderingContext2D,
   well: Hole,
@@ -571,21 +574,27 @@ function paintHoleCenterGlow(
   const y = Y(well.y)
   const { scale, core, red } = holePose(well, time)
   if (core < 1.2) return
-  const hot = red ? '255, 210, 150' : '255, 255, 255'
 
   ctx.save()
   ctx.translate(x, y)
-  ctx.globalAlpha = Math.min(1, 0.45 + scale * 0.55)
-  // Additive so Fast mode still gets a readable wash without covering hostiles.
+  ctx.globalAlpha = Math.min(1, 0.55 + scale * 0.45)
+  // Additive wash tints black enemy fills without bleaching the void.
   ctx.globalCompositeOperation = 'lighter'
-  const glow = ctx.createRadialGradient(0, 0, core * 0.15, 0, 0, core * 2.05)
-  glow.addColorStop(0, `rgba(${hot}, ${lean ? 0.42 : 0.55})`)
-  glow.addColorStop(0.35, red ? `rgba(255, 150, 70, ${lean ? 0.28 : 0.36})` : `rgba(235, 240, 250, ${lean ? 0.24 : 0.32})`)
-  glow.addColorStop(0.7, red ? 'rgba(255, 70, 40, 0.14)' : 'rgba(200, 210, 230, 0.1)')
-  glow.addColorStop(1, 'rgba(0, 0, 0, 0)')
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, core * 1.55)
+  if (red) {
+    glow.addColorStop(0, 'rgba(255, 170, 110, 0.14)')
+    glow.addColorStop(0.4, 'rgba(255, 120, 55, 0.2)')
+    glow.addColorStop(0.72, 'rgba(255, 55, 35, 0.1)')
+    glow.addColorStop(1, 'rgba(255, 40, 30, 0)')
+  } else {
+    glow.addColorStop(0, 'rgba(220, 228, 240, 0.1)')
+    glow.addColorStop(0.4, 'rgba(200, 210, 230, 0.16)')
+    glow.addColorStop(0.72, 'rgba(170, 180, 200, 0.08)')
+    glow.addColorStop(1, 'rgba(150, 160, 180, 0)')
+  }
   ctx.fillStyle = glow
   ctx.beginPath()
-  ctx.arc(0, 0, core * 2.05, 0, Math.PI * 2)
+  ctx.arc(0, 0, core * 1.55, 0, Math.PI * 2)
   ctx.fill()
   ctx.restore()
 }
