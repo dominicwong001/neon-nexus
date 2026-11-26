@@ -456,9 +456,9 @@ export function holePull(rank: number): number {
 
 export function holeInterval(rank: number): number {
   if (rank <= 0) return 0
-  // Spawn less often so wells feel weightier between appearances.
-  const wait = Math.max(4.2, 7.2 - Math.max(0, rank - 1) * 0.4)
-  return singularity(rank) ? Math.max(3.6, wait * 0.88) : wait
+  // Higher ranks hit harder and wider — spawn less often to keep pressure fair.
+  const wait = 6.6 + Math.max(0, rank - 1) * 0.95
+  return singularity(rank) ? wait + 1.4 : wait
 }
 
 export function holeBlastRadius(absorbed: number): number {
@@ -2733,7 +2733,7 @@ const OFFER_RANK_UP: Partial<Record<Exclude<UpgradeId, 'cache'>, string>> = {
   ball: 'More balls. They hit harder and stay out longer.',
   drone: 'More rockets in each fan, a wider blast, and a shorter wait between volleys.',
   tesla: 'Still one bolt. It hits harder, and the pause before the next strike is shorter.',
-  hole: 'A wider well, a longer burn, and a more violent pull across the full vortex.',
+  hole: 'A wider well, a longer burn, and a more violent pull — it also appears less often.',
   magnet: 'Orbs snap in faster, and the pull reaches a little farther.',
   regen: 'Each level restores a little more health.',
 }
