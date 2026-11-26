@@ -5,10 +5,13 @@ import {
   HIT,
   TUNING,
   DISC,
-  blankMods,
   chooseUpgrade,
-  createGame as createGameMaxed,
+  createGame,
+  GIANT_PENT,
   HEX_FUSE,
+  PENT,
+  giantPentagon,
+  isPentagon,
   hexFuseLit,
   hexRingReach,
   orbitActive,
@@ -79,18 +82,6 @@ function strikeDrift(pts: { x: number; y: number }[]): number {
   return drift
 }
 
-/** Tests step upgrades from an empty loadout; the live game starts maxed. */
-function createGame(best = 0, seed = 1) {
-  const state = createGameMaxed(best, seed)
-  state.mods = blankMods()
-  state.orbitTime = 0
-  state.ballCd = 0.45
-  state.droneReload = 0.4
-  state.teslaCd = 0.45
-  state.holeCd = 0.8
-  return state
-}
-
 function input(over: Partial<Input> = {}): Input {
   return {
     moveX: 0,
@@ -140,6 +131,12 @@ function enemy(over: Partial<Enemy> = {}): Enemy {
     immortal: false,
     ballistic: false,
     fuse: 0,
+    parked: false,
+    windup: 0,
+    shotCd: 0,
+    salvo: 0,
+    pendingCd: 0,
+    pendingFan: 0,
     ...over,
     maxHp: over.maxHp ?? over.hp ?? 1,
   }
@@ -467,6 +464,85 @@ describe('hostiles', () => {
     const hostile = state.enemies[0]
     assert.ok(hostile)
     assert.ok(hostile.x < 340)
+  })
+
+  it('parks a Pentagon as a turret, aims its tip, and fires from the forward vertex', () => {
+    const state = createGame(0, 44)
+    state.spawnCd = 999
+    state.fireCd = 10
+    state.invuln = 30
+    const pent = enemy({
+      x: 500,
+      y: 0,
+      hp: 200,
+      maxHp: 200,
+      radius: 22,
+      speed: 200,
+      kind: 1,
+      shotCd: 0.05,
+      angle: Math.PI,
+    })
+    state.enemies.push(pent)
+    assert.equal(isPentagon(pent), true)
+    assert.equal(giantPentagon(pent), false)
+    // Close into the stop band.
+    run(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 2.2)
+    assert.ok(pent.parked)
+    assert.equal(pent.vx, 0)
+    assert.equal(pent.vy, 0)
+    const parkedX = pent.x
+    assert.ok(parkedX <= PENT.stopMax + 20)
+    assert.ok(parkedX >= PENT.stopMin - 40)
+    // Tip should face the player (leftward toward origin).
+    assert.ok(Math.cos(pent.angle) < -0.85)
+    // Clear any early bolts, then fire one clean 3-shot fan from the forward tip.
+    state.enemies = state.enemies.filter((e) => !e.ballistic)
+    pent.shotCd = 0
+    pent.windup = 0.001
+    pent.pendingFan = 0
+    const tipX = pent.x + Math.cos(pent.angle) * pent.radius
+    const tipY = pent.y + Math.sin(pent.angle) * pent.radius
+    step(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 60)
+    const bolts = state.enemies.filter((e) => e.ballistic && e.kind === 1)
+    assert.equal(bolts.length, 3)
+    for (const bolt of bolts) {
+      // Spawned at the tip, then moved one frame — stay near the muzzle.
+      assert.ok(Math.hypot(bolt.x - tipX, bolt.y - tipY) < PENT.shotSpeed / 50 + 6)
+    }
+    // Player moves closer — never backs away.
+    state.playerX = parkedX - 120
+    run(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 0.4)
+    assert.ok(pent.parked)
+    assert.ok(Math.abs(pent.x - parkedX) < 1)
+    // Player flees past resume range — advances again.
+    state.playerX = parkedX - (PENT.resume + 40)
+    state.playerY = 0
+    run(state, input({ aimActive: false, viewW: 1600, viewH: 900 }), 0.35)
+    assert.equal(pent.parked, false)
+
+    const giant = createGame(0, 45)
+    giant.spawnCd = 999
+    giant.fireCd = 10
+    giant.invuln = 30
+    const elite = enemy({
+      x: GIANT_PENT.stopMin + 20,
+      y: 0,
+      hp: 1200,
+      maxHp: 1200,
+      radius: 40,
+      speed: 0,
+      kind: 1,
+      parked: true,
+      shotCd: 0,
+      windup: 0.01,
+      salvo: 1,
+      angle: Math.PI,
+    })
+    giant.enemies.push(elite)
+    assert.equal(giantPentagon(elite), true)
+    step(giant, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 30)
+    // Radial burst: 2 shots from each of 5 tips.
+    assert.equal(giant.enemies.filter((e) => e.ballistic && e.kind === 1).length, 10)
   })
 
   it('shoves every hostile inside the hex ring when the hull cracks', () => {
@@ -1611,17 +1687,17 @@ describe('orbs', () => {
       state.mods.orbiter = rank
       state.orbitTime = 0.6
       const hostile = enemy({
-        x: state.playerX + DISC.orbit + 90,
+        x: state.playerX + discOrbit(rank) + 90,
         y: state.playerY,
         hp: 8000,
         speed: 66,
         radius: 22 * BODY,
-        kind: 1,
+        kind: 0,
       })
       state.enemies.push(hostile)
       run(state, input({ aimActive: false }), 3)
       const dist = Math.hypot(hostile.x - state.playerX, hostile.y - state.playerY)
-      assert.ok(dist < DISC.orbit, `rank ${rank} held the hostile at ${dist}`)
+      assert.ok(dist < discOrbit(rank), `rank ${rank} held the hostile at ${dist}`)
     }
   })
 

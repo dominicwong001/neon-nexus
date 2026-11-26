@@ -54,6 +54,18 @@ export interface Enemy {
   immortal: boolean
   ballistic: boolean
   fuse: number
+  /** Pentagon turret: locked in place and firing. */
+  parked: boolean
+  /** Charge-up remaining before a volley (0 = idle). */
+  windup: number
+  /** Cooldown until the next charge starts. */
+  shotCd: number
+  /** Giant Pentagon alternates double-fan vs radial. */
+  salvo: number
+  /** Delay before a staggered follow-up fan. */
+  pendingCd: number
+  /** Shots in the pending staggered fan (0 = none). */
+  pendingFan: number
 }
 
 export interface Particle {
@@ -631,28 +643,44 @@ export function orbGain(value: number, rank: number): number {
   return Math.max(1, Math.round(value * (1 + Math.max(0, rank) * 0.12)) + Math.max(0, rank))
 }
 
-/** Empty loadout — used by tests that step through upgrade ranks. */
-export function blankMods(): Mods {
+function freshMods(): Mods {
   return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, regen: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0, hole: 0 }
 }
 
-/** Full loadout at run start — every upgrade at max rank / evolution. */
-function freshMods(): Mods {
-  return {
-    pulse: UPGRADE_MAX.pulse,
-    caliber: UPGRADE_MAX.caliber,
-    drift: UPGRADE_MAX.drift,
-    magnet: UPGRADE_MAX.magnet,
-    fork: UPGRADE_MAX.fork,
-    greed: UPGRADE_MAX.greed,
-    regen: UPGRADE_MAX.regen,
-    orbiter: UPGRADE_MAX.orbiter,
-    field: UPGRADE_MAX.field,
-    ball: UPGRADE_MAX.ball,
-    drone: UPGRADE_MAX.drone,
-    tesla: UPGRADE_MAX.tesla,
-    hole: UPGRADE_MAX.hole,
-  }
+/** Pentagon / Giant Pentagon stand-off bands (px). */
+export const PENT = {
+  stopMin: 370,
+  stopMax: 450,
+  resume: 490,
+  charge: 0.75,
+  reload: 1.4,
+  shotSpeed: 300,
+  shotLife: 2.4,
+  shotRadius: 7 * BODY,
+  fanSpread: 0.38,
+} as const
+
+export const GIANT_PENT = {
+  stopMin: 410,
+  stopMax: 490,
+  resume: 530,
+  charge: 0.85,
+  reload: 1.65,
+  shotSpeed: 340,
+  fanSpread: 0.52,
+  stagger: 0.16,
+} as const
+
+export function giantPentagon(enemy: Enemy): boolean {
+  return enemy.kind === 1 && !enemy.ballistic && enemy.maxHp >= 1000
+}
+
+export function isPentagon(enemy: Enemy): boolean {
+  return enemy.kind === 1 && !enemy.ballistic
+}
+
+export function pentChargeMax(enemy: Enemy): number {
+  return giantPentagon(enemy) ? GIANT_PENT.charge : PENT.charge
 }
 
 export function createGame(best = 0, seed = 1): GameState {
@@ -687,12 +715,12 @@ export function createGame(best = 0, seed = 1): GameState {
     xp: 0,
     xpNeed: xpNeedFor(1),
     hullMax: TUNING.hullMax,
-    orbitTime: 0.35,
+    orbitTime: 0,
     fieldTick: 0,
-    ballCd: 0.2,
+    ballCd: 0.45,
     droneCd: 0,
     droneBurst: 0,
-    droneReload: 0.25,
+    droneReload: 0.4,
     droneX: -52 * BODY + 5,
     droneY: -64 * BODY,
     droneLag: 0,
@@ -711,8 +739,8 @@ export function createGame(best = 0, seed = 1): GameState {
     reticleVy: 0,
     droneAimX: 0,
     droneAimY: 0,
-    teslaCd: 0.2,
-    holeCd: 0.25,
+    teslaCd: 0.45,
+    holeCd: 0.8,
     mods: freshMods(),
     dealt: { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0, hole: 0 },
     damageBins: [],
@@ -1149,6 +1177,12 @@ function splitCircle(state: GameState, enemy: Enemy, into: 'normal' | 'piece'): 
       immortal: false,
       ballistic: false,
       fuse: 0,
+      parked: false,
+      windup: 0,
+      shotCd: 0,
+      salvo: 0,
+      pendingCd: 0,
+      pendingFan: 0,
     })
   }
 }
@@ -1180,6 +1214,12 @@ function shatterHex(state: GameState, enemy: Enemy): void {
       immortal: true,
       ballistic: true,
       fuse: 0,
+      parked: false,
+      windup: 0,
+      shotCd: 0,
+      salvo: 0,
+      pendingCd: 0,
+      pendingFan: 0,
     })
   }
 }
@@ -1224,7 +1264,8 @@ function spawnOne(state: GameState, viewRadius: number): void {
     speed *= 1.85
     radius *= 2.05
   } else if (late && kind === 1 && state.rng() < 0.12) {
-    hp = spec.hp * 6
+    // Giant Pentagon elite — 1000+ hull turret.
+    hp = Math.max(1000, spec.hp * 6)
     radius *= 2.2
   } else if (late && kind === 2 && state.rng() < 0.32) {
     hp = Math.round(spec.hp * 2.5)
@@ -1244,7 +1285,7 @@ function spawnOne(state: GameState, viewRadius: number): void {
     hitCd: 0,
     flash: 0,
     orbitCd: 0,
-    spin: spec.spin * (state.rng() < 0.5 ? -1 : 1),
+    spin: kind === 1 ? 0 : spec.spin * (state.rng() < 0.5 ? -1 : 1),
     angle: state.rng() * Math.PI * 2,
     phase: state.rng() * Math.PI * 2,
     speed,
@@ -1252,7 +1293,136 @@ function spawnOne(state: GameState, viewRadius: number): void {
     immortal: false,
     ballistic: false,
     fuse: 0,
+    parked: false,
+    windup: 0,
+    shotCd: kind === 1 ? 0.55 + state.rng() * 0.45 : 0,
+    salvo: 0,
+    pendingCd: 0,
+    pendingFan: 0,
   })
+}
+
+function turnToward(enemy: Enemy, want: number, dt: number, rate = 9): void {
+  let diff = want - enemy.angle
+  while (diff > Math.PI) diff -= Math.PI * 2
+  while (diff < -Math.PI) diff += Math.PI * 2
+  enemy.angle += diff * (1 - Math.exp(-rate * dt))
+  enemy.spin = 0
+}
+
+function spawnPentShot(state: GameState, x: number, y: number, angle: number, speed: number): void {
+  state.enemies.push({
+    x,
+    y,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    radius: PENT.shotRadius,
+    kind: 1,
+    hp: 1,
+    maxHp: 1,
+    hitCd: 0,
+    flash: 0,
+    orbitCd: PENT.shotLife,
+    spin: 0,
+    angle,
+    phase: 0,
+    speed,
+    generation: 0,
+    immortal: true,
+    ballistic: true,
+    fuse: 0,
+    parked: false,
+    windup: 0,
+    shotCd: 0,
+    salvo: 0,
+    pendingCd: 0,
+    pendingFan: 0,
+  })
+}
+
+function firePentFan(state: GameState, enemy: Enemy, count: number, spread: number, speed: number): void {
+  const tipX = enemy.x + Math.cos(enemy.angle) * enemy.radius
+  const tipY = enemy.y + Math.sin(enemy.angle) * enemy.radius
+  for (let i = 0; i < count; i++) {
+    const t = count <= 1 ? 0 : i / (count - 1) - 0.5
+    spawnPentShot(state, tipX, tipY, enemy.angle + t * spread, speed)
+  }
+}
+
+function firePentRadial(state: GameState, enemy: Enemy, speed: number): void {
+  const spread = 0.2
+  for (let i = 0; i < 5; i++) {
+    const a = enemy.angle + (i * Math.PI * 2) / 5
+    const tipX = enemy.x + Math.cos(a) * enemy.radius
+    const tipY = enemy.y + Math.sin(a) * enemy.radius
+    spawnPentShot(state, tipX, tipY, a - spread, speed)
+    spawnPentShot(state, tipX, tipY, a + spread, speed)
+  }
+}
+
+function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, dx: number, dy: number, inside: boolean, fieldRank: number): void {
+  const giant = giantPentagon(enemy)
+  const band = giant ? GIANT_PENT : PENT
+  const want = Math.atan2(dy, dx)
+  turnToward(enemy, want, dt, giant ? 7.5 : 9)
+
+  if (!enemy.parked) {
+    if (dist <= band.stopMax) {
+      enemy.parked = true
+      enemy.vx = 0
+      enemy.vy = 0
+    } else {
+      const speed = enemy.speed * (inside ? fieldSlow(fieldRank) : 1)
+      const steer = 1 - Math.exp(-3.1 * dt)
+      enemy.vx += ((dx / dist) * speed - enemy.vx) * steer
+      enemy.vy += ((dy / dist) * speed - enemy.vy) * steer
+      enemy.x += enemy.vx * dt
+      enemy.y += enemy.vy * dt
+    }
+  } else {
+    // Stand your ground — never back away; only resume if the player flees past resume range.
+    enemy.vx = 0
+    enemy.vy = 0
+    if (dist > band.resume) enemy.parked = false
+  }
+
+  if (enemy.pendingFan > 0) {
+    enemy.pendingCd -= dt
+    if (enemy.pendingCd <= 0) {
+      firePentFan(state, enemy, enemy.pendingFan, band.fanSpread, giant ? GIANT_PENT.shotSpeed : PENT.shotSpeed)
+      enemy.pendingFan = 0
+      enemy.shotCd = band.reload
+    }
+    return
+  }
+
+  if (!enemy.parked) return
+
+  if (enemy.windup > 0) {
+    enemy.windup = Math.max(0, enemy.windup - dt)
+    const chargeMax = pentChargeMax(enemy)
+    enemy.flash = Math.max(enemy.flash, 0.06 + (1 - enemy.windup / chargeMax) * 0.2)
+    if (enemy.windup > 0) return
+    const speed = giant ? GIANT_PENT.shotSpeed : PENT.shotSpeed
+    if (giant) {
+      if (enemy.salvo % 2 === 0) {
+        firePentFan(state, enemy, 7, GIANT_PENT.fanSpread, speed)
+        enemy.pendingFan = 6
+        enemy.pendingCd = GIANT_PENT.stagger
+      } else {
+        firePentRadial(state, enemy, speed)
+        enemy.shotCd = band.reload
+      }
+      enemy.salvo += 1
+    } else {
+      firePentFan(state, enemy, 3, PENT.fanSpread, speed)
+      enemy.shotCd = band.reload
+    }
+    return
+  }
+
+  enemy.shotCd = Math.max(0, enemy.shotCd - dt)
+  if (enemy.shotCd <= 0) enemy.windup = band.charge
 }
 
 function moveEnemies(state: GameState, input: Input, dt: number): void {
@@ -1292,6 +1462,10 @@ function moveEnemies(state: GameState, input: Input, dt: number): void {
     }
     const fieldRank = state.mods.field
     const inside = fieldRank > 0 && dist < fieldRadius(fieldRank) + e.radius
+    if (isPentagon(e)) {
+      tickPentagon(state, e, dt, dist, dx, dy, inside, fieldRank)
+      continue
+    }
     if (!e.ballistic) {
       const speed = e.speed * (inside ? fieldSlow(fieldRank) : 1)
       const steer = 1 - Math.exp(-3.1 * dt)
@@ -1414,6 +1588,9 @@ function touchPlayer(state: GameState, events: StepEvents): void {
       state.playerVy += awayY * kick
       burst(state, e.x, e.y, ENEMY_COLOR[3], 18, 340)
       state.shocks.push({ x: e.x, y: e.y, life: 0.28, max: 0.28, color: ENEMY_COLOR[3] })
+      state.enemies.splice(j, 1)
+    } else if (e.ballistic && e.kind === 1) {
+      burst(state, e.x, e.y, ENEMY_COLOR[1], 10, 200)
       state.enemies.splice(j, 1)
     } else {
       burst(state, state.playerX, state.playerY, '#ff3df2', 12, 220)

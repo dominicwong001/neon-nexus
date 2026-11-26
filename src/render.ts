@@ -1,4 +1,4 @@
-import { BODY, ENEMY_COLOR, HOLE, TUNING, droneAnchor, droneBlasterTips, droneStorm, fieldColor, fieldRadius, fieldRipple, hexFuseLit, orbitDiscs, placeStrikeTop, shellPose, type GameState, type Hole } from './sim.ts'
+import { BODY, ENEMY_COLOR, HOLE, TUNING, droneAnchor, droneBlasterTips, droneStorm, fieldColor, fieldRadius, fieldRipple, hexFuseLit, orbitDiscs, pentChargeMax, placeStrikeTop, shellPose, type GameState, type Hole } from './sim.ts'
 
 export interface StickView {
   x: number
@@ -602,7 +602,8 @@ function enemyBodyPath(
   ctx.beginPath()
   if (e.ballistic && e.kind === 3) traceHexWedge(ctx, e.phase)
   else if (e.kind === 0) polyPath(ctx, 0, 0, e.radius, 3, -Math.PI / 2)
-  else if (e.kind === 1) polyPath(ctx, 0, 0, e.radius, 4, Math.PI / 4)
+  // Pentagon: vertex 0 at local angle 0 so the tip tracks e.angle after rotate.
+  else if (e.kind === 1) polyPath(ctx, 0, 0, e.radius, 5, 0)
   else if (e.kind === 3) polyPath(ctx, 0, 0, e.radius, 6, -Math.PI / 2)
   else ctx.arc(0, 0, e.radius, 0, Math.PI * 2)
 }
@@ -924,15 +925,35 @@ function drawEnemies(
     const primed = e.fuse > 0
     const lit = primed && hexFuseLit(e.fuse)
     const shard = e.ballistic && e.kind === 3
+    const bolt = e.ballistic && e.kind === 1
+    const charging = !e.ballistic && e.kind === 1 && e.windup > 0
+    const chargeT = charging ? 1 - e.windup / Math.max(0.01, pentChargeMax(e)) : 0
     if (lit) ctx.scale(1.08, 1.08)
-    // Black body; subtle kind skin only when glows are on.
-    ctx.fillStyle = lit ? '#ffffff' : shard ? ENEMY_COLOR[3] : enemySkinFill(ctx, e.kind, e.radius)
-    ctx.strokeStyle = lit ? '#ffffff' : ENEMY_COLOR[e.kind]
-    ctx.lineWidth = ((e.kind === 3 ? 3.1 : 2) + (lit ? 2.4 : 0) + (lean ? 0.7 : 0)) * BODY
-    enemyBodyPath(ctx, e)
-    ctx.fill()
-    ctx.stroke()
-    if (e.flash > 0) {
+    if (bolt) {
+      // Solid neon pentagon bolts — full kind color, no black core.
+      ctx.fillStyle = ENEMY_COLOR[1]
+      ctx.strokeStyle = '#ffe566'
+      ctx.lineWidth = 1.6 * BODY
+      enemyBodyPath(ctx, e)
+      ctx.fill()
+      ctx.stroke()
+    } else {
+      // Black body; subtle kind skin only when glows are on.
+      ctx.fillStyle = lit ? '#ffffff' : shard ? ENEMY_COLOR[3] : enemySkinFill(ctx, e.kind, e.radius)
+      ctx.strokeStyle = lit ? '#ffffff' : ENEMY_COLOR[e.kind]
+      ctx.lineWidth = ((e.kind === 3 ? 3.1 : 2) + (lit ? 2.4 : 0) + (lean ? 0.7 : 0)) * BODY
+      enemyBodyPath(ctx, e)
+      ctx.fill()
+      ctx.stroke()
+    }
+    if (charging) {
+      enemyBodyPath(ctx, e)
+      ctx.fillStyle = `rgba(255, 210, 58, ${0.2 + chargeT * 0.65})`
+      ctx.fill()
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.35 + chargeT * 0.65})`
+      ctx.lineWidth = (2.4 + chargeT * 2.2) * BODY
+      ctx.stroke()
+    } else if (e.flash > 0) {
       const punch = Math.min(1, e.flash / 0.08)
       enemyBodyPath(ctx, e)
       ctx.fillStyle = `rgba(255, 255, 255, ${0.55 + punch * 0.45})`
