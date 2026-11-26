@@ -47,6 +47,8 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
 
   drawGrid(ctx, state, width, height)
   drawField(ctx, state)
+  // Body + void under hostiles; Fast mode has no enemy auras, so nothing
+  // opaque from the hole may paint after drawEnemies.
   drawHoles(ctx, state, X, Y, view.reduceMotion, 'body')
   drawHoles(ctx, state, X, Y, view.reduceMotion, 'void')
   drawReticle(ctx, state, X, Y)
@@ -554,7 +556,7 @@ function paintHoleVoid(
   ctx.restore()
 }
 
-/** Soft center glow drawn above enemies so they sink under the horizon light. */
+/** Slight horizon glow only — no second opaque void (that hid enemies in Fast mode). */
 function paintHoleCenterGlow(
   ctx: CanvasRenderingContext2D,
   well: Hole,
@@ -573,27 +575,13 @@ function paintHoleCenterGlow(
   ctx.globalAlpha = Math.min(1, 0.35 + scale * 0.55)
   if (!lean) ctx.globalCompositeOperation = 'lighter'
   const glow = ctx.createRadialGradient(0, 0, core * 0.35, 0, 0, core * 1.85)
-  glow.addColorStop(0, `rgba(${hot}, ${lean ? 0.22 : 0.38})`)
-  glow.addColorStop(0.4, red ? `rgba(255, 140, 70, ${lean ? 0.16 : 0.26})` : `rgba(235, 240, 250, ${lean ? 0.14 : 0.22})`)
-  glow.addColorStop(0.75, red ? 'rgba(255, 60, 40, 0.08)' : 'rgba(200, 210, 230, 0.07)')
+  glow.addColorStop(0, `rgba(${hot}, ${lean ? 0.18 : 0.38})`)
+  glow.addColorStop(0.4, red ? `rgba(255, 140, 70, ${lean ? 0.12 : 0.26})` : `rgba(235, 240, 250, ${lean ? 0.1 : 0.22})`)
+  glow.addColorStop(0.75, red ? 'rgba(255, 60, 40, 0.06)' : 'rgba(200, 210, 230, 0.05)')
   glow.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = glow
   ctx.beginPath()
   ctx.arc(0, 0, core * 1.85, 0, Math.PI * 2)
-  ctx.fill()
-
-  // Soft dark core still sits above enemies so they vanish into the void.
-  ctx.globalCompositeOperation = 'source-over'
-  ctx.globalAlpha = 1
-  const voidR = core * 1.15
-  const voidFill = ctx.createRadialGradient(0, 0, 0, 0, 0, voidR)
-  voidFill.addColorStop(0, 'rgba(0, 0, 0, 1)')
-  voidFill.addColorStop(0.55, 'rgba(0, 0, 0, 0.92)')
-  voidFill.addColorStop(0.82, 'rgba(0, 0, 0, 0.4)')
-  voidFill.addColorStop(1, 'rgba(0, 0, 0, 0)')
-  ctx.fillStyle = voidFill
-  ctx.beginPath()
-  ctx.arc(0, 0, voidR, 0, Math.PI * 2)
   ctx.fill()
   ctx.restore()
 }
@@ -890,9 +878,10 @@ function drawEnemies(
     const lit = primed && hexFuseLit(e.fuse)
     const shard = e.ballistic && e.kind === 3
     if (lit) ctx.scale(1.08, 1.08)
-    ctx.fillStyle = lit ? '#ffffff' : shard ? ENEMY_COLOR[3] : '#000000'
+    // Opaque body so hostiles sit clearly on top of wells (esp. Fast mode, no auras).
+    ctx.fillStyle = lit ? '#ffffff' : shard ? ENEMY_COLOR[3] : '#050508'
     ctx.strokeStyle = lit ? '#ffffff' : ENEMY_COLOR[e.kind]
-    ctx.lineWidth = ((e.kind === 3 ? 3.1 : 2) + (lit ? 2.4 : 0)) * BODY
+    ctx.lineWidth = ((e.kind === 3 ? 3.1 : 2) + (lit ? 2.4 : 0) + (lean ? 0.7 : 0)) * BODY
     ctx.beginPath()
     if (e.ballistic && e.kind === 3) traceHexWedge(ctx, e.phase)
     else if (e.kind === 0) polyPath(ctx, 0, 0, e.radius, 3, -Math.PI / 2)
