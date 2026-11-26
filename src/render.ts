@@ -611,52 +611,26 @@ function enemyBodyPath(
   else ctx.arc(0, 0, e.radius, 0, Math.PI * 2)
 }
 
-/** How strongly a hostile sits in a well void (0–1) and whether it's a Singularity. */
-function enemyVoidGlow(
-  state: GameState,
-  enemy: { x: number; y: number; radius: number },
-): { fall: number; red: boolean } {
-  let best = 0
-  let red = false
-  for (const well of state.holes) {
-    if (well.blast > 0) continue
-    const pose = holePose(well, state.time)
-    if (pose.core < 1.2) continue
-    const dist = Math.hypot(enemy.x - well.x, enemy.y - well.y)
-    // Match the painted black void plus rim so anything in the dark disk lights up.
-    const reach = Math.max(pose.core * 2.6, well.radius * 0.42)
-    if (dist > reach + enemy.radius * 0.25) continue
-    const fall = Math.max(0, 1 - dist / Math.max(1, reach))
-    if (fall > best) {
-      best = fall
-      red = pose.red
-    }
-  }
-  return { fall: best, red }
-}
+const ENEMY_RGB: [number, number, number][] = [
+  [255, 61, 242],
+  [255, 210, 58],
+  [141, 255, 106],
+  [255, 45, 58],
+]
 
-/** Black body fill that becomes a horizon gradient when inside a well void. */
-function enemyVoidFill(
+/** Permanent kind-colored skin gradient on the black body (scales with radius). */
+function enemySkinFill(
   ctx: CanvasRenderingContext2D,
-  state: GameState,
-  enemy: { x: number; y: number; radius: number },
-): CanvasGradient | string {
-  const { fall, red } = enemyVoidGlow(state, enemy)
-  if (fall < 0.03) return '#050508'
-  const t = Math.min(1, fall * 1.15)
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, enemy.radius * 0.98)
-  if (red) {
-    g.addColorStop(0, `rgb(${Math.round(40 + 215 * t)}, ${Math.round(20 + 160 * t)}, ${Math.round(12 + 80 * t)})`)
-    g.addColorStop(0.4, `rgb(${Math.round(18 + 160 * t)}, ${Math.round(8 + 70 * t)}, ${Math.round(8 + 25 * t)})`)
-    g.addColorStop(0.78, `rgb(${Math.round(8 + 50 * t)}, ${Math.round(5 + 18 * t)}, ${Math.round(6 + 8 * t)})`)
-    g.addColorStop(1, '#050508')
-  } else {
-    g.addColorStop(0, `rgb(${Math.round(30 + 200 * t)}, ${Math.round(34 + 205 * t)}, ${Math.round(42 + 210 * t)})`)
-    g.addColorStop(0.4, `rgb(${Math.round(14 + 120 * t)}, ${Math.round(16 + 130 * t)}, ${Math.round(22 + 150 * t)})`)
-    g.addColorStop(0.78, `rgb(${Math.round(8 + 40 * t)}, ${Math.round(8 + 45 * t)}, ${Math.round(10 + 55 * t)})`)
-    g.addColorStop(1, '#050508')
-  }
-  return g
+  kind: number,
+  radius: number,
+): CanvasGradient {
+  const [r, g, b] = ENEMY_RGB[kind] ?? ENEMY_RGB[0]!
+  const skin = ctx.createRadialGradient(0, 0, radius * 0.08, 0, 0, radius)
+  skin.addColorStop(0, `rgb(${Math.round(r * 0.55)}, ${Math.round(g * 0.55)}, ${Math.round(b * 0.55)})`)
+  skin.addColorStop(0.38, `rgb(${Math.round(r * 0.22)}, ${Math.round(g * 0.22)}, ${Math.round(b * 0.22)})`)
+  skin.addColorStop(0.72, 'rgb(8, 8, 10)')
+  skin.addColorStop(1, '#050508')
+  return skin
 }
 
 function paintHoleBlast(
@@ -924,24 +898,24 @@ function drawEnemies(
   X: (x: number) => number,
   Y: (y: number) => number,
 ): void {
-  if (!lean) {
+  // Permanent kind-colored bloom — always on (including Fast), scales with body size.
   const sheets = [glowFor('#ff3df2'), glowFor('#ffd23a'), glowFor('#8dff6a'), glowFor('#ff2d3a')]
   const hurtGlow = glowFor('#ffffff')
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   for (const e of state.enemies) {
-    const s = e.radius * 3.4
-    ctx.drawImage(sheets[e.kind], X(e.x) - s / 2, Y(e.y) - s / 2, s, s)
+    const s = e.radius * (lean ? 2.8 : 3.4)
+    ctx.globalAlpha = lean ? 0.85 : 1
+    ctx.drawImage(sheets[e.kind]!, X(e.x) - s / 2, Y(e.y) - s / 2, s, s)
     if (e.flash > 0) {
       const punch = Math.min(1, e.flash / 0.08)
       const hs = e.radius * (4.2 + punch)
-      ctx.globalAlpha = 0.45 + punch * 0.55
+      ctx.globalAlpha = (0.45 + punch * 0.55) * (lean ? 0.85 : 1)
       ctx.drawImage(hurtGlow, X(e.x) - hs / 2, Y(e.y) - hs / 2, hs, hs)
-      ctx.globalAlpha = 1
     }
   }
+  ctx.globalAlpha = 1
   ctx.restore()
-  }
 
   for (const e of state.enemies) {
     ctx.save()
@@ -951,36 +925,13 @@ function drawEnemies(
     const lit = primed && hexFuseLit(e.fuse)
     const shard = e.ballistic && e.kind === 3
     if (lit) ctx.scale(1.08, 1.08)
-    // Opaque body — inside a well void the black fill becomes a horizon gradient.
-    ctx.fillStyle = lit ? '#ffffff' : shard ? ENEMY_COLOR[3] : enemyVoidFill(ctx, state, e)
+    // Black body with permanent kind-colored skin glow (not void/suck wash).
+    ctx.fillStyle = lit ? '#ffffff' : shard ? ENEMY_COLOR[3] : enemySkinFill(ctx, e.kind, e.radius)
     ctx.strokeStyle = lit ? '#ffffff' : ENEMY_COLOR[e.kind]
     ctx.lineWidth = ((e.kind === 3 ? 3.1 : 2) + (lit ? 2.4 : 0) + (lean ? 0.7 : 0)) * BODY
     enemyBodyPath(ctx, e)
     ctx.fill()
     ctx.stroke()
-    // Extra additive glow on top of the black body so the wash always reads.
-    if (!lit && !shard) {
-      const { fall, red } = enemyVoidGlow(state, e)
-      if (fall > 0.03) {
-        ctx.save()
-        enemyBodyPath(ctx, e)
-        ctx.clip()
-        ctx.globalCompositeOperation = 'lighter'
-        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, e.radius * 0.9)
-        if (red) {
-          g.addColorStop(0, `rgba(255, 220, 160, ${0.55 * fall})`)
-          g.addColorStop(0.5, `rgba(255, 120, 50, ${0.4 * fall})`)
-          g.addColorStop(1, 'rgba(255, 40, 30, 0)')
-        } else {
-          g.addColorStop(0, `rgba(245, 248, 255, ${0.5 * fall})`)
-          g.addColorStop(0.5, `rgba(200, 215, 240, ${0.34 * fall})`)
-          g.addColorStop(1, 'rgba(160, 170, 200, 0)')
-        }
-        ctx.fillStyle = g
-        ctx.fillRect(-e.radius, -e.radius, e.radius * 2, e.radius * 2)
-        ctx.restore()
-      }
-    }
     if (e.flash > 0) {
       const punch = Math.min(1, e.flash / 0.08)
       enemyBodyPath(ctx, e)
