@@ -236,13 +236,13 @@ function paintHoleBody(
   if (reach < 2) return
   const rim = red ? '#ff3a2d' : '#ffffff'
   const hot = red ? '255, 140, 95' : '255, 255, 255'
-  const plasmaR = reach * 0.58
+  const plasmaR = reach * 0.72
   const steps = lean ? 10 : 16
   const outerN = lean ? 22 : 48
   const midN = lean ? 28 : 58
   const ribbonN = lean ? 18 : 42
   const innerN = lean ? 32 : 64
-  const dustN = lean || still ? 40 : 110
+  const dustN = lean || still ? 48 : 130
 
   if (!lean) {
     const aura = Math.max(core * 5.5, reach * 1.35)
@@ -259,23 +259,37 @@ function paintHoleBody(
   ctx.save()
   ctx.translate(x, y)
 
-  // Dense plasma cloud near the horizon — covers the grid, fades before the arm tips.
-  ctx.globalAlpha = Math.min(1, 0.6 + scale * 0.4)
+  // Opaque nebula under the streaks — fully covers the grid near the void.
+  ctx.globalAlpha = 1
   ctx.globalCompositeOperation = 'source-over'
-  const plasma = ctx.createRadialGradient(0, 0, core * 0.55, 0, 0, plasmaR)
+  const under = ctx.createRadialGradient(0, 0, 0, 0, 0, core * 1.85)
   if (red) {
-    plasma.addColorStop(0, 'rgba(255, 220, 200, 1)')
-    plasma.addColorStop(0.18, 'rgba(255, 95, 58, 1)')
-    plasma.addColorStop(0.4, 'rgba(215, 32, 48, 1)')
-    plasma.addColorStop(0.68, 'rgba(130, 14, 32, 0.92)')
-    plasma.addColorStop(0.88, 'rgba(70, 6, 16, 0.35)')
+    under.addColorStop(0, 'rgba(255, 200, 180, 1)')
+    under.addColorStop(0.45, 'rgba(200, 30, 45, 1)')
+    under.addColorStop(0.8, 'rgba(90, 8, 20, 1)')
+    under.addColorStop(1, 'rgba(40, 0, 8, 0)')
+  } else {
+    under.addColorStop(0, 'rgba(255, 255, 255, 1)')
+    under.addColorStop(0.45, 'rgba(200, 208, 222, 1)')
+    under.addColorStop(0.8, 'rgba(110, 118, 135, 1)')
+    under.addColorStop(1, 'rgba(45, 50, 60, 0)')
+  }
+  ctx.fillStyle = under
+  ctx.beginPath()
+  ctx.arc(0, 0, core * 1.85, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Outer mist that fades before the arm tips (no circular cutoff on the wisps).
+  const plasma = ctx.createRadialGradient(0, 0, core * 1.2, 0, 0, plasmaR)
+  if (red) {
+    plasma.addColorStop(0, 'rgba(215, 32, 48, 0.95)')
+    plasma.addColorStop(0.45, 'rgba(130, 14, 32, 0.7)')
+    plasma.addColorStop(0.75, 'rgba(70, 6, 16, 0.28)')
     plasma.addColorStop(1, 'rgba(40, 0, 8, 0)')
   } else {
-    plasma.addColorStop(0, 'rgba(255, 255, 255, 1)')
-    plasma.addColorStop(0.18, 'rgba(248, 250, 255, 1)')
-    plasma.addColorStop(0.4, 'rgba(210, 218, 232, 1)')
-    plasma.addColorStop(0.68, 'rgba(150, 158, 178, 0.92)')
-    plasma.addColorStop(0.88, 'rgba(88, 94, 112, 0.32)')
+    plasma.addColorStop(0, 'rgba(185, 194, 210, 0.95)')
+    plasma.addColorStop(0.45, 'rgba(130, 138, 155, 0.65)')
+    plasma.addColorStop(0.75, 'rgba(80, 86, 102, 0.25)')
     plasma.addColorStop(1, 'rgba(40, 45, 55, 0)')
   }
   ctx.fillStyle = plasma
@@ -283,17 +297,16 @@ function paintHoleBody(
   ctx.arc(0, 0, plasmaR, 0, Math.PI * 2)
   ctx.fill()
 
-  // Soft atmospheric bleed that will sit under the soft void (no hard ring outline).
-  ctx.globalAlpha = 1
+  // Soft atmospheric bleed under the void (no hard ring outline).
   if (!lean) ctx.globalCompositeOperation = 'lighter'
-  const halo = ctx.createRadialGradient(0, 0, core * 0.35, 0, 0, core * 2.1)
-  halo.addColorStop(0, `rgba(${hot}, ${lean ? 0.55 : 0.85})`)
-  halo.addColorStop(0.35, `rgba(${hot}, ${lean ? 0.35 : 0.55})`)
-  halo.addColorStop(0.65, red ? 'rgba(255, 70, 48, 0.22)' : 'rgba(230, 236, 248, 0.2)')
+  const halo = ctx.createRadialGradient(0, 0, core * 0.2, 0, 0, core * 2.35)
+  halo.addColorStop(0, `rgba(${hot}, ${lean ? 0.4 : 0.65})`)
+  halo.addColorStop(0.4, `rgba(${hot}, ${lean ? 0.28 : 0.42})`)
+  halo.addColorStop(0.72, red ? 'rgba(255, 70, 48, 0.16)' : 'rgba(230, 236, 248, 0.14)')
   halo.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = halo
   ctx.beginPath()
-  ctx.arc(0, 0, core * 2.1, 0, Math.PI * 2)
+  ctx.arc(0, 0, core * 2.35, 0, Math.PI * 2)
   ctx.fill()
 
   ctx.globalAlpha = Math.min(1, 0.5 + scale * 0.5)
@@ -421,31 +434,30 @@ function paintHoleVoid(
 
   ctx.save()
   ctx.translate(x, y)
-  ctx.globalCompositeOperation = 'source-over'
-  ctx.globalAlpha = Math.min(1, 0.35 + scale * 0.65)
+  ctx.globalAlpha = Math.min(1, 0.4 + scale * 0.6)
 
-  // Soft atmospheric rim peaking at the horizon — bleeds into the void, no hard outline.
+  // Soft inward bleed — glow sits inside the horizon, never a hard outline ring.
   if (!lean) ctx.globalCompositeOperation = 'lighter'
-  const rim = ctx.createRadialGradient(0, 0, core * 0.55, 0, 0, core * 1.55)
-  rim.addColorStop(0, `rgba(${hot}, 0)`)
-  rim.addColorStop(0.42, `rgba(${hot}, ${lean ? 0.25 : 0.45})`)
-  rim.addColorStop(0.72, `rgba(${hot}, ${lean ? 0.4 : 0.7})`)
-  rim.addColorStop(0.9, red ? 'rgba(255, 70, 45, 0.18)' : 'rgba(235, 240, 250, 0.16)')
+  const rim = ctx.createRadialGradient(0, 0, core * 0.15, 0, 0, core * 1.45)
+  rim.addColorStop(0, `rgba(${hot}, ${lean ? 0.15 : 0.28})`)
+  rim.addColorStop(0.55, `rgba(${hot}, ${lean ? 0.3 : 0.5})`)
+  rim.addColorStop(0.85, red ? 'rgba(255, 80, 50, 0.12)' : 'rgba(235, 240, 250, 0.12)')
   rim.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = rim
   ctx.beginPath()
-  ctx.arc(0, 0, core * 1.55, 0, Math.PI * 2)
+  ctx.arc(0, 0, core * 1.45, 0, Math.PI * 2)
   ctx.fill()
 
-  // Pitch-black center with a soft falloff so plasma bleeds across the edge.
+  // Pitch-black void with a wide soft falloff so plasma bleeds across the edge.
   ctx.globalCompositeOperation = 'source-over'
   ctx.globalAlpha = 1
-  const voidR = core * 1.22
+  const voidR = core * 1.38
   const voidFill = ctx.createRadialGradient(0, 0, 0, 0, 0, voidR)
   voidFill.addColorStop(0, 'rgba(0, 0, 0, 1)')
-  voidFill.addColorStop(0.62, 'rgba(0, 0, 0, 1)')
-  voidFill.addColorStop(0.82, 'rgba(0, 0, 0, 0.92)')
-  voidFill.addColorStop(0.94, 'rgba(0, 0, 0, 0.45)')
+  voidFill.addColorStop(0.48, 'rgba(0, 0, 0, 1)')
+  voidFill.addColorStop(0.7, 'rgba(0, 0, 0, 0.94)')
+  voidFill.addColorStop(0.86, 'rgba(0, 0, 0, 0.55)')
+  voidFill.addColorStop(0.95, 'rgba(0, 0, 0, 0.18)')
   voidFill.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = voidFill
   ctx.beginPath()
