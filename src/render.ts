@@ -350,6 +350,7 @@ function paintHoleBody(
   const closeFrac = closing ? well.closing / well.closeMax : 1
 
   // Singularity only: soft concentric rings while the crimson vortex pinches shut.
+  // Staggered births + short duty cycle keep rings spaced apart instead of stacked.
   if (red && closing) {
     const rings = lean ? 14 : 22
     ctx.globalCompositeOperation = lean ? 'source-over' : 'lighter'
@@ -357,8 +358,21 @@ function paintHoleBody(
     for (let i = 0; i < rings; i++) {
       const n0 = holeNoise(i * 4.7 + 19.3)
       const n1 = holeNoise(i * 2.9 + 41.1)
-      const phase = still ? ((i + 0.5) / rings) : ((time * (2.35 + n0 * 0.7) + i / rings) % 1)
-      const r = Math.max(core * 1.08, reach * (1 - phase) * (0.55 + closeFrac * 0.45))
+      const period = 0.72 + n1 * 0.85
+      const gap = 0.38 + n0 * 0.55
+      const delay = i * (0.11 + n0 * 0.07) + n1 * 0.22
+      let phase: number
+      if (still) {
+        phase = ((i * 1.65 + 0.5) / rings) % 1
+      } else {
+        const cycle = period + gap
+        const local = ((time + delay) % cycle + cycle) % cycle
+        if (local > period) continue
+        phase = local / period
+      }
+      // Stretch radius so neighboring live rings sit farther apart.
+      const radial = Math.pow(1 - phase, 0.72)
+      const r = Math.max(core * 1.15, reach * (0.18 + radial * 0.82) * (0.5 + closeFrac * 0.5))
       const ink = blastInk[i % blastInk.length]!
       const width = Math.max(1.1, (1.4 + n1 * 3.6 + (1 - phase) * 1.8) * BODY * scale)
       const a = (0.1 + (1 - phase) * 0.16 + closeFrac * 0.05) * (0.55 + n0 * 0.25)
@@ -368,13 +382,6 @@ function paintHoleBody(
       ctx.beginPath()
       ctx.arc(0, 0, r, 0, Math.PI * 2)
       ctx.stroke()
-      if (n1 > 0.35) {
-        ctx.strokeStyle = `rgba(${ink}, ${Math.min(0.18, a * 0.4)})`
-        ctx.lineWidth = Math.max(0.8, width * 0.38)
-        ctx.beginPath()
-        ctx.arc(0, 0, r * (0.72 + n0 * 0.08), 0, Math.PI * 2)
-        ctx.stroke()
-      }
     }
     if (!lean) ctx.globalCompositeOperation = 'lighter'
   }

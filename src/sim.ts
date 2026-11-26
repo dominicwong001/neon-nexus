@@ -963,8 +963,8 @@ function upgradeSource(id: UpgradeId, rank: number): { source: DamageSource; nam
 }
 
 export function orbiterDamage(rank: number): number {
-  const dealt = 46 + Math.max(0, rank - 1) * 11
-  return rank >= OVERDRIVE ? dealt + 16 : dealt
+  if (rank >= OVERDRIVE) return 90
+  return 46 + Math.max(0, rank - 1) * 11
 }
 
 export function ballCount(rank: number): number {
@@ -1001,9 +1001,7 @@ export function orbiterCount(rank: number): number {
 }
 
 export function orbiterShove(rank: number): number {
-  // Guardian's Halo deals damage in place — no knockback so enemy glow stays locked to the body.
-  if (rank >= OVERDRIVE) return 0
-  const step = Math.min(Math.max(rank, 1), OVERDRIVE - 1)
+  const step = Math.min(Math.max(rank, 1), OVERDRIVE)
   return 1.4 + Math.max(0, step - 1) * 0.55
 }
 
@@ -1019,14 +1017,14 @@ export function discTurn(rank: number): number {
   return rank >= OVERDRIVE ? DISC.turn * 1.8 : DISC.turn
 }
 
-export function discRadius(rank: number): number {
-  if (rank >= OVERDRIVE) return DISC.radius * 1.42
-  return DISC.radius * 1.16
+export function discRadius(_rank: number): number {
+  // Sentinel matches Halo disc size.
+  return DISC.radius * 1.42
 }
 
-export function discOrbit(rank: number): number {
-  if (rank >= OVERDRIVE) return DISC.orbit * 1.38
-  return DISC.orbit * 1.14
+export function discOrbit(_rank: number): number {
+  // Sentinel matches Halo orbit distance.
+  return DISC.orbit * 1.38
 }
 
 function damageEnemy(
@@ -2744,7 +2742,7 @@ const OFFER_RANK_UP: Partial<Record<Exclude<UpgradeId, 'cache'>, string>> = {
 const OFFER_EVOLVE: Partial<Record<Exclude<UpgradeId, 'cache'>, { title: string; detail: string }>> = {
   tesla: { title: 'Arc Reactor', detail: 'One red bolt strikes, then chain-arcs through nearby hostiles. It hits harder and falls again sooner.' },
   drone: { title: 'Bulletstorm', detail: 'The drone turns red. Each volley is a wide fan of rockets, and the wait between them is short.' },
-  orbiter: { title: "Guardian's Halo", detail: 'Six red discs stay out and spin faster. They carve hostiles without knocking them away.' },
+  orbiter: { title: "Guardian's Halo", detail: 'Six red discs stay out and spin faster. They carve hostiles and shove them aside.' },
   ball: { title: 'Quantum Core', detail: 'Hyper-fast red balls. They bounce off giant circles and hostiles with 1000 hull or more, and a hit replaces each one with two smaller balls.' },
   field: { title: 'Null Zone', detail: 'The field turns red, reaches farther, burns harder, and slows hostiles and flying shards inside it.' },
   hole: { title: 'Singularity', detail: 'Same-size crimson vortex: red to orange to white into a black core. It yanks hostiles in hard, then collapses into a storm of dust and a blast that grows with everything it absorbed.' },

@@ -1154,8 +1154,8 @@ describe('orbs', () => {
     assert.equal(state.mods.orbiter, 6)
     assert.equal(orbitDiscs(state).length, 6)
     assert.equal(orbitDiscs(state).every((disc) => disc.halo), true)
-    assert.ok(discRadius(6) > discRadius(5) * 1.15)
-    assert.ok(discOrbit(6) > discOrbit(5) * 1.15)
+    assert.equal(discRadius(1), discRadius(6))
+    assert.equal(discOrbit(1), discOrbit(6))
     assert.ok(discRadius(5) > DISC.radius)
     assert.ok(discOrbit(5) > DISC.orbit)
     const haloDisc = orbitDiscs(state)[0]
@@ -1164,7 +1164,7 @@ describe('orbs', () => {
     state.orbitTime = DISC.active + DISC.recharge + 3
     assert.equal(orbitDiscs(state).length, 6)
     assert.ok(discTurn(6) > discTurn(5))
-    assert.equal(orbiterShove(6), 0)
+    assert.ok(orbiterShove(6) > orbiterShove(5))
     assert.ok(orbiterShove(5) > 0)
     state.xp = state.xpNeed
     step(state, input({ aimActive: false }), 1 / 60)
@@ -1542,8 +1542,7 @@ describe('orbs', () => {
     assert.equal(bitten.hp, HIT - orbiterDamage(1))
     assert.ok(orbiterDamage(1) > 40)
     assert.ok(orbiterDamage(1) < HIT)
-    assert.ok(orbiterDamage(6) - orbiterDamage(5) >= 25)
-    assert.ok(orbiterDamage(6) - orbiterDamage(5) <= 28)
+    assert.equal(orbiterDamage(6), 90)
     assert.ok(state.floaters.some((floater) => floater.text === String(orbiterDamage(1))))
     assert.equal(state.floaters.some((floater) => floater.text.startsWith('+')), false)
     assert.ok(orbitActive(2) > orbitActive(1))
@@ -1587,8 +1586,8 @@ describe('orbs', () => {
     assert.ok(Math.abs(low - orbiterShove(1)) < 0.05)
     assert.ok(mid > low)
     assert.ok(orbiterShove(5) > orbiterShove(1))
-    assert.equal(orbiterShove(6), 0)
-    assert.ok(halo < 0.05)
+    assert.ok(orbiterShove(6) > orbiterShove(5))
+    assert.ok(Math.abs(halo - orbiterShove(6)) < 0.05)
   })
 
   it('lets a hostile walk through the discs', () => {
