@@ -48,12 +48,12 @@ export function render(ctx: CanvasRenderingContext2D, state: GameState, view: Vi
   drawGrid(ctx, state, width, height)
   drawField(ctx, state)
   drawHoles(ctx, state, X, Y, view.reduceMotion, 'body')
+  drawHoles(ctx, state, X, Y, view.reduceMotion, 'void')
   drawReticle(ctx, state, X, Y)
   drawShocks(ctx, state, X, Y)
   drawOrbs(ctx, state, X, Y)
-  drawParticles(ctx, state, X, Y)
   drawEnemies(ctx, state, X, Y)
-  drawHoles(ctx, state, X, Y, view.reduceMotion, 'void')
+  drawParticles(ctx, state, X, Y)
   drawBullets(ctx, state, X, Y)
   drawMortars(ctx, state, X, Y)
   drawBalls(ctx, state, X, Y)
@@ -135,8 +135,9 @@ function holePose(well: Hole, time: number): {
   const spinBoost = (1 - born) * 12 + (well.closing > 0 ? (1 - closeScale) * 18 : 0)
   const spin = -time * (red ? 1.45 : 1.25) - spinBoost - well.x * 0.01
   const twistMul = 1 + (1 - born) * 0.55 + (well.closing > 0 ? (1 - closeScale) * 2.4 : 0)
-  const core = Math.max(28 * BODY, well.radius * 0.52) * scale
-  const reach = well.radius * (lean ? 2.15 : 2.85) * scale
+  const core = Math.max(28 * BODY, well.radius * 0.22) * scale
+  // Arms taper just past the gameplay radius so pull reach matches the painted well.
+  const reach = well.radius * (lean ? 1.02 : 1.08) * scale
   return { scale, core, reach, spin, twistMul, red }
 }
 
@@ -160,10 +161,11 @@ function drawHoles(
 
 function holeShade(red: boolean, shade: number): string {
   if (red) {
-    if (shade === 0) return '255, 236, 220'
-    if (shade === 1) return '255, 78, 52'
-    if (shade === 2) return '210, 24, 48'
-    return '95, 8, 22'
+    // Singularity: white → orange → red → deep scarlet
+    if (shade === 0) return '255, 248, 240'
+    if (shade === 1) return '255, 170, 70'
+    if (shade === 2) return '255, 70, 40'
+    return '140, 12, 28'
   }
   if (shade === 0) return '255, 255, 255'
   if (shade === 1) return '228, 234, 245'
@@ -234,9 +236,9 @@ function paintHoleBody(
   const y = Y(well.y)
   const { scale, core, reach, spin, twistMul, red } = holePose(well, time)
   if (reach < 2) return
-  const rim = red ? '#ff3a2d' : '#ffffff'
-  const hot = red ? '255, 140, 95' : '255, 255, 255'
-  const plasmaR = reach * 0.72
+  const rim = red ? '#ff4a20' : '#ffffff'
+  const hot = red ? '255, 220, 180' : '255, 255, 255'
+  const plasmaR = reach * 0.78
   const steps = lean ? 10 : 16
   const outerN = lean ? 22 : 48
   const midN = lean ? 28 : 58
@@ -248,11 +250,11 @@ function paintHoleBody(
     const aura = Math.max(core * 5.5, reach * 1.35)
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
-    ctx.globalAlpha = (red ? 0.14 : 0.18) * scale
+    ctx.globalAlpha = (red ? 0.16 : 0.18) * scale
     ctx.drawImage(glowFor(rim), x - aura / 2, y - aura / 2, aura, aura)
-    ctx.globalAlpha = (red ? 0.28 : 0.34) * scale
+    ctx.globalAlpha = (red ? 0.3 : 0.34) * scale
     const bloom = core * 3.8
-    ctx.drawImage(glowFor('#ffffff'), x - bloom / 2, y - bloom / 2, bloom, bloom)
+    ctx.drawImage(glowFor(red ? '#ffb040' : '#ffffff'), x - bloom / 2, y - bloom / 2, bloom, bloom)
     ctx.restore()
   }
 
@@ -260,14 +262,16 @@ function paintHoleBody(
   ctx.translate(x, y)
 
   // Opaque nebula under the streaks — fully covers the grid near the void.
+  // Singularity: white near the horizon → orange → red outward; Black Hole stays silver/white.
   ctx.globalAlpha = 1
   ctx.globalCompositeOperation = 'source-over'
   const under = ctx.createRadialGradient(0, 0, 0, 0, 0, core * 1.85)
   if (red) {
-    under.addColorStop(0, 'rgba(255, 200, 180, 1)')
-    under.addColorStop(0.45, 'rgba(200, 30, 45, 1)')
-    under.addColorStop(0.8, 'rgba(90, 8, 20, 1)')
-    under.addColorStop(1, 'rgba(40, 0, 8, 0)')
+    under.addColorStop(0, 'rgba(255, 255, 255, 1)')
+    under.addColorStop(0.28, 'rgba(255, 210, 140, 1)')
+    under.addColorStop(0.55, 'rgba(255, 120, 45, 1)')
+    under.addColorStop(0.82, 'rgba(220, 28, 40, 1)')
+    under.addColorStop(1, 'rgba(90, 6, 16, 0)')
   } else {
     under.addColorStop(0, 'rgba(255, 255, 255, 1)')
     under.addColorStop(0.45, 'rgba(200, 208, 222, 1)')
@@ -280,12 +284,12 @@ function paintHoleBody(
   ctx.fill()
 
   // Outer mist that fades before the arm tips (no circular cutoff on the wisps).
-  const plasma = ctx.createRadialGradient(0, 0, core * 1.2, 0, 0, plasmaR)
+  const plasma = ctx.createRadialGradient(0, 0, core * 1.15, 0, 0, plasmaR)
   if (red) {
-    plasma.addColorStop(0, 'rgba(215, 32, 48, 0.95)')
-    plasma.addColorStop(0.45, 'rgba(130, 14, 32, 0.7)')
-    plasma.addColorStop(0.75, 'rgba(70, 6, 16, 0.28)')
-    plasma.addColorStop(1, 'rgba(40, 0, 8, 0)')
+    plasma.addColorStop(0, 'rgba(255, 140, 55, 0.95)')
+    plasma.addColorStop(0.4, 'rgba(230, 40, 45, 0.75)')
+    plasma.addColorStop(0.72, 'rgba(120, 10, 24, 0.3)')
+    plasma.addColorStop(1, 'rgba(50, 0, 8, 0)')
   } else {
     plasma.addColorStop(0, 'rgba(185, 194, 210, 0.95)')
     plasma.addColorStop(0.45, 'rgba(130, 138, 155, 0.65)')
@@ -300,9 +304,9 @@ function paintHoleBody(
   // Soft atmospheric bleed under the void (no hard ring outline).
   if (!lean) ctx.globalCompositeOperation = 'lighter'
   const halo = ctx.createRadialGradient(0, 0, core * 0.2, 0, 0, core * 2.35)
-  halo.addColorStop(0, `rgba(${hot}, ${lean ? 0.4 : 0.65})`)
-  halo.addColorStop(0.4, `rgba(${hot}, ${lean ? 0.28 : 0.42})`)
-  halo.addColorStop(0.72, red ? 'rgba(255, 70, 48, 0.16)' : 'rgba(230, 236, 248, 0.14)')
+  halo.addColorStop(0, `rgba(${hot}, ${lean ? 0.4 : 0.7})`)
+  halo.addColorStop(0.35, red ? `rgba(255, 180, 90, ${lean ? 0.3 : 0.48})` : `rgba(${hot}, ${lean ? 0.28 : 0.42})`)
+  halo.addColorStop(0.7, red ? 'rgba(255, 60, 40, 0.18)' : 'rgba(230, 236, 248, 0.14)')
   halo.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = halo
   ctx.beginPath()
@@ -430,22 +434,22 @@ function paintHoleVoid(
   const y = Y(well.y)
   const { scale, core, red } = holePose(well, time)
   if (core < 1.2) return
-  const hot = red ? '255, 130, 90' : '255, 255, 255'
+  const hot = red ? '255, 245, 230' : '255, 255, 255'
 
   ctx.save()
   ctx.translate(x, y)
   ctx.globalAlpha = Math.min(1, 0.4 + scale * 0.6)
 
-  // Soft inward bleed — glow sits inside the horizon, never a hard outline ring.
+  // Soft inward bleed — white (then orange on Singularity) into pitch black, no hard ring.
   if (!lean) ctx.globalCompositeOperation = 'lighter'
-  const rim = ctx.createRadialGradient(0, 0, core * 0.15, 0, 0, core * 1.45)
-  rim.addColorStop(0, `rgba(${hot}, ${lean ? 0.15 : 0.28})`)
-  rim.addColorStop(0.55, `rgba(${hot}, ${lean ? 0.3 : 0.5})`)
-  rim.addColorStop(0.85, red ? 'rgba(255, 80, 50, 0.12)' : 'rgba(235, 240, 250, 0.12)')
+  const rim = ctx.createRadialGradient(0, 0, core * 0.12, 0, 0, core * 1.5)
+  rim.addColorStop(0, `rgba(${hot}, ${lean ? 0.18 : 0.32})`)
+  rim.addColorStop(0.45, red ? `rgba(255, 190, 110, ${lean ? 0.28 : 0.48})` : `rgba(${hot}, ${lean ? 0.3 : 0.5})`)
+  rim.addColorStop(0.8, red ? 'rgba(255, 90, 40, 0.14)' : 'rgba(235, 240, 250, 0.12)')
   rim.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = rim
   ctx.beginPath()
-  ctx.arc(0, 0, core * 1.45, 0, Math.PI * 2)
+  ctx.arc(0, 0, core * 1.5, 0, Math.PI * 2)
   ctx.fill()
 
   // Pitch-black void with a wide soft falloff so plasma bleeds across the edge.
@@ -471,57 +475,41 @@ function paintHoleBlast(
   well: Hole,
   X: (x: number) => number,
   Y: (y: number) => number,
-  still: boolean,
+  _still: boolean,
 ): void {
   const x = X(well.x)
   const y = Y(well.y)
   const phase = 1 - Math.max(0, well.blast) / Math.max(0.01, well.blastMax)
-  const radius = Math.max(8, well.blastRadius * phase)
-  const fade = (1 - phase) * (1 - phase * 0.35)
+  const radius = Math.max(8, well.blastRadius * Math.min(1, phase * 1.15))
+  const fade = (1 - phase) * (1 - phase * 0.25)
 
+  // Soft shock flash only — the collapse reads as dust exploding outward (particles).
   if (!lean) {
-    const glow = glowFor('#ff2d3a')
-    const aura = radius * 2.6
+    const glow = glowFor('#ff4a20')
+    const aura = radius * (2.2 + phase * 0.8)
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
-    ctx.globalAlpha = 0.5 * fade
+    ctx.globalAlpha = 0.55 * fade
     ctx.drawImage(glow, x - aura / 2, y - aura / 2, aura, aura)
+    ctx.globalAlpha = 0.35 * fade
+    const white = glowFor('#ffffff')
+    const hot = radius * 1.1
+    ctx.drawImage(white, x - hot / 2, y - hot / 2, hot, hot)
     ctx.restore()
   }
 
   ctx.save()
   ctx.translate(x, y)
   ctx.globalAlpha = fade
-  const fill = ctx.createRadialGradient(0, 0, radius * 0.08, 0, 0, radius)
-  fill.addColorStop(0, 'rgba(255, 255, 255, 0.55)')
-  fill.addColorStop(0.35, 'rgba(255, 45, 58, 0.4)')
-  fill.addColorStop(1, 'rgba(255, 45, 58, 0)')
+  const fill = ctx.createRadialGradient(0, 0, 0, 0, 0, radius)
+  fill.addColorStop(0, 'rgba(255, 255, 255, 0.65)')
+  fill.addColorStop(0.2, 'rgba(255, 190, 90, 0.4)')
+  fill.addColorStop(0.55, 'rgba(255, 60, 40, 0.22)')
+  fill.addColorStop(1, 'rgba(255, 40, 50, 0)')
   ctx.fillStyle = fill
   ctx.beginPath()
   ctx.arc(0, 0, radius, 0, Math.PI * 2)
   ctx.fill()
-  ctx.strokeStyle = '#ff2d3a'
-  ctx.lineWidth = (3.2 - phase * 1.4) * BODY
-  ctx.beginPath()
-  ctx.arc(0, 0, radius, 0, Math.PI * 2)
-  ctx.stroke()
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)'
-  ctx.lineWidth = 1.6 * BODY
-  ctx.beginPath()
-  ctx.arc(0, 0, radius * 0.72, 0, Math.PI * 2)
-  ctx.stroke()
-  if (!still) {
-    for (let i = 0; i < 8; i++) {
-      const ang = (i / 8) * Math.PI * 2 + phase * 1.4
-      const len = radius * (0.55 + (i % 2) * 0.2)
-      ctx.strokeStyle = 'rgba(255, 45, 58, 0.75)'
-      ctx.lineWidth = 2 * BODY
-      ctx.beginPath()
-      ctx.moveTo(Math.cos(ang) * radius * 0.2, Math.sin(ang) * radius * 0.2)
-      ctx.lineTo(Math.cos(ang) * len, Math.sin(ang) * len)
-      ctx.stroke()
-    }
-  }
   ctx.restore()
 }
 
@@ -611,14 +599,20 @@ function drawParticles(
   X: (x: number) => number,
   Y: (y: number) => number,
 ): void {
-  if (lean) return
+  if (state.particles.length === 0) return
   ctx.save()
-  ctx.globalCompositeOperation = 'lighter'
+  if (!lean) ctx.globalCompositeOperation = 'lighter'
   for (const p of state.particles) {
     ctx.globalAlpha = Math.max(0, p.life / p.max)
     ctx.fillStyle = p.color
     const s = p.size
-    ctx.fillRect(X(p.x) - s / 2, Y(p.y) - s / 2, s, s)
+    if (s > 3.5 * BODY) {
+      ctx.beginPath()
+      ctx.arc(X(p.x), Y(p.y), s * 0.45, 0, Math.PI * 2)
+      ctx.fill()
+    } else {
+      ctx.fillRect(X(p.x) - s / 2, Y(p.y) - s / 2, s, s)
+    }
   }
   ctx.restore()
 }
@@ -731,7 +725,7 @@ function drawEnemies(
     const lit = primed && hexFuseLit(e.fuse)
     const shard = e.ballistic && e.kind === 3
     if (lit) ctx.scale(1.08, 1.08)
-    ctx.fillStyle = lit ? '#ffffff' : shard ? ENEMY_COLOR[3] : 'rgba(0, 0, 0, 0.78)'
+    ctx.fillStyle = lit ? '#ffffff' : shard ? ENEMY_COLOR[3] : '#000000'
     ctx.strokeStyle = lit ? '#ffffff' : ENEMY_COLOR[e.kind]
     ctx.lineWidth = ((e.kind === 3 ? 3.1 : 2) + (lit ? 2.4 : 0)) * BODY
     ctx.beginPath()

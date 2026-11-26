@@ -418,8 +418,9 @@ export function singularity(rank: number): boolean {
 
 export function holeRadius(rank: number): number {
   if (rank <= 0) return 0
-  const base = (88 + Math.max(0, rank - 1) * 26) * BODY
-  return singularity(rank) ? base + 48 * BODY : base
+  // Gameplay radius matches the painted vortex (arms reach ~well.radius).
+  // Singularity (rank 5) keeps the same size curve — no extra growth.
+  return (250 + Math.max(0, rank - 1) * 74) * BODY
 }
 
 export function holeDuration(rank: number): number {
@@ -430,14 +431,15 @@ export function holeDuration(rank: number): number {
 
 export function holeDamage(rank: number): number {
   if (rank <= 0) return 0
-  const dealt = 7 + Math.max(0, rank - 1) * 3
-  return singularity(rank) ? Math.round(dealt * 1.25) : dealt
+  // Light tick while sucking — Singularity banks most damage in the collapse blast.
+  const dealt = 3 + Math.max(0, rank - 1) * 1
+  return singularity(rank) ? dealt + 1 : dealt
 }
 
 export function holePull(rank: number): number {
   if (rank <= 0) return 0
-  const force = 150 + Math.max(0, rank - 1) * 55
-  return singularity(rank) ? force * 1.55 : force
+  const force = 320 + Math.max(0, rank - 1) * 95
+  return singularity(rank) ? force * 1.35 : force
 }
 
 export function holeInterval(rank: number): number {
@@ -2261,13 +2263,15 @@ function pullIntoHole(state: GameState, well: Hole, dt: number): void {
     const dist = Math.hypot(dx, dy)
     if (dist > reach + enemy.radius || dist < 0.01) continue
     const fall = 1 - Math.min(1, dist / (reach + enemy.radius))
-    const force = well.pull * (0.35 + fall * 0.9)
+    const force = well.pull * (0.55 + fall * 1.35)
     const nx = dx / dist
     const ny = dy / dist
-    enemy.vx += nx * force * dt
-    enemy.vy += ny * force * dt
-    enemy.x += nx * force * dt * 0.22
-    enemy.y += ny * force * dt * 0.22
+    // Spiral yank: hard inward shove plus a violent tangential swirl.
+    const swirl = force * (0.55 + fall * 0.85)
+    enemy.vx += (nx * force - ny * swirl) * dt
+    enemy.vy += (ny * force + nx * swirl) * dt
+    enemy.x += (nx * force - ny * swirl * 0.35) * dt * 0.55
+    enemy.y += (ny * force + nx * swirl * 0.35) * dt * 0.55
   }
 }
 
@@ -2288,14 +2292,14 @@ function collapseHole(state: GameState, well: Hole, events: StepEvents): void {
   const radius = holeBlastRadius(well.absorbed)
   const dealt = holeBlastDamage(well.absorbed)
   well.blastRadius = radius
-  well.blastMax = 0.48
+  well.blastMax = 0.55
   well.blast = well.blastMax
   well.life = 0
   well.radius = 0
-  state.shake = Math.min(10, state.shake + 3.2 + Math.min(4, well.absorbed * 0.004))
-  state.flash = Math.min(0.55, 0.22 + Math.min(0.3, well.absorbed * 0.0004))
-  state.shocks.push({ x: well.x, y: well.y, life: 0.5, max: 0.5, color: '#ff2d3a' })
-  burst(state, well.x, well.y, '#ff2d3a', 22, 420)
+  state.shake = Math.min(18, state.shake + 6.5 + Math.min(8, well.absorbed * 0.008))
+  state.flash = Math.min(0.7, 0.28 + Math.min(0.35, well.absorbed * 0.0005))
+  state.shocks.push({ x: well.x, y: well.y, life: 0.55, max: 0.55, color: '#ff2d3a' })
+  singularityDust(state, well.x, well.y, well.absorbed)
   for (let j = state.enemies.length - 1; j >= 0; j--) {
     const enemy = state.enemies[j]
     if (!enemy || enemy.immortal) continue
@@ -2306,9 +2310,41 @@ function collapseHole(state: GameState, well: Hole, events: StepEvents): void {
     const dx = enemy.x - well.x
     const dy = enemy.y - well.y
     const span = Math.hypot(dx, dy) || 1
-    const kick = 220 + Math.min(280, well.absorbed * 0.08)
+    const kick = 280 + Math.min(360, well.absorbed * 0.1)
     enemy.vx += (dx / span) * kick
     enemy.vy += (dy / span) * kick
+  }
+}
+
+const SINGULARITY_DUST = [
+  '#ffffff',
+  '#fff4e8',
+  '#ffe0b0',
+  '#ffb040',
+  '#ff7a28',
+  '#ff4a20',
+  '#ff2d3a',
+  '#d01830',
+  '#8a1020',
+  '#ff9860',
+]
+
+function singularityDust(state: GameState, x: number, y: number, absorbed: number): void {
+  const count = Math.min(480, 220 + Math.floor(absorbed * 0.55))
+  for (let i = 0; i < count; i++) {
+    const a = state.rng() * Math.PI * 2
+    const s = (280 + state.rng() * 720) * (0.45 + state.rng() * 0.7)
+    const life = 0.45 + state.rng() * 0.85
+    pushParticle(state, {
+      x,
+      y,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s,
+      life,
+      max: life,
+      size: (1.2 + state.rng() * 7.5 + (i % 11 === 0 ? 4 : 0)) * BODY,
+      color: SINGULARITY_DUST[(i + Math.floor(state.rng() * SINGULARITY_DUST.length)) % SINGULARITY_DUST.length]!,
+    })
   }
 }
 
@@ -2663,7 +2699,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     return {
       id,
       title: 'Singularity',
-      detail: 'A dense crimson vortex pulls harder and banks the damage dealt. When it ends, the core implodes into a red blast that grows with everything it absorbed.',
+      detail: 'Same-size crimson vortex: red to orange to white into a black core. It yanks hostiles in hard, then collapses into a storm of dust and a blast that grows with everything it absorbed.',
       rank,
       max,
       overdrive: true,
@@ -2682,7 +2718,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off giant circles and any hostile whose hull is 1000 or more, no matter how much health is left.' },
     drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
     tesla: { title: 'Tesla Coil', detail: 'One lightning bolt falls on a hostile in view, leaning toward the tougher ones. Later ranks hit harder and strike again sooner.' },
-    hole: { title: 'Black Hole', detail: 'A pitch-black core wrapped in a dense white swirling vortex that pulls hostiles in and burns them while it lasts.' },
+    hole: { title: 'Black Hole', detail: 'A pitch-black core wrapped in a dense white swirling vortex. It violently pulls hostiles across its full reach and burns them lightly while it lasts.' },
   }
   const detail =
     id === 'orbiter' && rank > 1
@@ -2696,7 +2732,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
               : id === 'tesla' && rank > 1 && rank < TESLA.evolveRank
                 ? 'Still one bolt. It hits harder, and the pause before the next strike is shorter.'
                 : id === 'hole' && rank > 1 && rank < HOLE.evolveRank
-                  ? 'A wider well, a longer burn, and harder continuous damage.'
+                  ? 'A wider well, a longer burn, and a more violent pull across the full vortex.'
                   : id === 'magnet' && rank > 1
                     ? 'Orbs snap in faster, and the pull reaches a little farther.'
                     : id === 'regen' && rank > 1
@@ -2772,7 +2808,7 @@ function burst(state: GameState, x: number, y: number, color: string, count: num
 }
 
 function pushParticle(state: GameState, particle: Particle): void {
-  if (state.particles.length > 280) state.particles.shift()
+  if (state.particles.length > 560) state.particles.shift()
   state.particles.push(particle)
 }
 
