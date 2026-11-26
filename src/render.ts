@@ -226,7 +226,7 @@ function paintHoleWisp(
   }
 }
 
-/** Straight radial streaks that rush inward — little to no swirl. */
+/** Short radial streaks that rush inward — little to no swirl. */
 function paintHoleSuckRay(
   ctx: CanvasRenderingContext2D,
   core: number,
@@ -238,17 +238,19 @@ function paintHoleSuckRay(
   suck: number,
 ): void {
   const pull = Math.min(0.95, Math.max(0, suck))
-  const outer = reach * (0.92 - pull * 0.55)
-  const inner = core * (1.05 + pull * 0.35)
-  if (outer <= inner + 2) return
+  // Short dashes that race toward the void instead of long spokes.
+  const band = reach - core
+  const tip = core + band * (0.78 - pull * 0.62)
+  const root = tip + band * (0.16 + (1 - pull) * 0.1)
+  if (root <= tip + 1.5) return
   const cs = Math.cos(ang)
   const sn = Math.sin(ang)
-  ctx.strokeStyle = `rgba(${ink}, ${alpha * (1 - pull * 0.15)})`
-  ctx.lineWidth = Math.max(0.35, width * (1 - pull * 0.4))
+  ctx.strokeStyle = `rgba(${ink}, ${alpha * (1 - pull * 0.2)})`
+  ctx.lineWidth = Math.max(0.35, width * (1 - pull * 0.45))
   ctx.lineCap = 'round'
   ctx.beginPath()
-  ctx.moveTo(cs * outer, sn * outer)
-  ctx.lineTo(cs * inner, sn * inner)
+  ctx.moveTo(cs * root, sn * root)
+  ctx.lineTo(cs * tip, sn * tip)
   ctx.stroke()
 }
 
@@ -364,16 +366,16 @@ function paintHoleBody(
     }
   }
 
-  // Straight suck lines — rush inward with almost no swirl.
-  const rayN = lean ? (red ? 28 : 16) : red ? 64 : 36
+  // Fewer short suck dashes — race inward with almost no swirl.
+  const rayN = lean ? (red ? 14 : 8) : red ? 28 : 14
   for (let i = 0; i < rayN; i++) {
     const n0 = holeNoise(i * 2.4 + 61.2)
     const n1 = holeNoise(i * 5.7 + 70.4)
-    const ang = (i / rayN) * Math.PI * 2 + n0 * 0.08 + spin * 0.04
-    const suck = still ? n1 * 0.45 : (time * (1.1 + n0 * 1.8) + n1 * 2.1) % 1
+    const ang = (i / rayN) * Math.PI * 2 + n0 * 0.12 + spin * 0.05
+    const suck = still ? n1 * 0.45 : (time * (2.6 + n0 * 3.2) + n1 * 3.4) % 1
     const ink = holeShade(red, n0 > 0.7 ? 0 : n0 > 0.35 ? 1 : 2)
-    const width = Math.max(0.35, (0.55 + n1 * 1.8) * BODY * scale)
-    paintHoleSuckRay(ctx, core, reach, ang, width, ink, lean ? 0.18 : red ? 0.42 : 0.28, suck * suck)
+    const width = Math.max(0.35, (0.55 + n1 * 1.6) * BODY * scale)
+    paintHoleSuckRay(ctx, core, reach, ang, width, ink, lean ? 0.16 : red ? 0.36 : 0.24, suck * suck)
   }
 
   // Wide outer sweeping arms — light spiral, mostly feeding the suck.

@@ -1002,8 +1002,8 @@ describe('orbs', () => {
     assert.equal(state.mods.hole, 5)
     assert.equal(singularity(5), true)
     // Evolution keeps the rank-5 size curve (no extra radius bump); modest per-rank growth.
-    assert.ok(holeRadius(1) >= 150 * BODY)
-    assert.ok(holeRadius(1) < 200 * BODY)
+    assert.ok(holeRadius(1) >= 190 * BODY)
+    assert.ok(holeRadius(1) < 240 * BODY)
     assert.equal(holeRadius(5), holeRadius(4) + 48 * BODY)
     assert.ok(holeRadius(5) > holeRadius(4))
     assert.ok(holeInterval(1) >= 6.5)
