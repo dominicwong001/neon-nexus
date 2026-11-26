@@ -1288,18 +1288,18 @@ describe('orbs', () => {
     }
     wall.balls.push(shot)
     step(wall, input({ aimActive: false, viewW: 1280, viewH: 720 }), 1 / 60)
-    assert.ok(shot.vx < 0)
-    assert.equal(shot.flex, 1)
-    assert.ok(Math.cos(shot.flexAngle) < -0.9)
-    assert.ok(shot.spin !== 0)
-    assert.equal(wall.balls.filter((ball) => ball.echo).length, 0)
+    // Quantum Core splits on a screen-edge bounce.
+    assert.equal(wall.balls.filter((ball) => !ball.echo).length, 0)
+    const wallEchoes = wall.balls.filter((ball) => ball.echo)
+    assert.equal(wallEchoes.length, 2)
+    assert.ok(wallEchoes.every((ball) => ball.vx < 0))
 
-    const split = createGame(0, 9)
-    split.spawnCd = 999
-    split.fireCd = 10
-    split.invuln = 5
-    split.enemies.push(enemy({ x: 0, y: 0, hp: 500, radius: 20, kind: 1, speed: 0 }))
-    split.balls.push({
+    const pierceQuantum = createGame(0, 9)
+    pierceQuantum.spawnCd = 999
+    pierceQuantum.fireCd = 10
+    pierceQuantum.invuln = 5
+    pierceQuantum.enemies.push(enemy({ x: 0, y: 0, hp: 500, radius: 20, kind: 1, speed: 0 }))
+    pierceQuantum.balls.push({
       x: 0,
       y: 0,
       vx: 40,
@@ -1316,15 +1316,10 @@ describe('orbs', () => {
       flexAngle: 0,
       touched: [],
     })
-    step(split, input({ aimActive: false }), 1 / 60)
-    const echoes = split.balls.filter((ball) => ball.echo)
-    assert.equal(split.balls.filter((ball) => !ball.echo).length, 0)
-    assert.equal(echoes.length, 2)
-    assert.ok(echoes.every((ball) => ball.vx > 0))
-    assert.equal(echoes[0]?.damage, Math.round(40 * 0.45))
-    assert.equal(echoes[0]?.max, 2)
-    assert.equal(echoes[0]?.life, 2)
-    assert.ok((echoes[0]?.radius ?? 99) < 10)
+    step(pierceQuantum, input({ aimActive: false }), 1 / 60)
+    // Pierce hits do not split — parent stays, no echoes.
+    assert.equal(pierceQuantum.balls.filter((ball) => !ball.echo).length, 1)
+    assert.equal(pierceQuantum.balls.filter((ball) => ball.echo).length, 0)
     assert.equal(ballDamage(6), 36)
 
     const tank = createGame(0, 10)
@@ -1343,8 +1338,8 @@ describe('orbs', () => {
       radius: 12,
       damage: 20,
       echo: false,
-      quantum: false,
-      knock: 2.2,
+      quantum: true,
+      knock: 8,
       spin: 0,
       flex: 0,
       flexAngle: 0,
@@ -1352,9 +1347,13 @@ describe('orbs', () => {
     }
     tank.balls.push(incoming)
     step(tank, input({ aimActive: false }), 1 / 60)
-    assert.ok(incoming.vx < 0)
+    // Bounce off a 1000-hull hostile splits Quantum Core.
+    assert.equal(tank.balls.filter((ball) => !ball.echo).length, 0)
+    const tankEchoes = tank.balls.filter((ball) => ball.echo)
+    assert.equal(tankEchoes.length, 2)
     assert.ok(brute.hp < 1000)
-    assert.ok(incoming.x < brute.x)
+    assert.equal(tankEchoes[0]?.damage, Math.round(20 * 0.45))
+    assert.ok((tankEchoes[0]?.radius ?? 99) < 12)
 
     const blob = createGame(0, 12)
     blob.spawnCd = 999
