@@ -2266,7 +2266,8 @@ function holeSpot(state: GameState, viewW: number, viewH: number): { x: number; 
 function pullIntoHole(state: GameState, well: Hole, dt: number): void {
   const reach = well.radius
   for (const enemy of state.enemies) {
-    if (enemy.fuse > 0) continue
+    // Hostiles only — never yank projectiles (hex shards / ballistic pieces).
+    if (enemy.fuse > 0 || enemy.ballistic) continue
     const dx = well.x - enemy.x
     const dy = well.y - enemy.y
     const dist = Math.hypot(dx, dy)
@@ -2275,12 +2276,12 @@ function pullIntoHole(state: GameState, well: Hole, dt: number): void {
     const force = well.pull * (0.55 + fall * 1.35)
     const nx = dx / dist
     const ny = dy / dist
-    // Spiral yank: hard inward shove plus a violent tangential swirl.
+    // Spiral yank matching the painted vortex spin (counter-clockwise).
     const swirl = force * (0.55 + fall * 0.85)
-    enemy.vx += (nx * force - ny * swirl) * dt
-    enemy.vy += (ny * force + nx * swirl) * dt
-    enemy.x += (nx * force - ny * swirl * 0.35) * dt * 0.55
-    enemy.y += (ny * force + nx * swirl * 0.35) * dt * 0.55
+    enemy.vx += (nx * force + ny * swirl) * dt
+    enemy.vy += (ny * force - nx * swirl) * dt
+    enemy.x += (nx * force + ny * swirl * 0.35) * dt * 0.55
+    enemy.y += (ny * force - nx * swirl * 0.35) * dt * 0.55
   }
 }
 
