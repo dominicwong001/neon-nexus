@@ -353,19 +353,41 @@ function paintHoleBody(
   const closing = well.closing > 0 && well.closeMax > 0
   const closeFrac = closing ? well.closing / well.closeMax : 1
 
-  // Singularity collapse: concentric rings racing inward as the well pinches shut.
+  // Singularity collapse: soft concentric rings racing inward (never opaque).
   if (red && closing) {
-    const rings = lean ? 4 : 7
+    const rings = lean ? 8 : 16
+    const segs = lean ? 18 : 28
+    ctx.globalCompositeOperation = 'source-over'
     for (let i = 0; i < rings; i++) {
-      const phase = still ? (i / rings) : ((time * 2.6 + i / rings) % 1)
-      const r = Math.max(core * 1.1, reach * (1 - phase) * (0.55 + closeFrac * 0.45))
-      const a = (1 - phase) * (0.55 + closeFrac * 0.35)
-      ctx.strokeStyle = `rgba(${holeShade(true, phase < 0.35 ? 0 : phase < 0.65 ? 1 : 2)}, ${a})`
-      ctx.lineWidth = Math.max(1.2, (3.2 - phase * 2.2) * BODY * scale)
-      ctx.beginPath()
-      ctx.arc(0, 0, r, 0, Math.PI * 2)
-      ctx.stroke()
+      const n0 = holeNoise(i * 4.7 + 19.3)
+      const n1 = holeNoise(i * 2.9 + 41.1)
+      const phase = still ? ((i + 0.5) / rings) : ((time * (2.1 + n0 * 0.9) + i / rings) % 1)
+      const r = Math.max(core * 1.05, reach * (1 - phase) * (0.52 + closeFrac * 0.48))
+      // Match Singularity palette: white → orange → red by phase.
+      const shade = phase < 0.28 ? 0 : phase < 0.55 ? 1 : phase < 0.8 ? 2 : 3
+      const ink = holeShade(true, shade)
+      // Varied stroke width across rings (thin wisps to thicker bands).
+      const width = Math.max(0.7, (0.7 + n1 * 4.8 + (1 - phase) * 1.6) * BODY * scale)
+      const peak = (0.12 + (1 - phase) * 0.18 + closeFrac * 0.08) * (0.75 + n0 * 0.35)
+      // Segment the ring so left/right sides fade out; top/bottom stay a bit stronger.
+      for (let s = 0; s < segs; s++) {
+        const a0 = (s / segs) * Math.PI * 2
+        const a1 = ((s + 1.05) / segs) * Math.PI * 2
+        const mid = (a0 + a1) * 0.5
+        // More transparent on the horizontal sides (left/right).
+        const side = Math.abs(Math.cos(mid))
+        const fade = Math.pow(1 - side * 0.88, 1.35)
+        const alpha = peak * fade
+        if (alpha < 0.012) continue
+        ctx.strokeStyle = `rgba(${ink}, ${alpha})`
+        ctx.lineWidth = width
+        ctx.lineCap = 'butt'
+        ctx.beginPath()
+        ctx.arc(0, 0, r, a0, a1)
+        ctx.stroke()
+      }
     }
+    if (!lean) ctx.globalCompositeOperation = 'lighter'
   }
 
   // Fewer short suck dashes — race inward with almost no swirl.
