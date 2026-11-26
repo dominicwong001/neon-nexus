@@ -2300,12 +2300,15 @@ function pullIntoHole(
     const force = well.pull * (0.55 + fall * 1.35) * (collapse ? 1.45 : 1)
     const nx = dx / dist
     const ny = dy / dist
-    // Mostly radial suck; a little swirl unless collapsing (then almost pure inward).
+    // Mostly radial suck; swirl matches the well's clockwise spin (flipped from before).
     const swirl = force * (collapse ? 0.12 : 0.55 + fall * 0.85)
-    enemy.vx += (nx * force + ny * swirl) * dt
-    enemy.vy += (ny * force - nx * swirl) * dt
-    enemy.x += (nx * force + ny * swirl * 0.35) * dt * (collapse ? 0.75 : 0.55)
-    enemy.y += (ny * force - nx * swirl * 0.35) * dt * (collapse ? 0.75 : 0.55)
+    enemy.vx += (nx * force - ny * swirl) * dt
+    enemy.vy += (ny * force + nx * swirl) * dt
+    enemy.x += (nx * force - ny * swirl * 0.35) * dt * (collapse ? 0.75 : 0.55)
+    enemy.y += (ny * force + nx * swirl * 0.35) * dt * (collapse ? 0.75 : 0.55)
+    // Spin the sprite with the well so hostiles visibly whirl the same way.
+    enemy.angle -= swirl * 0.05 * dt
+    enemy.spin -= swirl * 0.008 * dt
   }
 }
 

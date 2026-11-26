@@ -137,9 +137,9 @@ function holePose(well: Hole, time: number): {
   const closeScale = well.closing > 0 ? Math.pow(closing, red ? 1.35 : 1.65) : 1
   const scale = Math.max(0.015, born * closeScale)
   const spinBoost = (1 - born) * 12 + (well.closing > 0 ? (1 - closeScale) * 22 : 0)
-  // Counter-clockwise suck (positive time term) — reverse of the prior clockwise swirl.
-  const spin = time * (red ? 1.45 : 1.25) + spinBoost + well.x * 0.01
-  const twistMul = 1 + (1 - born) * 0.55 + (well.closing > 0 ? (1 - closeScale) * 2.8 : 0)
+  // Clockwise suck on canvas (negative time term) — opposite of the prior swirl.
+  const spin = -(time * (red ? 1.45 : 1.25) + spinBoost) + well.x * 0.01
+  const twistMul = -(1 + (1 - born) * 0.55 + (well.closing > 0 ? (1 - closeScale) * 2.8 : 0))
   const core = Math.max(28 * BODY, well.radius * 0.22) * scale
   // Arms taper just past the gameplay radius so pull reach matches the painted well.
   const reach = well.radius * (lean ? 1.02 : 1.08) * scale
@@ -413,7 +413,7 @@ function paintHoleBody(
     const n1 = holeNoise(i * 5.9 + 2.3)
     const n2 = holeNoise(i * 7.3 + 4.1)
     const rate = 0.22 + n0 * 1.8
-    const base = spin * (0.45 + n1 * 0.9) + n0 * Math.PI * 2 + time * rate * 0.55
+    const base = spin * (0.45 + n1 * 0.9) + n0 * Math.PI * 2 - time * rate * 0.55
     const twist = (0.95 + n1 * 1.15) * twistMul
     const startT = 0.28 + n2 * 0.4
     const endT = Math.min(1.08, startT + 0.28 + n1 * 0.55 + n0 * 0.22)
@@ -429,7 +429,7 @@ function paintHoleBody(
     const n1 = holeNoise(i * 4.4 + 8.6)
     const n2 = holeNoise(i * 9.1 + 3.5)
     const rate = 0.35 + n0 * 2.2
-    const base = spin * (0.55 + n2 * 0.7) + n0 * Math.PI * 2 + time * rate * 0.6
+    const base = spin * (0.55 + n2 * 0.7) + n0 * Math.PI * 2 - time * rate * 0.6
     const twist = (1.25 + n1 * 1.05) * twistMul
     const startT = 0.05 + n2 * 0.2
     const endT = 0.48 + n1 * 0.42 + n0 * 0.18
@@ -442,7 +442,7 @@ function paintHoleBody(
         ctx,
         core,
         reach * (0.9 + n2 * 0.2),
-        base - 0.06,
+        base + 0.06,
         twist * 1.05,
         startT + 0.1,
         endT + 0.08,
@@ -460,7 +460,7 @@ function paintHoleBody(
     const n0 = holeNoise(i * 1.7 + 33.4)
     const n1 = holeNoise(i * 5.1 + 29.8)
     const n2 = holeNoise(i * 8.4 + 19.2)
-    const base = spin * (0.5 + n1 * 0.5) + n0 * Math.PI * 2 + time * (0.4 + n0)
+    const base = spin * (0.5 + n1 * 0.5) + n0 * Math.PI * 2 - time * (0.4 + n0)
     const twist = (0.85 + n2 * 0.9) * twistMul
     const startT = 0.12 + n1 * 0.45
     const endT = Math.min(0.95, startT + 0.08 + n2 * 0.18)
@@ -475,7 +475,7 @@ function paintHoleBody(
     const n0 = holeNoise(i * 1.9 + 21.4)
     const n1 = holeNoise(i * 6.2 + 17.8)
     const n2 = holeNoise(i * 3.8 + 13.1)
-    const base = spin * (0.7 + n1 * 0.5) + n0 * Math.PI * 2 + time * (0.55 + n0 * 1.4)
+    const base = spin * (0.7 + n1 * 0.5) + n0 * Math.PI * 2 - time * (0.55 + n0 * 1.4)
     const twist = (1.55 + n1 * 0.85) * twistMul
     const startT = n2 * 0.05
     const endT = 0.26 + n1 * 0.3
@@ -492,7 +492,7 @@ function paintHoleBody(
     const pace = 0.45 + n0 * 1.7 + (i % 7) * 0.11
     const drift = still ? (n1 * 0.97) % 1 : (time * pace + i * 0.137) % 1
     const pull = drift * drift * (3 - 2 * drift)
-    const ang = n0 * Math.PI * 2 + spin * 0.08 + pull * n1 * 0.35
+    const ang = n0 * Math.PI * 2 + spin * 0.08 - pull * n1 * 0.35
     const r = reach * (0.98 - (0.98 - (core * 1.02) / Math.max(reach, 1)) * pull)
     if (r <= core * 0.98) continue
     const size = (0.4 + n1 * 2.0 + (i % 6 === 0 ? 1.4 : 0)) * BODY * scale * (1 - pull * 0.55)
