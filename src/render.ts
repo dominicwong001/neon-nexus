@@ -349,6 +349,36 @@ function paintHoleBody(
   const closing = well.closing > 0 && well.closeMax > 0
   const closeFrac = closing ? well.closing / well.closeMax : 1
 
+  // Singularity only: soft concentric rings while the crimson vortex pinches shut.
+  if (red && closing) {
+    const rings = lean ? 14 : 22
+    ctx.globalCompositeOperation = lean ? 'source-over' : 'lighter'
+    const blastInk = ['255, 255, 255', '255, 220, 180', '255, 176, 64', '255, 122, 40', '255, 74, 32', '255, 45, 58']
+    for (let i = 0; i < rings; i++) {
+      const n0 = holeNoise(i * 4.7 + 19.3)
+      const n1 = holeNoise(i * 2.9 + 41.1)
+      const phase = still ? ((i + 0.5) / rings) : ((time * (2.35 + n0 * 0.7) + i / rings) % 1)
+      const r = Math.max(core * 1.08, reach * (1 - phase) * (0.55 + closeFrac * 0.45))
+      const ink = blastInk[i % blastInk.length]!
+      const width = Math.max(1.1, (1.4 + n1 * 3.6 + (1 - phase) * 1.8) * BODY * scale)
+      const a = (0.1 + (1 - phase) * 0.16 + closeFrac * 0.05) * (0.55 + n0 * 0.25)
+      ctx.strokeStyle = `rgba(${ink}, ${Math.min(0.32, a)})`
+      ctx.lineWidth = width
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.arc(0, 0, r, 0, Math.PI * 2)
+      ctx.stroke()
+      if (n1 > 0.35) {
+        ctx.strokeStyle = `rgba(${ink}, ${Math.min(0.18, a * 0.4)})`
+        ctx.lineWidth = Math.max(0.8, width * 0.38)
+        ctx.beginPath()
+        ctx.arc(0, 0, r * (0.72 + n0 * 0.08), 0, Math.PI * 2)
+        ctx.stroke()
+      }
+    }
+    if (!lean) ctx.globalCompositeOperation = 'lighter'
+  }
+
   const rayN = holeTier(red, 14, 8, 28, 14)
   for (let i = 0; i < rayN; i++) {
     const n0 = holeNoise(i * 2.4 + 61.2)
