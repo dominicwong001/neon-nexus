@@ -560,8 +560,8 @@ function paintHoleVoid(
 }
 
 /**
- * Slight gradient glow above enemies so their black fills pick up a horizon wash
- * in the void middle — soft enough that the core stays dark.
+ * Soft horizon wash above enemies — stays off a pure white core, but bright
+ * enough that black hostile fills in the void pick up the gradient.
  */
 function paintHoleCenterGlow(
   ctx: CanvasRenderingContext2D,
@@ -577,26 +577,61 @@ function paintHoleCenterGlow(
 
   ctx.save()
   ctx.translate(x, y)
-  ctx.globalAlpha = Math.min(1, 0.55 + scale * 0.45)
-  // Additive wash tints black enemy fills without bleaching the void.
+  ctx.globalAlpha = Math.min(1, 0.6 + scale * 0.4)
   ctx.globalCompositeOperation = 'lighter'
-  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, core * 1.55)
+  const glow = ctx.createRadialGradient(0, 0, core * 0.08, 0, 0, core * 1.7)
   if (red) {
-    glow.addColorStop(0, 'rgba(255, 170, 110, 0.14)')
-    glow.addColorStop(0.4, 'rgba(255, 120, 55, 0.2)')
-    glow.addColorStop(0.72, 'rgba(255, 55, 35, 0.1)')
+    glow.addColorStop(0, 'rgba(255, 190, 130, 0.22)')
+    glow.addColorStop(0.35, 'rgba(255, 130, 55, 0.38)')
+    glow.addColorStop(0.7, 'rgba(255, 60, 35, 0.16)')
     glow.addColorStop(1, 'rgba(255, 40, 30, 0)')
   } else {
-    glow.addColorStop(0, 'rgba(220, 228, 240, 0.1)')
-    glow.addColorStop(0.4, 'rgba(200, 210, 230, 0.16)')
-    glow.addColorStop(0.72, 'rgba(170, 180, 200, 0.08)')
+    glow.addColorStop(0, 'rgba(230, 236, 248, 0.18)')
+    glow.addColorStop(0.35, 'rgba(200, 212, 235, 0.3)')
+    glow.addColorStop(0.7, 'rgba(170, 180, 205, 0.12)')
     glow.addColorStop(1, 'rgba(150, 160, 180, 0)')
   }
   ctx.fillStyle = glow
   ctx.beginPath()
-  ctx.arc(0, 0, core * 1.55, 0, Math.PI * 2)
+  ctx.arc(0, 0, core * 1.7, 0, Math.PI * 2)
   ctx.fill()
   ctx.restore()
+}
+
+/** Paint a clipped glow onto an enemy's black fill when it sits in a well void. */
+function paintEnemyVoidWash(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  enemy: { x: number; y: number; radius: number },
+): void {
+  for (const well of state.holes) {
+    if (well.blast > 0) continue
+    const { core, red } = holePose(well, state.time)
+    if (core < 1.2) continue
+    const dist = Math.hypot(enemy.x - well.x, enemy.y - well.y)
+    const reach = core * 1.65
+    if (dist > reach + enemy.radius * 0.35) continue
+    const fall = Math.max(0, 1 - dist / reach)
+    if (fall < 0.05) continue
+    ctx.save()
+    ctx.clip()
+    ctx.globalCompositeOperation = 'lighter'
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, enemy.radius * 1.05)
+    if (red) {
+      g.addColorStop(0, `rgba(255, 200, 140, ${0.55 * fall})`)
+      g.addColorStop(0.45, `rgba(255, 120, 50, ${0.42 * fall})`)
+      g.addColorStop(1, 'rgba(255, 50, 30, 0)')
+    } else {
+      g.addColorStop(0, `rgba(235, 242, 255, ${0.48 * fall})`)
+      g.addColorStop(0.45, `rgba(190, 205, 230, ${0.34 * fall})`)
+      g.addColorStop(1, 'rgba(160, 170, 195, 0)')
+    }
+    ctx.fillStyle = g
+    ctx.beginPath()
+    ctx.arc(0, 0, enemy.radius * 1.05, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
 }
 
 function paintHoleBlast(
@@ -902,6 +937,8 @@ function drawEnemies(
     else if (e.kind === 3) polyPath(ctx, 0, 0, e.radius, 6, -Math.PI / 2)
     else ctx.arc(0, 0, e.radius, 0, Math.PI * 2)
     ctx.fill()
+    // Horizon wash clipped to the black body so the void glow reads on hostiles.
+    if (!lit && !shard) paintEnemyVoidWash(ctx, state, e)
     ctx.stroke()
     if (e.flash > 0) {
       const punch = Math.min(1, e.flash / 0.08)

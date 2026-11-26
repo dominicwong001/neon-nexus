@@ -1038,8 +1038,8 @@ function damageEnemy(
   source: DamageSource = 'stream',
 ): void {
   if (enemy.immortal) {
+    // Invulnerable husks / flying hex shards take no damage — no hit flash.
     enemy.hitCd = TUNING.hitCooldown
-    enemy.flash = 0.08
     return
   }
   enemy.hitCd = TUNING.hitCooldown
