@@ -138,7 +138,7 @@ function holePose(well: Hole, time: number): {
   const scale = Math.max(0.015, born * closeScale)
   const spinBoost = (1 - born) * 12 + (well.closing > 0 ? (1 - closeScale) * 22 : 0)
   // Counter-clockwise on canvas — negate spin only; keep twist so arms still curl inward.
-  const spin = -(time * (red ? 1.45 : 1.25) + spinBoost) + well.x * 0.01
+  const spin = -(time * (red ? 2.65 : 2.3) + spinBoost) + well.x * 0.01
   const twistMul = 1 + (1 - born) * 0.55 + (well.closing > 0 ? (1 - closeScale) * 2.8 : 0)
   const core = Math.max(28 * BODY, well.radius * 0.22) * scale
   // Arms taper just past the gameplay radius so pull reach matches the painted well.
