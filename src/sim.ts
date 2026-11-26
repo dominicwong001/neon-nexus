@@ -631,8 +631,28 @@ export function orbGain(value: number, rank: number): number {
   return Math.max(1, Math.round(value * (1 + Math.max(0, rank) * 0.12)) + Math.max(0, rank))
 }
 
-function freshMods(): Mods {
+/** Empty loadout — used by tests that step through upgrade ranks. */
+export function blankMods(): Mods {
   return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, regen: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0, hole: 0 }
+}
+
+/** Full loadout at run start — every upgrade at max rank / evolution. */
+function freshMods(): Mods {
+  return {
+    pulse: UPGRADE_MAX.pulse,
+    caliber: UPGRADE_MAX.caliber,
+    drift: UPGRADE_MAX.drift,
+    magnet: UPGRADE_MAX.magnet,
+    fork: UPGRADE_MAX.fork,
+    greed: UPGRADE_MAX.greed,
+    regen: UPGRADE_MAX.regen,
+    orbiter: UPGRADE_MAX.orbiter,
+    field: UPGRADE_MAX.field,
+    ball: UPGRADE_MAX.ball,
+    drone: UPGRADE_MAX.drone,
+    tesla: UPGRADE_MAX.tesla,
+    hole: UPGRADE_MAX.hole,
+  }
 }
 
 export function createGame(best = 0, seed = 1): GameState {
@@ -667,12 +687,12 @@ export function createGame(best = 0, seed = 1): GameState {
     xp: 0,
     xpNeed: xpNeedFor(1),
     hullMax: TUNING.hullMax,
-    orbitTime: 0,
+    orbitTime: 0.35,
     fieldTick: 0,
-    ballCd: 0.45,
+    ballCd: 0.2,
     droneCd: 0,
     droneBurst: 0,
-    droneReload: 0.4,
+    droneReload: 0.25,
     droneX: -52 * BODY + 5,
     droneY: -64 * BODY,
     droneLag: 0,
@@ -691,8 +711,8 @@ export function createGame(best = 0, seed = 1): GameState {
     reticleVy: 0,
     droneAimX: 0,
     droneAimY: 0,
-    teslaCd: 0.45,
-    holeCd: 0.8,
+    teslaCd: 0.2,
+    holeCd: 0.25,
     mods: freshMods(),
     dealt: { stream: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0, hole: 0 },
     damageBins: [],
@@ -2701,10 +2721,7 @@ function rollOffers(state: GameState): Offer[] {
     }
   }
   const picked: UpgradeId[] = []
-  const holeOpen = pool.includes('hole')
-  if (holeOpen) picked.push('hole')
   for (const id of pool) {
-    if (id === 'hole') continue
     if (picked.length >= 3) break
     picked.push(id)
   }
