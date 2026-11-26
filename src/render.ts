@@ -128,13 +128,14 @@ function holePose(well: Hole, time: number): {
   const age = Math.max(0, well.max - well.life)
   const bornT = Math.min(1, age / HOLE.spawn)
   const born = 1 - Math.pow(1 - bornT, 3)
-  const closing = well.closing > 0 && well.closeMax > 0 ? well.closing / well.closeMax : 1
-  const closeScale = well.closing > 0 ? Math.pow(closing, 1.65) : 1
-  const scale = Math.max(0.02, born * closeScale)
   const red = well.crimson
-  const spinBoost = (1 - born) * 12 + (well.closing > 0 ? (1 - closeScale) * 18 : 0)
+  const closing = well.closing > 0 && well.closeMax > 0 ? well.closing / well.closeMax : 1
+  // Ease into a pinpoint so the well finishes collapsing right as the blast fires.
+  const closeScale = well.closing > 0 ? Math.pow(closing, red ? 1.35 : 1.65) : 1
+  const scale = Math.max(0.015, born * closeScale)
+  const spinBoost = (1 - born) * 12 + (well.closing > 0 ? (1 - closeScale) * 22 : 0)
   const spin = -time * (red ? 1.45 : 1.25) - spinBoost - well.x * 0.01
-  const twistMul = 1 + (1 - born) * 0.55 + (well.closing > 0 ? (1 - closeScale) * 2.4 : 0)
+  const twistMul = 1 + (1 - born) * 0.55 + (well.closing > 0 ? (1 - closeScale) * 2.8 : 0)
   const core = Math.max(28 * BODY, well.radius * 0.22) * scale
   // Arms taper just past the gameplay radius so pull reach matches the painted well.
   const reach = well.radius * (lean ? 1.02 : 1.08) * scale
@@ -483,17 +484,17 @@ function paintHoleBlast(
   const radius = Math.max(8, well.blastRadius * Math.min(1, phase * 1.15))
   const fade = (1 - phase) * (1 - phase * 0.25)
 
-  // Soft shock flash only — the collapse reads as dust exploding outward (particles).
+  // Soft flash + expanding shockwave ring (dust particles carry the debris look).
   if (!lean) {
     const glow = glowFor('#ff4a20')
     const aura = radius * (2.2 + phase * 0.8)
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
-    ctx.globalAlpha = 0.55 * fade
+    ctx.globalAlpha = 0.5 * fade
     ctx.drawImage(glow, x - aura / 2, y - aura / 2, aura, aura)
-    ctx.globalAlpha = 0.35 * fade
+    ctx.globalAlpha = 0.32 * fade
     const white = glowFor('#ffffff')
-    const hot = radius * 1.1
+    const hot = radius * 1.05
     ctx.drawImage(white, x - hot / 2, y - hot / 2, hot, hot)
     ctx.restore()
   }
@@ -502,14 +503,24 @@ function paintHoleBlast(
   ctx.translate(x, y)
   ctx.globalAlpha = fade
   const fill = ctx.createRadialGradient(0, 0, 0, 0, 0, radius)
-  fill.addColorStop(0, 'rgba(255, 255, 255, 0.65)')
-  fill.addColorStop(0.2, 'rgba(255, 190, 90, 0.4)')
-  fill.addColorStop(0.55, 'rgba(255, 60, 40, 0.22)')
+  fill.addColorStop(0, 'rgba(255, 255, 255, 0.55)')
+  fill.addColorStop(0.2, 'rgba(255, 190, 90, 0.32)')
+  fill.addColorStop(0.55, 'rgba(255, 60, 40, 0.16)')
   fill.addColorStop(1, 'rgba(255, 40, 50, 0)')
   ctx.fillStyle = fill
   ctx.beginPath()
   ctx.arc(0, 0, radius, 0, Math.PI * 2)
   ctx.fill()
+  ctx.strokeStyle = 'rgba(255, 220, 180, 0.9)'
+  ctx.lineWidth = (5.5 - phase * 2.2) * BODY
+  ctx.beginPath()
+  ctx.arc(0, 0, radius, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.strokeStyle = 'rgba(255, 60, 40, 0.7)'
+  ctx.lineWidth = (3.2 - phase * 1.2) * BODY
+  ctx.beginPath()
+  ctx.arc(0, 0, radius * 0.78, 0, Math.PI * 2)
+  ctx.stroke()
   ctx.restore()
 }
 
@@ -584,11 +595,20 @@ function drawShocks(
       ctx.strokeRect(X(shock.x) - inner, Y(shock.y) - inner, inner * 2, inner * 2)
       continue
     }
-    ctx.globalAlpha = fade
-    ctx.lineWidth = 2
+    const span = shock.span ?? 52
+    const ring = 6 + t * span
+    ctx.globalAlpha = fade * (shock.span ? 0.95 : 1)
+    ctx.lineWidth = (shock.width ?? 2) * (1.15 - t * 0.55)
     ctx.beginPath()
-    ctx.arc(X(shock.x), Y(shock.y), 8 + t * 52, 0, Math.PI * 2)
+    ctx.arc(X(shock.x), Y(shock.y), ring, 0, Math.PI * 2)
     ctx.stroke()
+    if (shock.span && shock.span > 80) {
+      ctx.globalAlpha = fade * 0.45
+      ctx.lineWidth = Math.max(1.2, (shock.width ?? 2) * 0.45)
+      ctx.beginPath()
+      ctx.arc(X(shock.x), Y(shock.y), ring * 0.72, 0, Math.PI * 2)
+      ctx.stroke()
+    }
   }
   ctx.restore()
 }

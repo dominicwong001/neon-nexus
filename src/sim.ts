@@ -74,6 +74,9 @@ export interface Shock {
   max: number
   color: string
   square?: boolean
+  /** Expanding ring radius (shockwave). Defaults to a small burst. */
+  span?: number
+  width?: number
 }
 
 export interface Impact {
@@ -409,18 +412,23 @@ export const HOLE = {
   evolveRank: 5,
   tick: 0.2,
   spawn: 0.32,
-  close: 0.4,
+  close: 0.45,
+  /** Singularity winds down fully, then detonates. */
+  closeCrimson: 1.15,
 } as const
 
 export function singularity(rank: number): boolean {
   return rank >= HOLE.evolveRank
 }
 
+export function holeCloseTime(crimson: boolean): number {
+  return crimson ? HOLE.closeCrimson : HOLE.close
+}
+
 export function holeRadius(rank: number): number {
   if (rank <= 0) return 0
-  // Gameplay radius matches the painted vortex (arms reach ~well.radius).
-  // Singularity (rank 5) keeps the same size curve — no extra growth.
-  return (250 + Math.max(0, rank - 1) * 74) * BODY
+  // Early ranks stay small; grows toward Singularity size (same curve, no extra bump).
+  return (95 + Math.max(0, rank - 1) * 88) * BODY
 }
 
 export function holeDuration(rank: number): number {
@@ -449,11 +457,11 @@ export function holeInterval(rank: number): number {
 }
 
 export function holeBlastRadius(absorbed: number): number {
-  return Math.min(420 * BODY, (140 + absorbed * 0.12) * BODY)
+  return Math.min(380 * BODY, (120 + absorbed * 0.1) * BODY)
 }
 
 export function holeBlastDamage(absorbed: number): number {
-  return Math.min(900, 55 + Math.round(absorbed * 0.55))
+  return Math.min(260, 18 + Math.round(absorbed * 0.18))
 }
 
 export function teslaBolts(rank: number, _reactor: boolean): number {
@@ -2188,8 +2196,9 @@ function updateHoles(state: GameState, dt: number, events: StepEvents, viewW: nu
       tickHole(state, well, events)
     }
     if (well.life > 0) continue
-    well.closing = HOLE.close
-    well.closeMax = HOLE.close
+    const close = holeCloseTime(well.crimson)
+    well.closing = close
+    well.closeMax = close
   }
   if (rank <= 0) return
   state.holeCd -= dt
@@ -2213,7 +2222,7 @@ function spawnHole(state: GameState, rank: number, viewW: number, viewH: number)
     absorbed: 0,
     crimson: singularity(rank),
     closing: 0,
-    closeMax: HOLE.close,
+    closeMax: holeCloseTime(singularity(rank)),
     blast: 0,
     blastMax: 0,
     blastRadius: 0,
@@ -2292,13 +2301,40 @@ function collapseHole(state: GameState, well: Hole, events: StepEvents): void {
   const radius = holeBlastRadius(well.absorbed)
   const dealt = holeBlastDamage(well.absorbed)
   well.blastRadius = radius
-  well.blastMax = 0.55
+  well.blastMax = 0.7
   well.blast = well.blastMax
   well.life = 0
   well.radius = 0
   state.shake = Math.min(18, state.shake + 6.5 + Math.min(8, well.absorbed * 0.008))
   state.flash = Math.min(0.7, 0.28 + Math.min(0.35, well.absorbed * 0.0005))
-  state.shocks.push({ x: well.x, y: well.y, life: 0.55, max: 0.55, color: '#ff2d3a' })
+  // Layered expanding shockwave rings.
+  state.shocks.push({
+    x: well.x,
+    y: well.y,
+    life: 0.85,
+    max: 0.85,
+    color: '#ff2d3a',
+    span: radius,
+    width: 7,
+  })
+  state.shocks.push({
+    x: well.x,
+    y: well.y,
+    life: 0.7,
+    max: 0.7,
+    color: '#ffb040',
+    span: radius * 0.82,
+    width: 4.5,
+  })
+  state.shocks.push({
+    x: well.x,
+    y: well.y,
+    life: 0.55,
+    max: 0.55,
+    color: '#ffffff',
+    span: radius * 0.55,
+    width: 2.8,
+  })
   singularityDust(state, well.x, well.y, well.absorbed)
   for (let j = state.enemies.length - 1; j >= 0; j--) {
     const enemy = state.enemies[j]
@@ -2310,7 +2346,7 @@ function collapseHole(state: GameState, well: Hole, events: StepEvents): void {
     const dx = enemy.x - well.x
     const dy = enemy.y - well.y
     const span = Math.hypot(dx, dy) || 1
-    const kick = 280 + Math.min(360, well.absorbed * 0.1)
+    const kick = 240 + Math.min(300, well.absorbed * 0.08)
     enemy.vx += (dx / span) * kick
     enemy.vy += (dy / span) * kick
   }
@@ -2327,14 +2363,16 @@ const SINGULARITY_DUST = [
   '#d01830',
   '#8a1020',
   '#ff9860',
+  '#ffd090',
+  '#ff6060',
 ]
 
 function singularityDust(state: GameState, x: number, y: number, absorbed: number): void {
-  const count = Math.min(480, 220 + Math.floor(absorbed * 0.55))
+  const count = Math.min(920, 480 + Math.floor(absorbed * 1.1))
   for (let i = 0; i < count; i++) {
     const a = state.rng() * Math.PI * 2
-    const s = (280 + state.rng() * 720) * (0.45 + state.rng() * 0.7)
-    const life = 0.45 + state.rng() * 0.85
+    const s = (220 + state.rng() * 980) * (0.4 + state.rng() * 0.85)
+    const life = 0.5 + state.rng() * 1.05
     pushParticle(state, {
       x,
       y,
@@ -2342,7 +2380,7 @@ function singularityDust(state: GameState, x: number, y: number, absorbed: numbe
       vy: Math.sin(a) * s,
       life,
       max: life,
-      size: (1.2 + state.rng() * 7.5 + (i % 11 === 0 ? 4 : 0)) * BODY,
+      size: (0.9 + state.rng() * 9.5 + (i % 9 === 0 ? 5 : 0) + (i % 17 === 0 ? 7 : 0)) * BODY,
       color: SINGULARITY_DUST[(i + Math.floor(state.rng() * SINGULARITY_DUST.length)) % SINGULARITY_DUST.length]!,
     })
   }
@@ -2808,7 +2846,7 @@ function burst(state: GameState, x: number, y: number, color: string, count: num
 }
 
 function pushParticle(state: GameState, particle: Particle): void {
-  if (state.particles.length > 560) state.particles.shift()
+  if (state.particles.length > 980) state.particles.shift()
   state.particles.push(particle)
 }
 

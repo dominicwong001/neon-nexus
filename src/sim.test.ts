@@ -31,6 +31,7 @@ import {
   holeDamage,
   holePull,
   holeInterval,
+  holeCloseTime,
   holeBlastRadius,
   holeBlastDamage,
   placeStrikeTop,
@@ -999,12 +1000,15 @@ describe('orbs', () => {
     chooseUpgrade(state, state.offers.indexOf(evolved))
     assert.equal(state.mods.hole, 5)
     assert.equal(singularity(5), true)
-    // Evolution keeps the rank-5 size curve (no extra radius bump).
-    assert.equal(holeRadius(5), holeRadius(4) + 74 * BODY)
+    // Evolution keeps the rank-5 size curve (no extra radius bump); early ranks stay smaller.
+    assert.ok(holeRadius(1) < 120 * BODY)
+    assert.equal(holeRadius(5), holeRadius(4) + 88 * BODY)
     assert.ok(holeRadius(5) > holeRadius(4))
     assert.ok(holePull(5) > holePull(4))
+    assert.ok(holeCloseTime(true) > holeCloseTime(false))
     assert.ok(holeBlastRadius(200) > holeBlastRadius(40))
     assert.ok(holeBlastDamage(200) > holeBlastDamage(40))
+    assert.ok(holeBlastDamage(180) < 80)
 
     const pinned = createGame(0, 31)
     pinned.spawnCd = 999
@@ -1065,7 +1069,7 @@ describe('orbs', () => {
       absorbed: 180,
       crimson: true,
       closing: 0,
-      closeMax: 0.4,
+      closeMax: holeCloseTime(true),
       blast: 0,
       blastMax: 0,
       blastRadius: 0,
@@ -1075,13 +1079,20 @@ describe('orbs', () => {
     nova.enemies.push(near, far)
     step(nova, input({ aimActive: false }), 1 / 30)
     assert.ok((nova.holes[0]?.closing ?? 0) > 0)
+    assert.ok((nova.holes[0]?.closeMax ?? 0) >= holeCloseTime(true) - 0.01)
     assert.equal(nova.holes[0]?.blast ?? 0, 0)
-    run(nova, input({ aimActive: false }), 0.5)
+    // Collapse must finish before the blast — still winding down mid-way.
+    run(nova, input({ aimActive: false }), holeCloseTime(true) * 0.45)
+    assert.ok((nova.holes[0]?.closing ?? 0) > 0)
+    assert.equal(nova.holes[0]?.blast ?? 0, 0)
+    run(nova, input({ aimActive: false }), holeCloseTime(true) * 0.7)
     assert.ok(nova.holes[0]?.blast > 0)
     assert.ok((nova.holes[0]?.blastRadius ?? 0) >= holeBlastRadius(180) - 1)
     assert.ok(near.hp < 2000)
     assert.equal(far.hp, 2000)
     assert.ok(nova.dealt.hole >= holeBlastDamage(180))
+    assert.ok(nova.shocks.some((s) => (s.span ?? 0) > 40))
+    assert.ok(nova.particles.length > 200)
   })
 
   it('opens three upgrades when the bar fills and freezes the pit', () => {
