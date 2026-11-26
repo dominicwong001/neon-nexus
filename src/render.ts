@@ -618,17 +618,18 @@ const ENEMY_RGB: [number, number, number][] = [
   [255, 45, 58],
 ]
 
-/** Permanent kind-colored skin gradient on the black body (scales with radius). */
+/** Subtle kind-colored skin wash on the black body (off in Fast mode). */
 function enemySkinFill(
   ctx: CanvasRenderingContext2D,
   kind: number,
   radius: number,
-): CanvasGradient {
+): CanvasGradient | string {
+  if (lean) return '#050508'
   const [r, g, b] = ENEMY_RGB[kind] ?? ENEMY_RGB[0]!
-  const skin = ctx.createRadialGradient(0, 0, radius * 0.08, 0, 0, radius)
-  skin.addColorStop(0, `rgb(${Math.round(r * 0.55)}, ${Math.round(g * 0.55)}, ${Math.round(b * 0.55)})`)
-  skin.addColorStop(0.38, `rgb(${Math.round(r * 0.22)}, ${Math.round(g * 0.22)}, ${Math.round(b * 0.22)})`)
-  skin.addColorStop(0.72, 'rgb(8, 8, 10)')
+  const skin = ctx.createRadialGradient(0, 0, radius * 0.12, 0, 0, radius)
+  skin.addColorStop(0, `rgb(${Math.round(r * 0.22)}, ${Math.round(g * 0.22)}, ${Math.round(b * 0.22)})`)
+  skin.addColorStop(0.45, `rgb(${Math.round(r * 0.1)}, ${Math.round(g * 0.1)}, ${Math.round(b * 0.1)})`)
+  skin.addColorStop(0.78, 'rgb(6, 6, 8)')
   skin.addColorStop(1, '#050508')
   return skin
 }
@@ -898,24 +899,26 @@ function drawEnemies(
   X: (x: number) => number,
   Y: (y: number) => number,
 ): void {
-  // Permanent kind-colored bloom — always on (including Fast), scales with body size.
-  const sheets = [glowFor('#ff3df2'), glowFor('#ffd23a'), glowFor('#8dff6a'), glowFor('#ff2d3a')]
-  const hurtGlow = glowFor('#ffffff')
-  ctx.save()
-  ctx.globalCompositeOperation = 'lighter'
-  for (const e of state.enemies) {
-    const s = e.radius * (lean ? 2.8 : 3.4)
-    ctx.globalAlpha = lean ? 0.85 : 1
-    ctx.drawImage(sheets[e.kind]!, X(e.x) - s / 2, Y(e.y) - s / 2, s, s)
-    if (e.flash > 0) {
-      const punch = Math.min(1, e.flash / 0.08)
-      const hs = e.radius * (4.2 + punch)
-      ctx.globalAlpha = (0.45 + punch * 0.55) * (lean ? 0.85 : 1)
-      ctx.drawImage(hurtGlow, X(e.x) - hs / 2, Y(e.y) - hs / 2, hs, hs)
+  // Subtle kind-colored bloom — off in Fast mode.
+  if (!lean) {
+    const sheets = [glowFor('#ff3df2'), glowFor('#ffd23a'), glowFor('#8dff6a'), glowFor('#ff2d3a')]
+    const hurtGlow = glowFor('#ffffff')
+    ctx.save()
+    ctx.globalCompositeOperation = 'lighter'
+    for (const e of state.enemies) {
+      const s = e.radius * 2.6
+      ctx.globalAlpha = 0.55
+      ctx.drawImage(sheets[e.kind]!, X(e.x) - s / 2, Y(e.y) - s / 2, s, s)
+      if (e.flash > 0) {
+        const punch = Math.min(1, e.flash / 0.08)
+        const hs = e.radius * (3.4 + punch)
+        ctx.globalAlpha = 0.35 + punch * 0.4
+        ctx.drawImage(hurtGlow, X(e.x) - hs / 2, Y(e.y) - hs / 2, hs, hs)
+      }
     }
+    ctx.globalAlpha = 1
+    ctx.restore()
   }
-  ctx.globalAlpha = 1
-  ctx.restore()
 
   for (const e of state.enemies) {
     ctx.save()
@@ -925,7 +928,7 @@ function drawEnemies(
     const lit = primed && hexFuseLit(e.fuse)
     const shard = e.ballistic && e.kind === 3
     if (lit) ctx.scale(1.08, 1.08)
-    // Black body with permanent kind-colored skin glow (not void/suck wash).
+    // Black body; subtle kind skin only when glows are on.
     ctx.fillStyle = lit ? '#ffffff' : shard ? ENEMY_COLOR[3] : enemySkinFill(ctx, e.kind, e.radius)
     ctx.strokeStyle = lit ? '#ffffff' : ENEMY_COLOR[e.kind]
     ctx.lineWidth = ((e.kind === 3 ? 3.1 : 2) + (lit ? 2.4 : 0) + (lean ? 0.7 : 0)) * BODY
