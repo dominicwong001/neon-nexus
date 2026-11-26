@@ -12,7 +12,7 @@ export const TUNING = {
   ringRadius: 34 * BODY,
   ringSpin: 0.65,
   hullMax: 8,
-  invuln: 1.15,
+  invuln: 0.28,
   hitCooldown: 0.05,
   mercy: 1.4,
 } as const
@@ -1409,7 +1409,6 @@ function dropOrb(state: GameState, enemy: Enemy): void {
   const radius = 3.1 + Math.min(5.6, value * 0.7)
   const a = state.rng() * Math.PI * 2
   const kick = 18 + state.rng() * 36
-  if (state.orbs.length > 90) state.orbs.shift()
   state.orbs.push({
     x: enemy.x,
     y: enemy.y,
@@ -1424,18 +1423,13 @@ function dropOrb(state: GameState, enemy: Enemy): void {
   })
 }
 
-function moveOrbs(state: GameState, input: Input, dt: number, events: StepEvents): void {
+function moveOrbs(state: GameState, _input: Input, dt: number, events: StepEvents): void {
   const magnet = 72 + state.mods.magnet * 28
-  const limit = Math.max(900, input.viewRadius * 2.8)
   for (let i = state.orbs.length - 1; i >= 0; i--) {
     const orb = state.orbs[i]
     const dx = state.playerX - orb.x
     const dy = state.playerY - orb.y
     const dist = Math.hypot(dx, dy) || 1
-    if (dist > limit) {
-      state.orbs.splice(i, 1)
-      continue
-    }
     if (dist < magnet) orb.homing = true
     if (orb.homing) {
       const speed = 260 + state.mods.magnet * 110 + (1 - Math.min(1, dist / magnet)) * 120

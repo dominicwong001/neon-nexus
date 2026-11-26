@@ -600,16 +600,19 @@ describe('orbs', () => {
     assert.notEqual(circle.color, square.color)
   })
 
-  it('pulls a nearby orb into the bar and ignores one out of range', () => {
+  it('pulls a nearby orb into the bar and keeps far orbs around', () => {
     const state = createGame(0, 32)
     state.spawnCd = 999
     state.orbs.push(orb({ x: 70, value: 1 }))
     state.orbs.push(orb({ x: 420, value: 4 }))
-    run(state, input({ aimActive: false }), 1)
+    state.orbs.push(orb({ x: 5000, y: -4000, value: 6 }))
+    run(state, input({ aimActive: false, viewRadius: 200 }), 1)
     assert.equal(state.xp, 1)
-    assert.equal(state.orbs.length, 1)
-    assert.equal(state.orbs[0]?.x, 420)
-    assert.equal(state.orbs[0]?.homing, false)
+    assert.equal(state.orbs.length, 2)
+    assert.ok(state.orbs.some((item) => item.x === 420))
+    assert.ok(state.orbs.some((item) => item.x === 5000 && item.y === -4000))
+    assert.equal(state.orbs.find((item) => item.x === 420)?.homing, false)
+    assert.ok(TUNING.invuln < 0.45)
 
     const slow = createGame(0, 33)
     slow.spawnCd = 999
