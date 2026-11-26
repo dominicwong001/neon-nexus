@@ -1288,11 +1288,12 @@ describe('orbs', () => {
     }
     wall.balls.push(shot)
     step(wall, input({ aimActive: false, viewW: 1280, viewH: 720 }), 1 / 60)
-    // Quantum Core splits on a screen-edge bounce.
-    assert.equal(wall.balls.filter((ball) => !ball.echo).length, 0)
-    const wallEchoes = wall.balls.filter((ball) => ball.echo)
-    assert.equal(wallEchoes.length, 2)
-    assert.ok(wallEchoes.every((ball) => ball.vx < 0))
+    assert.ok(shot.vx < 0)
+    assert.equal(shot.flex, 1)
+    assert.ok(Math.cos(shot.flexAngle) < -0.9)
+    // Screen-edge bounce does not split — only enemy bounces do.
+    assert.equal(wall.balls.filter((ball) => ball.echo).length, 0)
+    assert.equal(wall.balls.filter((ball) => !ball.echo).length, 1)
 
     const pierceQuantum = createGame(0, 9)
     pierceQuantum.spawnCd = 999

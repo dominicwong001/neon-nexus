@@ -1643,11 +1643,6 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
     if (nx !== 0 || ny !== 0) {
       ball.flex = 1
       ball.flexAngle = Math.atan2(ny, nx)
-      // Quantum Core only fission on a bounce — screen edge counts.
-      if (splitBall(state, ball)) {
-        state.balls.splice(i, 1)
-        continue
-      }
     }
     for (let t = ball.touched.length - 1; t >= 0; t--) {
       const touch = ball.touched[t]
@@ -2767,7 +2762,7 @@ const OFFER_EVOLVE: Partial<Record<Exclude<UpgradeId, 'cache'>, { title: string;
   tesla: { title: 'Arc Reactor', detail: 'One red bolt strikes, then chain-arcs through nearby hostiles. It hits harder and falls again sooner.' },
   drone: { title: 'Bulletstorm', detail: 'The drone turns red. Each volley is a wide fan of rockets, and the wait between them is short.' },
   orbiter: { title: "Guardian's Halo", detail: 'Six red discs stay out and spin faster. They carve hostiles and shove them aside.' },
-  ball: { title: 'Quantum Core', detail: 'Hyper-fast red balls. They bounce off giant circles and hostiles with 1000 hull or more, and each bounce replaces one with two smaller balls.' },
+  ball: { title: 'Quantum Core', detail: 'Hyper-fast red balls. They bounce off giant circles and hostiles with 1000 hull or more, and bouncing off those hostiles replaces one with two smaller balls.' },
   field: { title: 'Null Zone', detail: 'The field turns red, reaches farther, burns harder, and slows hostiles and flying shards inside it.' },
   hole: { title: 'Singularity', detail: 'Same-size crimson vortex: red to orange to white into a black core. It yanks hostiles in hard, then collapses into a storm of dust and a blast that grows with everything it absorbed.' },
 }
