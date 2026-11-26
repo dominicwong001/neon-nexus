@@ -2197,7 +2197,10 @@ function updateHoles(state: GameState, dt: number, events: StepEvents, viewW: nu
         // Singularity keeps yanking while it pinches shut; base Black Hole just fades.
         if (well.crimson) {
           const closeFrac = well.closeMax > 0 ? well.closing / well.closeMax : 0
-          const closeScale = Math.pow(closeFrac, 1.35)
+          // Match render closeScale so pull reach tracks the visible vortex into the pin.
+          const closeScale = closeFrac > 0.14
+            ? 0.16 + 0.84 * Math.pow((closeFrac - 0.14) / 0.86, 0.7)
+            : Math.max(0.04, 0.16 * (closeFrac / 0.14))
           pullIntoHole(state, well, dt, Math.max(0.08, closeScale), true)
         }
         continue

@@ -1055,6 +1055,19 @@ describe('orbs', () => {
     assert.ok(foe.hp < startHp)
     assert.ok(well.dealt.hole > 0)
     assert.equal(well.holes.length, 1)
+    // Base Black Hole: inward collapse only — vanish with no blast / shockwave / burst.
+    well.holeCd = 999
+    hole.life = 0.01
+    hole.absorbed = 240
+    const shocksBefore = well.shocks.length
+    step(well, input({ aimActive: false }), 1 / 30)
+    assert.ok((well.holes[0]?.closing ?? 0) > 0)
+    assert.equal(well.holes[0]?.blast ?? 0, 0)
+    const holeDealtBeforeClose = well.dealt.hole
+    run(well, input({ aimActive: false }), holeCloseTime(false) + 0.2)
+    assert.equal(well.holes.length, 0)
+    assert.equal(well.dealt.hole, holeDealtBeforeClose)
+    assert.equal(well.shocks.length, shocksBefore)
 
     const nova = createGame(0, 29)
     nova.spawnCd = 999

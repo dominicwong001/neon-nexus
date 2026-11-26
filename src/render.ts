@@ -133,13 +133,17 @@ function holePose(well: Hole, time: number): {
   const born = 1 - Math.pow(1 - bornT, 3)
   const red = well.crimson
   const closing = well.closing > 0 && well.closeMax > 0 ? well.closing / well.closeMax : 1
-  // Ease into a pinpoint so the well finishes collapsing right as the blast fires.
-  const closeScale = well.closing > 0 ? Math.pow(closing, red ? 1.35 : 1.65) : 1
-  const scale = Math.max(0.015, born * closeScale)
-  const spinBoost = (1 - born) * 12 + (well.closing > 0 ? (1 - closeScale) * 22 : 0)
+  // Hold the vortex readable, then pin to a bright point in the last beat (no blank gap).
+  let closeScale = 1
+  if (well.closing > 0) {
+    if (closing > 0.14) closeScale = 0.16 + 0.84 * Math.pow((closing - 0.14) / 0.86, red ? 0.7 : 0.78)
+    else closeScale = Math.max(0.04, 0.16 * (closing / 0.14))
+  }
+  const scale = Math.max(0.04, born * closeScale)
+  const spinBoost = (1 - born) * 12 + (well.closing > 0 ? (1 - closeScale) * 28 : 0)
   // Counter-clockwise on canvas — negate spin only; keep twist so arms still curl inward.
   const spin = -(time * (red ? 2.65 : 2.3) + spinBoost) + well.x * 0.01
-  const twistMul = 1 + (1 - born) * 0.55 + (well.closing > 0 ? (1 - closeScale) * 2.8 : 0)
+  const twistMul = 1 + (1 - born) * 0.55 + (well.closing > 0 ? (1 - closeScale) * 3.2 : 0)
   const core = Math.max(28 * BODY, well.radius * 0.22) * scale
   // Arms taper just past the gameplay radius so pull reach matches the painted well.
   const reach = well.radius * (lean ? 1.02 : 1.08) * scale
@@ -298,7 +302,9 @@ function paintHoleBody(
   const x = X(well.x)
   const y = Y(well.y)
   const { scale, core, reach, spin, twistMul, red } = holePose(well, time)
-  if (reach < 2) return
+  const closingEarly = well.closing > 0 && well.closeMax > 0
+  // Keep painting through the final pinpoint; only skip when fully gone.
+  if (reach < 2 && !(closingEarly && core >= 1)) return
   const rim = red ? '#ff4a20' : '#ffffff'
   const hot = red ? '255, 220, 180' : '255, 255, 255'
   const plasmaR = reach * 0.78
@@ -342,35 +348,6 @@ function paintHoleBody(
 
   const closing = well.closing > 0 && well.closeMax > 0
   const closeFrac = closing ? well.closing / well.closeMax : 1
-
-  if (red && closing) {
-    const rings = lean ? 7 : 12
-    ctx.globalCompositeOperation = lean ? 'source-over' : 'lighter'
-    const blastInk = ['255, 255, 255', '255, 220, 180', '255, 176, 64', '255, 122, 40', '255, 74, 32', '255, 45, 58']
-    for (let i = 0; i < rings; i++) {
-      const n0 = holeNoise(i * 4.7 + 19.3)
-      const n1 = holeNoise(i * 2.9 + 41.1)
-      const phase = still ? ((i + 0.5) / rings) : ((time * (2.35 + n0 * 0.7) + i / rings) % 1)
-      const r = Math.max(core * 1.08, reach * (1 - phase) * (0.55 + closeFrac * 0.45))
-      const ink = blastInk[i % blastInk.length]!
-      const width = Math.max(1.4, (2.0 + n1 * 5.2 + (1 - phase) * 2.4) * BODY * scale)
-      const a = (0.28 + (1 - phase) * 0.42 + closeFrac * 0.12) * (0.7 + n0 * 0.3)
-      ctx.strokeStyle = `rgba(${ink}, ${Math.min(0.85, a)})`
-      ctx.lineWidth = width
-      ctx.lineCap = 'round'
-      ctx.beginPath()
-      ctx.arc(0, 0, r, 0, Math.PI * 2)
-      ctx.stroke()
-      if (n1 > 0.35) {
-        ctx.strokeStyle = `rgba(${ink}, ${Math.min(0.5, a * 0.45)})`
-        ctx.lineWidth = Math.max(1, width * 0.42)
-        ctx.beginPath()
-        ctx.arc(0, 0, r * (0.72 + n0 * 0.08), 0, Math.PI * 2)
-        ctx.stroke()
-      }
-    }
-    if (!lean) ctx.globalCompositeOperation = 'lighter'
-  }
 
   const rayN = holeTier(red, 14, 8, 28, 14)
   for (let i = 0; i < rayN; i++) {
@@ -510,6 +487,17 @@ function paintHoleBody(
     }
   }
 
+  // Late collapse: bright pinpoint that the vortex hands off (BH vanishes; Singularity detonates).
+  if (closing && closeFrac < 0.28) {
+    const pin = 1 - closeFrac / 0.28
+    const pinR = Math.max(3.5, core * (0.55 + pin * 0.9))
+    ctx.globalCompositeOperation = lean ? 'source-over' : 'lighter'
+    ctx.globalAlpha = 1
+    fillRadial(ctx, 0, pinR * (red ? 2.4 : 2.1), red
+      ? [[0, `rgba(255,255,255,${0.95 + pin * 0.05})`], [0.35, `rgba(255,210,140,${0.7 + pin * 0.25})`], [0.7, `rgba(255,90,40,${0.35 * pin})`], [1, 'rgba(255,40,50,0)']]
+      : [[0, `rgba(255,255,255,${0.95 + pin * 0.05})`], [0.4, `rgba(230,236,248,${0.55 + pin * 0.35})`], [0.75, `rgba(180,190,210,${0.22 * pin})`], [1, 'rgba(200,210,230,0)']])
+  }
+
   ctx.restore()
 }
 
@@ -521,7 +509,8 @@ function paintHoleVoid(
   Y: (y: number) => number,
 ): void {
   const { scale, core, red } = holePose(well, time)
-  if (core < 1.2) return
+  // Stay with the vortex into the final pin; skip only when the core is gone.
+  if (core < 0.8) return
   const hot = red ? '255, 245, 230' : '255, 255, 255'
   ctx.save()
   ctx.translate(X(well.x), Y(well.y))
@@ -614,18 +603,32 @@ function paintHoleBlast(
   const x = X(well.x)
   const y = Y(well.y)
   const phase = 1 - Math.max(0, well.blast) / Math.max(0.01, well.blastMax)
-  const radius = Math.max(8, well.blastRadius * Math.min(1, phase * 1.15))
+  // Open from the collapse pinpoint immediately — no blank beat before the shockwave.
+  const pinKick = Math.max(10, well.blastRadius * 0.06)
+  const radius = Math.max(pinKick, well.blastRadius * Math.min(1, phase * 1.2))
   const fade = (1 - phase) * (1 - phase * 0.25)
+  const pinFade = Math.max(0, 1 - phase * 4.5)
 
   if (!lean) {
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
     stampGlow(ctx, x, y, radius * (2.2 + phase * 0.8), '#ff4a20', 0.5 * fade)
     stampGlow(ctx, x, y, radius * 1.05, '#ffffff', 0.32 * fade)
+    if (pinFade > 0.02) stampGlow(ctx, x, y, pinKick * (1.8 + pinFade), '#ffffff', 0.85 * pinFade)
     ctx.restore()
   }
   ctx.save()
   ctx.translate(x, y)
+  if (pinFade > 0.02) {
+    ctx.globalCompositeOperation = lean ? 'source-over' : 'lighter'
+    ctx.globalAlpha = 1
+    fillRadial(ctx, 0, pinKick * (1.6 + pinFade), [
+      [0, `rgba(255,255,255,${0.95 * pinFade})`],
+      [0.35, `rgba(255,210,140,${0.75 * pinFade})`],
+      [0.7, `rgba(255,90,40,${0.4 * pinFade})`],
+      [1, 'rgba(255,40,50,0)'],
+    ])
+  }
   ctx.globalAlpha = fade
   fillRadial(ctx, 0, radius, [
     [0, 'rgba(255,255,255,0.55)'], [0.2, 'rgba(255,190,90,0.32)'],
