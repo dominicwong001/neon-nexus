@@ -408,38 +408,38 @@ export const HOLE = {
   tick: 0.2,
 } as const
 
-export function crimsonCollapse(rank: number): boolean {
+export function singularity(rank: number): boolean {
   return rank >= HOLE.evolveRank
 }
 
 export function holeRadius(rank: number): number {
   if (rank <= 0) return 0
   const base = (88 + Math.max(0, rank - 1) * 26) * BODY
-  return crimsonCollapse(rank) ? base + 48 * BODY : base
+  return singularity(rank) ? base + 48 * BODY : base
 }
 
 export function holeDuration(rank: number): number {
   if (rank <= 0) return 0
   const life = 2 + Math.max(0, rank - 1) * 0.4
-  return crimsonCollapse(rank) ? life + 0.55 : life
+  return singularity(rank) ? life + 0.55 : life
 }
 
 export function holeDamage(rank: number): number {
   if (rank <= 0) return 0
   const dealt = 7 + Math.max(0, rank - 1) * 3
-  return crimsonCollapse(rank) ? Math.round(dealt * 1.25) : dealt
+  return singularity(rank) ? Math.round(dealt * 1.25) : dealt
 }
 
 export function holePull(rank: number): number {
   if (rank <= 0) return 0
   const force = 150 + Math.max(0, rank - 1) * 55
-  return crimsonCollapse(rank) ? force * 1.55 : force
+  return singularity(rank) ? force * 1.55 : force
 }
 
 export function holeInterval(rank: number): number {
   if (rank <= 0) return 0
   const wait = Math.max(2.4, 4.5 - Math.max(0, rank - 1) * 0.38)
-  return crimsonCollapse(rank) ? Math.max(2, wait * 0.82) : wait
+  return singularity(rank) ? Math.max(2, wait * 0.82) : wait
 }
 
 export function holeBlastRadius(absorbed: number): number {
@@ -906,7 +906,7 @@ export function damageReport(state: GameState): { name: string; amount: number }
     rows.push({ name: arcReactor(state.mods.tesla) ? 'Arc Reactor' : 'Tesla Coil', amount: state.dealt.tesla })
   }
   if (state.mods.hole > 0 || state.dealt.hole > 0) {
-    rows.push({ name: crimsonCollapse(state.mods.hole) ? 'Crimson Collapse' : 'Singularity', amount: state.dealt.hole })
+    rows.push({ name: singularity(state.mods.hole) ? 'Singularity' : 'Black Hole', amount: state.dealt.hole })
   }
   rows.sort((a, b) => b.amount - a.amount)
   return rows
@@ -918,7 +918,7 @@ export function sourceLabel(source: DamageSource, rank: number): string {
   if (source === 'field') return rank >= OVERDRIVE ? 'Null Zone' : 'Force Field'
   if (source === 'ball') return rank >= OVERDRIVE ? 'Quantum Core' : 'Bouncy Ball'
   if (source === 'tesla') return arcReactor(rank) ? 'Arc Reactor' : 'Tesla Coil'
-  if (source === 'hole') return crimsonCollapse(rank) ? 'Crimson Collapse' : 'Singularity'
+  if (source === 'hole') return singularity(rank) ? 'Singularity' : 'Black Hole'
   return droneStorm(rank) ? 'Bulletstorm' : 'Drone'
 }
 
@@ -2204,7 +2204,7 @@ function spawnHole(state: GameState, rank: number, viewW: number, viewH: number)
     damage: holeDamage(rank),
     tickCd: HOLE.tick * 0.35,
     absorbed: 0,
-    crimson: crimsonCollapse(rank),
+    crimson: singularity(rank),
     blast: 0,
     blastMax: 0,
     blastRadius: 0,
@@ -2652,11 +2652,11 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
       overdrive: true,
     }
   }
-  if (id === 'hole' && crimsonCollapse(rank)) {
+  if (id === 'hole' && singularity(rank)) {
     return {
       id,
-      title: 'Crimson Collapse',
-      detail: 'A crimson photon ring and wide flaring spiral arms pull harder and bank the damage dealt. When it ends, the core implodes into a red blast that grows with everything it absorbed.',
+      title: 'Singularity',
+      detail: 'A dense crimson vortex pulls harder and banks the damage dealt. When it ends, the core implodes into a red blast that grows with everything it absorbed.',
       rank,
       max,
       overdrive: true,
@@ -2675,7 +2675,7 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
     ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off giant circles and any hostile whose hull is 1000 or more, no matter how much health is left.' },
     drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
     tesla: { title: 'Tesla Coil', detail: 'One lightning bolt falls on a hostile in view, leaning toward the tougher ones. Later ranks hit harder and strike again sooner.' },
-    hole: { title: 'Singularity', detail: 'A pitch-black core with a blazing white photon ring and thick spiral arms that flare into open space, pulling hostiles in and burning them while it lasts.' },
+    hole: { title: 'Black Hole', detail: 'A pitch-black core wrapped in a dense white swirling vortex that pulls hostiles in and burns them while it lasts.' },
   }
   const detail =
     id === 'orbiter' && rank > 1

@@ -132,15 +132,15 @@ function drawHoles(
 
 function holeArmTone(red: boolean, shade: number): string {
   if (red) {
-    if (shade === 0) return '255, 62, 42'
-    if (shade === 1) return '255, 110, 48'
-    if (shade === 2) return '220, 36, 72'
-    return '255, 150, 90'
+    if (shade === 0) return '255, 58, 40'
+    if (shade === 1) return '255, 105, 52'
+    if (shade === 2) return '210, 28, 68'
+    return '255, 160, 100'
   }
   if (shade === 0) return '255, 255, 255'
-  if (shade === 1) return '236, 244, 255'
-  if (shade === 2) return '210, 220, 235'
-  return '255, 255, 255'
+  if (shade === 1) return '238, 244, 255'
+  if (shade === 2) return '205, 216, 232'
+  return '250, 252, 255'
 }
 
 function paintHole(
@@ -159,26 +159,21 @@ function paintHole(
   const red = well.crimson
   const rim = red ? '#ff3a2d' : '#ffffff'
   const hot = red ? '255, 90, 48' : '255, 255, 255'
-  const spin = time * (red ? 0.95 : 0.78) + well.x * 0.01
+  const spin = time * (red ? 1.15 : 0.95) + well.x * 0.01
   const core = Math.max(16 * BODY, well.radius * 0.3)
-  // Arms flare into open space past the gameplay radius — no hard circular rim.
-  const flare = well.radius * (lean ? 1.85 : 2.35)
-  const dustReach = well.radius * 1.15
-  const arms = lean ? 7 : 14
-  const layers = lean ? 1 : 2
-  const motes = lean || still ? 22 : 48
-  const steps = lean ? 12 : 18
+  const reach = well.radius * (lean ? 1.55 : 1.75)
+  const streaks = lean ? 18 : 36
+  const steps = lean ? 10 : 14
+  const motes = lean || still ? 20 : 40
 
   if (!lean) {
-    const aura = flare * 2.8
+    const aura = reach * 2.6
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
-    ctx.globalAlpha = (red ? 0.28 : 0.34) * fade
+    ctx.globalAlpha = (red ? 0.26 : 0.32) * fade
     ctx.drawImage(glowFor(rim), x - aura / 2, y - aura / 2, aura, aura)
-    ctx.globalAlpha = 0.16 * fade
-    ctx.drawImage(glowFor(red ? '#ff6a2a' : '#dfe8ff'), x - aura * 0.7, y - aura * 0.7, aura * 1.4, aura * 1.4)
-    ctx.globalAlpha = (red ? 0.32 : 0.4) * fade
-    const bloom = core * 4.2
+    ctx.globalAlpha = (red ? 0.34 : 0.42) * fade
+    const bloom = core * 3.8
     ctx.drawImage(glowFor('#ffffff'), x - bloom / 2, y - bloom / 2, bloom, bloom)
     ctx.restore()
   }
@@ -187,119 +182,87 @@ function paintHole(
   ctx.translate(x, y)
   ctx.globalAlpha = fade
 
+  // Soft painterly body fill — continuous cyclone, no hard outer disk edge.
+  const body = ctx.createRadialGradient(0, 0, core * 0.9, 0, 0, reach)
+  body.addColorStop(0, `rgba(${hot}, ${lean ? 0.35 : 0.55})`)
+  body.addColorStop(0.35, red ? 'rgba(255, 70, 50, 0.28)' : 'rgba(235, 242, 255, 0.32)')
+  body.addColorStop(0.7, red ? 'rgba(180, 30, 50, 0.1)' : 'rgba(200, 210, 230, 0.1)')
+  body.addColorStop(1, 'rgba(0, 0, 0, 0)')
+  ctx.fillStyle = body
+  ctx.beginPath()
+  ctx.arc(0, 0, reach, 0, Math.PI * 2)
+  ctx.fill()
+
   if (!lean) ctx.globalCompositeOperation = 'lighter'
-  for (let arm = 0; arm < arms; arm++) {
-    const base = spin + (arm / arms) * Math.PI * 2
-    const fat =
-      arm % 4 === 0 ? 1.7 + (arm % 3) * 0.25 : arm % 3 === 0 ? 1.05 : 0.42 + (arm % 5) * 0.1
-    // Mild clockwise twist so arms sweep wide instead of wrapping into a ball.
-    const twist = 1.35 + (arm % 5) * 0.12
-    const armReach = flare * (0.78 + (arm % 4) * 0.09)
-    for (let layer = 0; layer < layers; layer++) {
-      const ink = holeArmTone(red, (arm + layer) % 4)
-      const side = (layer - (layers - 1) * 0.5) * 0.04
-      let prevX = Math.cos(base + side) * (core * 1.05)
-      let prevY = Math.sin(base + side) * (core * 1.05)
-      for (let step = 1; step <= steps; step++) {
-        const t = step / steps
-        const ang = base + side + t * twist
-        // Accelerate outward so tips spill into open space.
-        const grow = t * t
-        const r = core * 1.05 + (armReach - core * 1.05) * grow
-        const tip = 1 - t
-        // Thick near the core, feather to wispy ends.
-        const brush = Math.pow(tip, 0.55) * (0.75 + Math.sin(t * 7 + arm * 1.3) * 0.2)
-        const px = Math.cos(ang) * r
-        const py = Math.sin(ang) * r
-        const width = Math.max(0.45, (16 * fat * brush + 0.8 - layer * 2.2) * BODY)
-        const glow =
-          (red ? 0.08 : 0.14) +
-          tip * tip * (lean ? 0.4 : 0.72) * (1 - layer * 0.18) +
-          (t < 0.25 ? 0.18 : 0)
-        ctx.strokeStyle = `rgba(${ink}, ${Math.min(0.95, glow)})`
-        ctx.lineWidth = width
-        ctx.lineCap = t > 0.72 ? 'butt' : 'round'
-        ctx.beginPath()
-        ctx.moveTo(prevX, prevY)
-        ctx.lineTo(px, py)
-        ctx.stroke()
-        if (!lean && t > 0.62 && step % 2 === 0) {
-          const fleck = tip * tip * 5.5 * BODY * fat
-          ctx.fillStyle = `rgba(${ink}, ${0.08 + tip * 0.28})`
-          ctx.fillRect(px - fleck * 0.55, py - fleck * 0.25, fleck, fleck * 0.5)
-        }
-        prevX = px
-        prevY = py
-      }
+  // Dense overlapping curved brushstrokes — packed so gaps disappear into a cyclone.
+  for (let s = 0; s < streaks; s++) {
+    const jitter = ((s * 17) % 11) * 0.018
+    const base = spin + (s / streaks) * Math.PI * 2 + jitter
+    const twist = 2.55 + (s % 5) * 0.08
+    const fat = 0.85 + (s % 4) * 0.22
+    const ink = holeArmTone(red, s % 4)
+    let prevX = Math.cos(base) * (core * 1.02)
+    let prevY = Math.sin(base) * (core * 1.02)
+    for (let step = 1; step <= steps; step++) {
+      const t = step / steps
+      const ang = base + t * twist
+      const r = core * 1.02 + (reach - core * 1.02) * Math.pow(t, 0.92)
+      const tip = 1 - t
+      // Stay thick through the mid-band so neighboring streaks overlap, feather only at the rim.
+      const brush = Math.pow(tip, 0.35) * (0.9 + Math.sin(t * 5.5 + s) * 0.12)
+      const px = Math.cos(ang) * r
+      const py = Math.sin(ang) * r
+      const width = Math.max(1.2, (13.5 * fat * brush + 2.4) * BODY)
+      const glow = 0.16 + tip * tip * (lean ? 0.38 : 0.58) + (t < 0.2 ? 0.22 : 0)
+      ctx.strokeStyle = `rgba(${ink}, ${Math.min(0.9, glow)})`
+      ctx.lineWidth = width
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(prevX, prevY)
+      ctx.lineTo(px, py)
+      ctx.stroke()
+      prevX = px
+      prevY = py
     }
   }
 
   for (let i = 0; i < motes; i++) {
-    const pace = 0.4 + (i % 7) * 0.42 + (i % 5) * 0.14
+    const pace = 0.45 + (i % 7) * 0.4 + (i % 5) * 0.12
     const drift = still ? (i * 0.097) % 1 : (time * pace + i * 0.173) % 1
     const pull = drift * drift * (3 - 2 * drift)
-    const orbit = spin * (0.7 + (i % 6) * 0.22) + i * 0.61 + drift * (2.8 + (i % 4) * 0.85)
-    const r = dustReach * (0.98 - (0.98 - (core * 1.05) / dustReach) * pull)
+    const orbit = spin * (0.85 + (i % 6) * 0.2) + i * 0.57 + drift * (3.1 + (i % 4) * 0.7)
+    const r = reach * 0.92 * (0.98 - (0.98 - (core * 1.06) / (reach * 0.92)) * pull)
     if (r <= core * 1.02) continue
-    const size = (1 + (i % 5) * 0.55 + (i % 3) * 0.35) * BODY
-    const spark = i % 3 === 0
+    const size = (0.9 + (i % 4) * 0.45) * BODY
     const ink = holeArmTone(red, i % 4)
-    const alpha = spark
-      ? (red ? 0.35 : 0.5) + (1 - pull) * 0.5
-      : (red ? 0.12 : 0.22) + (1 - pull) * 0.45
+    const alpha = (red ? 0.2 : 0.28) + (1 - pull) * 0.55
     ctx.fillStyle = `rgba(${ink}, ${alpha})`
-    const px = Math.cos(orbit) * r
-    const py = Math.sin(orbit) * r
-    if (spark && size > 1.8 * BODY) {
-      ctx.beginPath()
-      ctx.moveTo(px, py - size)
-      ctx.lineTo(px + size * 0.55, py)
-      ctx.lineTo(px, py + size)
-      ctx.lineTo(px - size * 0.55, py)
-      ctx.closePath()
-      ctx.fill()
-    } else {
-      ctx.fillRect(px - size * 0.5, py - size * 0.5, size, size)
-    }
+    ctx.fillRect(Math.cos(orbit) * r - size * 0.5, Math.sin(orbit) * r - size * 0.5, size, size)
   }
   if (!lean) ctx.globalCompositeOperation = 'source-over'
 
-  // Soft photon bloom only around the void — not a hard outer edge on the arms.
-  const halo = ctx.createRadialGradient(0, 0, core * 0.55, 0, 0, core * 2.6)
+  // Soft blazing glow hugging the void — no hard stroked ring outline.
+  const halo = ctx.createRadialGradient(0, 0, core * 0.5, 0, 0, core * 2.2)
   halo.addColorStop(0, `rgba(${hot}, 0)`)
-  halo.addColorStop(0.36, `rgba(${hot}, ${lean ? 0.5 : 0.98})`)
-  halo.addColorStop(0.55, `rgba(${hot}, 0.58)`)
-  halo.addColorStop(0.78, red ? 'rgba(255, 48, 72, 0.16)' : 'rgba(255, 255, 255, 0.18)')
+  halo.addColorStop(0.4, `rgba(${hot}, ${lean ? 0.55 : 1})`)
+  halo.addColorStop(0.62, `rgba(${hot}, 0.45)`)
   halo.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = halo
   ctx.beginPath()
-  ctx.arc(0, 0, core * 2.6, 0, Math.PI * 2)
+  ctx.arc(0, 0, core * 2.2, 0, Math.PI * 2)
   ctx.fill()
 
   if (!lean) {
     ctx.globalCompositeOperation = 'lighter'
-    ctx.strokeStyle = rim
-    ctx.lineWidth = (red ? 5.4 : 5.2) * BODY
+    const rimGlow = ctx.createRadialGradient(0, 0, core * 0.92, 0, 0, core * 1.35)
+    rimGlow.addColorStop(0, `rgba(${hot}, 0)`)
+    rimGlow.addColorStop(0.45, `rgba(${hot}, 0.95)`)
+    rimGlow.addColorStop(1, `rgba(${hot}, 0)`)
+    ctx.fillStyle = rimGlow
     ctx.beginPath()
-    ctx.arc(0, 0, core * 1.015, 0, Math.PI * 2)
-    ctx.stroke()
-    ctx.strokeStyle = `rgba(${hot}, 0.95)`
-    ctx.lineWidth = 2.4 * BODY
-    ctx.beginPath()
-    ctx.arc(0, 0, core * 1.08, 0, Math.PI * 2)
-    ctx.stroke()
-    ctx.strokeStyle = red ? 'rgba(255, 210, 160, 0.7)' : 'rgba(255, 255, 255, 0.95)'
-    ctx.lineWidth = 1.2 * BODY
-    ctx.beginPath()
-    ctx.arc(0, 0, core * 1.14, 0, Math.PI * 2)
-    ctx.stroke()
+    ctx.arc(0, 0, core * 1.35, 0, Math.PI * 2)
+    ctx.fill()
     ctx.globalCompositeOperation = 'source-over'
-  } else {
-    ctx.strokeStyle = rim
-    ctx.lineWidth = 3.2 * BODY
-    ctx.beginPath()
-    ctx.arc(0, 0, core * 1.02, 0, Math.PI * 2)
-    ctx.stroke()
   }
 
   ctx.globalAlpha = fade
