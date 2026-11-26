@@ -226,6 +226,32 @@ function paintHoleWisp(
   }
 }
 
+/** Straight radial streaks that rush inward — little to no swirl. */
+function paintHoleSuckRay(
+  ctx: CanvasRenderingContext2D,
+  core: number,
+  reach: number,
+  ang: number,
+  width: number,
+  ink: string,
+  alpha: number,
+  suck: number,
+): void {
+  const pull = Math.min(0.95, Math.max(0, suck))
+  const outer = reach * (0.92 - pull * 0.55)
+  const inner = core * (1.05 + pull * 0.35)
+  if (outer <= inner + 2) return
+  const cs = Math.cos(ang)
+  const sn = Math.sin(ang)
+  ctx.strokeStyle = `rgba(${ink}, ${alpha * (1 - pull * 0.15)})`
+  ctx.lineWidth = Math.max(0.35, width * (1 - pull * 0.4))
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(cs * outer, sn * outer)
+  ctx.lineTo(cs * inner, sn * inner)
+  ctx.stroke()
+}
+
 function paintHoleBody(
   ctx: CanvasRenderingContext2D,
   well: Hole,
@@ -320,34 +346,63 @@ function paintHoleBody(
   if (!lean) ctx.globalCompositeOperation = 'lighter'
 
   const dens = red ? 0.72 : 1
+  const closing = well.closing > 0 && well.closeMax > 0
+  const closeFrac = closing ? well.closing / well.closeMax : 1
 
-  // Wide outer sweeping arms — irregular lengths so they taper into open space.
+  // Singularity collapse: concentric rings racing inward as the well pinches shut.
+  if (red && closing) {
+    const rings = lean ? 4 : 7
+    for (let i = 0; i < rings; i++) {
+      const phase = still ? (i / rings) : ((time * 2.6 + i / rings) % 1)
+      const r = Math.max(core * 1.1, reach * (1 - phase) * (0.55 + closeFrac * 0.45))
+      const a = (1 - phase) * (0.55 + closeFrac * 0.35)
+      ctx.strokeStyle = `rgba(${holeShade(true, phase < 0.35 ? 0 : phase < 0.65 ? 1 : 2)}, ${a})`
+      ctx.lineWidth = Math.max(1.2, (3.2 - phase * 2.2) * BODY * scale)
+      ctx.beginPath()
+      ctx.arc(0, 0, r, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+  }
+
+  // Straight suck lines — rush inward with almost no swirl.
+  const rayN = lean ? (red ? 28 : 16) : red ? 64 : 36
+  for (let i = 0; i < rayN; i++) {
+    const n0 = holeNoise(i * 2.4 + 61.2)
+    const n1 = holeNoise(i * 5.7 + 70.4)
+    const ang = (i / rayN) * Math.PI * 2 + n0 * 0.08 + spin * 0.04
+    const suck = still ? n1 * 0.45 : (time * (1.1 + n0 * 1.8) + n1 * 2.1) % 1
+    const ink = holeShade(red, n0 > 0.7 ? 0 : n0 > 0.35 ? 1 : 2)
+    const width = Math.max(0.35, (0.55 + n1 * 1.8) * BODY * scale)
+    paintHoleSuckRay(ctx, core, reach, ang, width, ink, lean ? 0.18 : red ? 0.42 : 0.28, suck * suck)
+  }
+
+  // Wide outer sweeping arms — light spiral, mostly feeding the suck.
   for (let i = 0; i < outerN; i++) {
     const n0 = holeNoise(i * 3.1 + 1.7)
     const n1 = holeNoise(i * 5.9 + 2.3)
     const n2 = holeNoise(i * 7.3 + 4.1)
-    const rate = 0.28 + n0 * 2.4
-    const base = spin * (0.4 + n1 * 1.5) + time * rate + n0 * Math.PI * 2
-    const twist = (1.35 + n1 * 1.55) * twistMul
+    const rate = 0.18 + n0 * 1.4
+    const base = spin * 0.22 + n0 * Math.PI * 2 + time * rate * 0.35
+    const twist = (0.35 + n1 * 0.55) * twistMul
     const startT = 0.28 + n2 * 0.4
     const endT = Math.min(1.08, startT + 0.28 + n1 * 0.55 + n0 * 0.22)
-    const suck = still ? n2 * 0.3 : (time * (0.5 + n1 * 1.05) + n0) % 1
+    const suck = still ? n2 * 0.3 : (time * (0.7 + n1 * 1.25) + n0) % 1
     const ink = holeShade(red, n0 > 0.62 ? 3 : 2)
     const width = Math.max(0.4, (1.1 + n2 * 2.4) * BODY * scale * dens)
     paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.14 : red ? 0.34 : 0.28, steps, suck * suck)
   }
 
-  // Mid layered ribbons.
+  // Mid layered ribbons — short arcs with stronger inward suck.
   for (let i = 0; i < midN; i++) {
     const n0 = holeNoise(i * 2.7 + 11.2)
     const n1 = holeNoise(i * 4.4 + 8.6)
     const n2 = holeNoise(i * 9.1 + 3.5)
-    const rate = 0.45 + n0 * 3.0
-    const base = spin * (0.55 + n2) + time * rate + n0 * Math.PI * 2
-    const twist = (1.9 + n1 * 1.2) * twistMul
+    const rate = 0.25 + n0 * 1.6
+    const base = spin * 0.28 + n0 * Math.PI * 2 + time * rate * 0.4
+    const twist = (0.45 + n1 * 0.7) * twistMul
     const startT = 0.05 + n2 * 0.2
     const endT = 0.48 + n1 * 0.42 + n0 * 0.18
-    const suck = still ? n1 * 0.35 : (time * (0.65 + n0 * 1.35) + n2 * 3.1) % 1
+    const suck = still ? n1 * 0.35 : (time * (0.85 + n0 * 1.5) + n2 * 3.1) % 1
     const ink = holeShade(red, n0 > 0.66 ? 2 : 1)
     const width = Math.max(0.45, (1.35 + n2 * 2.4) * BODY * scale * dens)
     paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.24 : red ? 0.5 : 0.44, steps, suck * suck)
@@ -357,7 +412,7 @@ function paintHoleBody(
         core,
         reach * (0.9 + n2 * 0.2),
         base - 0.06,
-        twist * 1.1,
+        twist * 0.6,
         startT + 0.1,
         endT + 0.08,
         width * 0.55,
@@ -369,17 +424,16 @@ function paintHoleBody(
     }
   }
 
-  // Broken curved energy ribbon fragments spiraling inward.
+  // Broken ribbon fragments — mostly radial suck streaks.
   for (let i = 0; i < ribbonN; i++) {
     const n0 = holeNoise(i * 1.7 + 33.4)
     const n1 = holeNoise(i * 5.1 + 29.8)
     const n2 = holeNoise(i * 8.4 + 19.2)
-    const rate = 0.6 + n0 * 3.4
-    const base = spin * (0.7 + n1) + time * rate + n0 * Math.PI * 2
-    const twist = (2.15 + n2 * 1.15) * twistMul
+    const base = n0 * Math.PI * 2 + spin * 0.12
+    const twist = (0.15 + n2 * 0.35) * twistMul
     const startT = 0.12 + n1 * 0.45
     const endT = Math.min(0.95, startT + 0.08 + n2 * 0.18)
-    const suck = still ? n0 * 0.4 : (time * (0.85 + n1 * 1.5) + n2 * 2.2) % 1
+    const suck = still ? n0 * 0.4 : (time * (1.05 + n1 * 1.7) + n2 * 2.2) % 1
     const ink = holeShade(red, n0 > 0.55 ? 1 : 0)
     const width = Math.max(0.35, (0.7 + n2 * 1.6) * BODY * scale * dens)
     paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.22 : red ? 0.48 : 0.4, steps, suck * suck)
@@ -390,25 +444,24 @@ function paintHoleBody(
     const n0 = holeNoise(i * 1.9 + 21.4)
     const n1 = holeNoise(i * 6.2 + 17.8)
     const n2 = holeNoise(i * 3.8 + 13.1)
-    const rate = 0.75 + n0 * 3.5
-    const base = spin * (0.85 + n1) + time * rate + n0 * Math.PI * 2
-    const twist = (2.35 + n1 * 0.95) * twistMul
+    const base = spin * 0.35 + n0 * Math.PI * 2
+    const twist = (0.55 + n1 * 0.5) * twistMul
     const startT = n2 * 0.05
     const endT = 0.26 + n1 * 0.3
-    const suck = still ? n0 * 0.4 : (time * (0.95 + n2 * 1.55) + n1 * 2.4) % 1
+    const suck = still ? n0 * 0.4 : (time * (1.15 + n2 * 1.7) + n1 * 2.4) % 1
     const ink = holeShade(red, n0 > 0.7 ? 1 : 0)
     const width = Math.max(0.5, (1.5 + n2 * 2.6) * BODY * scale * dens)
     paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.36 : red ? 0.78 : 0.68, steps, suck * suck)
   }
 
-  // Multi-speed cosmic dust swirling inward until it vanishes into the core.
+  // Cosmic dust — mostly radial inward fall with a hint of swirl.
   for (let i = 0; i < dustN; i++) {
     const n0 = holeNoise(i * 1.3 + 40.2)
     const n1 = holeNoise(i * 2.1 + 44.7)
-    const pace = 0.3 + n0 * 1.55 + (i % 7) * 0.11
+    const pace = 0.45 + n0 * 1.7 + (i % 7) * 0.11
     const drift = still ? (n1 * 0.97) % 1 : (time * pace + i * 0.137) % 1
     const pull = drift * drift * (3 - 2 * drift)
-    const orbit = spin * (0.65 + n0 * 0.95) + time * (0.35 + n1 * 3.0) + i * 0.49 + drift * (2.8 + n1 * 2.4)
+    const ang = n0 * Math.PI * 2 + spin * 0.08 + pull * n1 * 0.35
     const r = reach * (0.98 - (0.98 - (core * 1.02) / Math.max(reach, 1)) * pull)
     if (r <= core * 0.98) continue
     const size = (0.4 + n1 * 2.0 + (i % 6 === 0 ? 1.4 : 0)) * BODY * scale * (1 - pull * 0.55)
@@ -418,10 +471,10 @@ function paintHoleBody(
     ctx.fillStyle = `rgba(${ink}, ${alpha})`
     if (size > 1.5 * BODY && i % 3 === 0) {
       ctx.beginPath()
-      ctx.arc(Math.cos(orbit) * r, Math.sin(orbit) * r, size * 0.45, 0, Math.PI * 2)
+      ctx.arc(Math.cos(ang) * r, Math.sin(ang) * r, size * 0.45, 0, Math.PI * 2)
       ctx.fill()
     } else {
-      ctx.fillRect(Math.cos(orbit) * r - size * 0.5, Math.sin(orbit) * r - size * 0.5, size, size)
+      ctx.fillRect(Math.cos(ang) * r - size * 0.5, Math.sin(ang) * r - size * 0.5, size, size)
     }
   }
 

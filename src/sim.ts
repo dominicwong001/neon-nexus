@@ -427,8 +427,8 @@ export function holeCloseTime(crimson: boolean): number {
 
 export function holeRadius(rank: number): number {
   if (rank <= 0) return 0
-  // Slightly larger base well; each rank adds a modest radius bump (no Singularity extra).
-  return (130 + Math.max(0, rank - 1) * 40) * BODY
+  // Larger base well; each rank adds a modest radius bump (no Singularity extra).
+  return (165 + Math.max(0, rank - 1) * 48) * BODY
 }
 
 export function holeDuration(rank: number): number {
@@ -452,8 +452,9 @@ export function holePull(rank: number): number {
 
 export function holeInterval(rank: number): number {
   if (rank <= 0) return 0
-  const wait = Math.max(2.4, 4.5 - Math.max(0, rank - 1) * 0.38)
-  return singularity(rank) ? Math.max(2, wait * 0.82) : wait
+  // Spawn less often so wells feel weightier between appearances.
+  const wait = Math.max(4.2, 7.2 - Math.max(0, rank - 1) * 0.4)
+  return singularity(rank) ? Math.max(3.6, wait * 0.88) : wait
 }
 
 export function holeBlastRadius(absorbed: number): number {
@@ -2185,7 +2186,15 @@ function updateHoles(state: GameState, dt: number, events: StepEvents, viewW: nu
     }
     if (well.closing > 0) {
       well.closing = Math.max(0, well.closing - dt)
-      if (well.closing > 0) continue
+      if (well.closing > 0) {
+        // Singularity keeps yanking while it pinches shut; base Black Hole just fades.
+        if (well.crimson) {
+          const closeFrac = well.closeMax > 0 ? well.closing / well.closeMax : 0
+          const closeScale = Math.pow(closeFrac, 1.35)
+          pullIntoHole(state, well, dt, Math.max(0.08, closeScale), true)
+        }
+        continue
+      }
       if (well.crimson) collapseHole(state, well, events)
       else state.holes.splice(i, 1)
       continue
@@ -2265,8 +2274,14 @@ function holeSpot(state: GameState, viewW: number, viewH: number): { x: number; 
   return { x, y }
 }
 
-function pullIntoHole(state: GameState, well: Hole, dt: number): void {
-  const reach = well.radius
+function pullIntoHole(
+  state: GameState,
+  well: Hole,
+  dt: number,
+  reachScale = 1,
+  collapse = false,
+): void {
+  const reach = well.radius * Math.max(0.05, reachScale)
   for (const enemy of state.enemies) {
     // Hostiles only — never yank projectiles (hex shards / ballistic pieces).
     if (enemy.fuse > 0 || enemy.ballistic) continue
@@ -2275,15 +2290,15 @@ function pullIntoHole(state: GameState, well: Hole, dt: number): void {
     const dist = Math.hypot(dx, dy)
     if (dist > reach + enemy.radius || dist < 0.01) continue
     const fall = 1 - Math.min(1, dist / (reach + enemy.radius))
-    const force = well.pull * (0.55 + fall * 1.35)
+    const force = well.pull * (0.55 + fall * 1.35) * (collapse ? 1.45 : 1)
     const nx = dx / dist
     const ny = dy / dist
-    // Spiral yank matching the painted vortex spin (counter-clockwise).
-    const swirl = force * (0.55 + fall * 0.85)
+    // Mostly radial suck; a little swirl unless collapsing (then almost pure inward).
+    const swirl = force * (collapse ? 0.12 : 0.55 + fall * 0.85)
     enemy.vx += (nx * force + ny * swirl) * dt
     enemy.vy += (ny * force - nx * swirl) * dt
-    enemy.x += (nx * force + ny * swirl * 0.35) * dt * 0.55
-    enemy.y += (ny * force - nx * swirl * 0.35) * dt * 0.55
+    enemy.x += (nx * force + ny * swirl * 0.35) * dt * (collapse ? 0.75 : 0.55)
+    enemy.y += (ny * force - nx * swirl * 0.35) * dt * (collapse ? 0.75 : 0.55)
   }
 }
 
@@ -2376,11 +2391,11 @@ const SINGULARITY_DUST = [
 ]
 
 function singularityDust(state: GameState, x: number, y: number, absorbed: number): void {
-  const count = Math.min(920, 480 + Math.floor(absorbed * 1.1))
+  const count = Math.min(1800, 1100 + Math.floor(absorbed * 2.4))
   for (let i = 0; i < count; i++) {
     const a = state.rng() * Math.PI * 2
-    const s = (220 + state.rng() * 980) * (0.4 + state.rng() * 0.85)
-    const life = 0.5 + state.rng() * 1.05
+    const s = (260 + state.rng() * 1200) * (0.35 + state.rng() * 0.95)
+    const life = 0.55 + state.rng() * 1.25
     pushParticle(state, {
       x,
       y,
@@ -2388,7 +2403,7 @@ function singularityDust(state: GameState, x: number, y: number, absorbed: numbe
       vy: Math.sin(a) * s,
       life,
       max: life,
-      size: (0.9 + state.rng() * 9.5 + (i % 9 === 0 ? 5 : 0) + (i % 17 === 0 ? 7 : 0)) * BODY,
+      size: (0.7 + state.rng() * 11 + (i % 7 === 0 ? 6 : 0) + (i % 13 === 0 ? 9 : 0)) * BODY,
       color: SINGULARITY_DUST[(i + Math.floor(state.rng() * SINGULARITY_DUST.length)) % SINGULARITY_DUST.length]!,
     })
   }
@@ -2854,7 +2869,7 @@ function burst(state: GameState, x: number, y: number, color: string, count: num
 }
 
 function pushParticle(state: GameState, particle: Particle): void {
-  if (state.particles.length > 980) state.particles.shift()
+  if (state.particles.length > 1900) state.particles.shift()
   state.particles.push(particle)
 }
 

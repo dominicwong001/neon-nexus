@@ -1002,11 +1002,12 @@ describe('orbs', () => {
     assert.equal(state.mods.hole, 5)
     assert.equal(singularity(5), true)
     // Evolution keeps the rank-5 size curve (no extra radius bump); modest per-rank growth.
-    assert.ok(holeRadius(1) >= 120 * BODY)
-    assert.ok(holeRadius(1) < 160 * BODY)
-    assert.equal(holeRadius(5), holeRadius(4) + 40 * BODY)
+    assert.ok(holeRadius(1) >= 150 * BODY)
+    assert.ok(holeRadius(1) < 200 * BODY)
+    assert.equal(holeRadius(5), holeRadius(4) + 48 * BODY)
     assert.ok(holeRadius(5) > holeRadius(4))
-    assert.ok(holeRadius(5) - holeRadius(1) < 200 * BODY)
+    assert.ok(holeInterval(1) >= 6.5)
+    assert.ok(holeInterval(5) >= 3.5)
     assert.ok(holePull(5) > holePull(4))
     assert.ok(holeCloseTime(true) > holeCloseTime(false))
     assert.ok(holeBlastRadius(200) > holeBlastRadius(40))
@@ -1095,7 +1096,7 @@ describe('orbs', () => {
     assert.equal(far.hp, 2000)
     assert.ok(nova.dealt.hole >= holeBlastDamage(180))
     assert.ok(nova.shocks.some((s) => (s.span ?? 0) > 40))
-    assert.ok(nova.particles.length > 200)
+    assert.ok(nova.particles.length > 800)
   })
 
   it('opens three upgrades when the bar fills and freezes the pit', () => {
