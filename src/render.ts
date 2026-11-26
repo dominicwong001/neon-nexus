@@ -232,20 +232,35 @@ function paintHole(
 
   ctx.save()
   ctx.translate(x, y)
-  ctx.globalAlpha = Math.min(1, 0.4 + scale * 0.6)
 
-  // Soft accretion glow: denser toward the horizon, no solid filled disc.
-  const disk = ctx.createRadialGradient(0, 0, core * 0.95, 0, 0, reach)
-  disk.addColorStop(0, `rgba(${hot}, 0)`)
-  disk.addColorStop(0.08, `rgba(${hot}, ${lean ? 0.35 : 0.55})`)
-  disk.addColorStop(0.22, red ? 'rgba(255, 60, 45, 0.22)' : 'rgba(220, 230, 245, 0.2)')
-  disk.addColorStop(0.55, red ? 'rgba(140, 20, 40, 0.08)' : 'rgba(140, 150, 170, 0.07)')
-  disk.addColorStop(1, 'rgba(0, 0, 0, 0)')
-  ctx.fillStyle = disk
+  // Solid glowing plasma behind the wisps — occludes the arena grid near the center,
+  // then fades only toward the outer arm tips.
+  ctx.globalAlpha = Math.min(1, 0.55 + scale * 0.45)
+  ctx.globalCompositeOperation = 'source-over'
+  const plasma = ctx.createRadialGradient(0, 0, core * 0.98, 0, 0, reach)
+  if (red) {
+    plasma.addColorStop(0, 'rgba(255, 210, 190, 1)')
+    plasma.addColorStop(0.12, 'rgba(255, 90, 55, 1)')
+    plasma.addColorStop(0.32, 'rgba(220, 40, 50, 1)')
+    plasma.addColorStop(0.55, 'rgba(150, 20, 38, 0.96)')
+    plasma.addColorStop(0.78, 'rgba(90, 10, 22, 0.55)')
+    plasma.addColorStop(0.92, 'rgba(50, 4, 12, 0.18)')
+    plasma.addColorStop(1, 'rgba(40, 0, 8, 0)')
+  } else {
+    plasma.addColorStop(0, 'rgba(255, 255, 255, 1)')
+    plasma.addColorStop(0.12, 'rgba(245, 248, 255, 1)')
+    plasma.addColorStop(0.32, 'rgba(210, 220, 235, 1)')
+    plasma.addColorStop(0.55, 'rgba(155, 165, 185, 0.96)')
+    plasma.addColorStop(0.78, 'rgba(95, 102, 120, 0.5)')
+    plasma.addColorStop(0.92, 'rgba(55, 60, 72, 0.16)')
+    plasma.addColorStop(1, 'rgba(40, 45, 55, 0)')
+  }
+  ctx.fillStyle = plasma
   ctx.beginPath()
   ctx.arc(0, 0, reach, 0, Math.PI * 2)
   ctx.fill()
 
+  ctx.globalAlpha = Math.min(1, 0.45 + scale * 0.55)
   if (!lean) ctx.globalCompositeOperation = 'lighter'
 
   // Outer torn fragments — each arm has its own spin rate and inward suck cycle.
@@ -336,18 +351,21 @@ function paintHole(
   }
   if (!lean) ctx.globalCompositeOperation = 'source-over'
 
-  // Intense photon ring: peak brightness at the horizon, then hard drop into the void.
-  const ring = ctx.createRadialGradient(0, 0, core * 0.88, 0, 0, core * 1.55)
-  ring.addColorStop(0, `rgba(${hot}, 0)`)
-  ring.addColorStop(0.35, `rgba(${hot}, ${lean ? 0.55 : 0.95})`)
-  ring.addColorStop(0.55, red ? 'rgba(255, 80, 50, 0.55)' : 'rgba(255, 255, 255, 0.55)')
-  ring.addColorStop(0.78, red ? 'rgba(255, 40, 40, 0.12)' : 'rgba(200, 210, 230, 0.1)')
+  // Blazing horizon ring peaking at the void edge — no flat grey band before the black core.
+  ctx.globalAlpha = 1
+  if (!lean) ctx.globalCompositeOperation = 'lighter'
+  const ring = ctx.createRadialGradient(0, 0, core * 0.98, 0, 0, core * 1.65)
+  ring.addColorStop(0, `rgba(${hot}, ${lean ? 0.75 : 1})`)
+  ring.addColorStop(0.22, `rgba(${hot}, ${lean ? 0.55 : 0.9})`)
+  ring.addColorStop(0.5, red ? 'rgba(255, 90, 55, 0.45)' : 'rgba(255, 255, 255, 0.4)')
+  ring.addColorStop(0.78, red ? 'rgba(255, 50, 40, 0.12)' : 'rgba(230, 235, 245, 0.1)')
   ring.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = ring
   ctx.beginPath()
-  ctx.arc(0, 0, core * 1.55, 0, Math.PI * 2)
+  ctx.arc(0, 0, core * 1.65, 0, Math.PI * 2)
   ctx.fill()
 
+  // Pitch-black event horizon — sharp cut under the bright ring.
   ctx.globalCompositeOperation = 'source-over'
   ctx.fillStyle = '#000000'
   ctx.beginPath()
