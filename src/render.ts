@@ -132,14 +132,14 @@ function drawHoles(
 
 function holeArmTone(red: boolean, shade: number): string {
   if (red) {
-    if (shade === 0) return '255, 72, 48'
-    if (shade === 1) return '255, 120, 42'
-    if (shade === 2) return '255, 48, 92'
-    return '255, 168, 96'
+    if (shade === 0) return '255, 62, 42'
+    if (shade === 1) return '255, 110, 48'
+    if (shade === 2) return '220, 36, 72'
+    return '255, 150, 90'
   }
   if (shade === 0) return '255, 255, 255'
-  if (shade === 1) return '248, 252, 255'
-  if (shade === 2) return '230, 238, 255'
+  if (shade === 1) return '236, 244, 255'
+  if (shade === 2) return '210, 220, 235'
   return '255, 255, 255'
 }
 
@@ -159,24 +159,26 @@ function paintHole(
   const red = well.crimson
   const rim = red ? '#ff3a2d' : '#ffffff'
   const hot = red ? '255, 90, 48' : '255, 255, 255'
-  const spin = time * (red ? 1.55 : 1.2) + well.x * 0.01
+  const spin = time * (red ? 0.95 : 0.78) + well.x * 0.01
   const core = Math.max(16 * BODY, well.radius * 0.3)
-  const reach = well.radius * 1.28
-  const arms = lean ? (red ? 5 : 10) : red ? 8 : 18
-  const layers = lean ? 2 : red ? 3 : 2
-  const motes = lean || still ? 28 : red ? 56 : 64
-  const steps = lean ? 14 : red ? 22 : 26
+  // Arms flare into open space past the gameplay radius — no hard circular rim.
+  const flare = well.radius * (lean ? 1.85 : 2.35)
+  const dustReach = well.radius * 1.15
+  const arms = lean ? 7 : 14
+  const layers = lean ? 1 : 2
+  const motes = lean || still ? 22 : 48
+  const steps = lean ? 12 : 18
 
   if (!lean) {
-    const aura = reach * 3.4
+    const aura = flare * 2.8
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
-    ctx.globalAlpha = (red ? 0.34 : 0.42) * fade
+    ctx.globalAlpha = (red ? 0.28 : 0.34) * fade
     ctx.drawImage(glowFor(rim), x - aura / 2, y - aura / 2, aura, aura)
-    ctx.globalAlpha = 0.2 * fade
-    ctx.drawImage(glowFor(red ? '#ff6a2a' : '#ffffff'), x - aura * 0.72, y - aura * 0.72, aura * 1.44, aura * 1.44)
-    ctx.globalAlpha = (red ? 0.28 : 0.38) * fade
-    const bloom = reach * 1.55
+    ctx.globalAlpha = 0.16 * fade
+    ctx.drawImage(glowFor(red ? '#ff6a2a' : '#dfe8ff'), x - aura * 0.7, y - aura * 0.7, aura * 1.4, aura * 1.4)
+    ctx.globalAlpha = (red ? 0.32 : 0.4) * fade
+    const bloom = core * 4.2
     ctx.drawImage(glowFor('#ffffff'), x - bloom / 2, y - bloom / 2, bloom, bloom)
     ctx.restore()
   }
@@ -188,43 +190,43 @@ function paintHole(
   if (!lean) ctx.globalCompositeOperation = 'lighter'
   for (let arm = 0; arm < arms; arm++) {
     const base = spin + (arm / arms) * Math.PI * 2
-    const fat = red
-      ? 0.72 + (arm % 3) * 0.34
-      : arm % 5 === 0
-        ? 1.85 + (arm % 2) * 0.45
-        : arm % 3 === 0
-          ? 1.15
-          : 0.48 + (arm % 4) * 0.12
-    const twist = (red ? 3.55 : 4.65) + (arm % 5) * 0.28
+    const fat =
+      arm % 4 === 0 ? 1.7 + (arm % 3) * 0.25 : arm % 3 === 0 ? 1.05 : 0.42 + (arm % 5) * 0.1
+    // Mild clockwise twist so arms sweep wide instead of wrapping into a ball.
+    const twist = 1.35 + (arm % 5) * 0.12
+    const armReach = flare * (0.78 + (arm % 4) * 0.09)
     for (let layer = 0; layer < layers; layer++) {
       const ink = holeArmTone(red, (arm + layer) % 4)
-      const side = (layer - (layers - 1) * 0.5) * (red ? 0.085 : 0.055)
-      let prevX = Math.cos(base + side) * core
-      let prevY = Math.sin(base + side) * core
+      const side = (layer - (layers - 1) * 0.5) * 0.04
+      let prevX = Math.cos(base + side) * (core * 1.05)
+      let prevY = Math.sin(base + side) * (core * 1.05)
       for (let step = 1; step <= steps; step++) {
         const t = step / steps
         const ang = base + side + t * twist
-        const ease = t * t * (3 - 2 * t)
-        const r = core + (reach - core) * ease
-        const fringe = 1 - t
-        const brush = fringe * fringe * (0.55 + Math.sin(t * 9 + arm) * 0.18)
+        // Accelerate outward so tips spill into open space.
+        const grow = t * t
+        const r = core * 1.05 + (armReach - core * 1.05) * grow
+        const tip = 1 - t
+        // Thick near the core, feather to wispy ends.
+        const brush = Math.pow(tip, 0.55) * (0.75 + Math.sin(t * 7 + arm * 1.3) * 0.2)
         const px = Math.cos(ang) * r
         const py = Math.sin(ang) * r
-        const width = Math.max(0.8, ((red ? 11.5 : 14.5) * fat * brush + 1.1 - layer * 1.6) * BODY)
-        const glow = red
-          ? 0.12 + fringe * (lean ? 0.42 : 0.68) - layer * 0.08
-          : 0.42 + fringe * (lean ? 0.48 : 0.58) - layer * 0.06
-        ctx.strokeStyle = `rgba(${ink}, ${Math.min(1, glow)})`
+        const width = Math.max(0.45, (16 * fat * brush + 0.8 - layer * 2.2) * BODY)
+        const glow =
+          (red ? 0.08 : 0.14) +
+          tip * tip * (lean ? 0.4 : 0.72) * (1 - layer * 0.18) +
+          (t < 0.25 ? 0.18 : 0)
+        ctx.strokeStyle = `rgba(${ink}, ${Math.min(0.95, glow)})`
         ctx.lineWidth = width
-        ctx.lineCap = t > 0.78 ? 'butt' : 'round'
+        ctx.lineCap = t > 0.72 ? 'butt' : 'round'
         ctx.beginPath()
         ctx.moveTo(prevX, prevY)
         ctx.lineTo(px, py)
         ctx.stroke()
-        if (!lean && t > 0.55 && step % 2 === 0) {
-          const tip = (1 - t) * (red ? 4.2 : 5.2) * BODY
-          ctx.fillStyle = `rgba(${ink}, ${red ? 0.18 + fringe * 0.35 : 0.35 + fringe * 0.5})`
-          ctx.fillRect(px - tip * 0.5, py - tip * 0.35, tip, tip * 0.7)
+        if (!lean && t > 0.62 && step % 2 === 0) {
+          const fleck = tip * tip * 5.5 * BODY * fat
+          ctx.fillStyle = `rgba(${ink}, ${0.08 + tip * 0.28})`
+          ctx.fillRect(px - fleck * 0.55, py - fleck * 0.25, fleck, fleck * 0.5)
         }
         prevX = px
         prevY = py
@@ -233,18 +235,18 @@ function paintHole(
   }
 
   for (let i = 0; i < motes; i++) {
-    const pace = 0.35 + (i % 7) * 0.38 + (i % 5) * 0.11
+    const pace = 0.4 + (i % 7) * 0.42 + (i % 5) * 0.14
     const drift = still ? (i * 0.097) % 1 : (time * pace + i * 0.173) % 1
     const pull = drift * drift * (3 - 2 * drift)
-    const orbit = spin * (0.55 + (i % 6) * 0.18) + i * 0.61 + drift * (2.4 + (i % 4) * 0.7)
-    const r = reach * (0.98 - (0.98 - (core * 1.04) / reach) * pull)
-    if (r <= core * 1.01) continue
+    const orbit = spin * (0.7 + (i % 6) * 0.22) + i * 0.61 + drift * (2.8 + (i % 4) * 0.85)
+    const r = dustReach * (0.98 - (0.98 - (core * 1.05) / dustReach) * pull)
+    if (r <= core * 1.02) continue
     const size = (1 + (i % 5) * 0.55 + (i % 3) * 0.35) * BODY
     const spark = i % 3 === 0
     const ink = holeArmTone(red, i % 4)
     const alpha = spark
-      ? (red ? 0.35 : 0.55) + (1 - pull) * (red ? 0.65 : 0.45)
-      : (red ? 0.12 : 0.28) + (1 - pull) * (red ? 0.45 : 0.5)
+      ? (red ? 0.35 : 0.5) + (1 - pull) * 0.5
+      : (red ? 0.12 : 0.22) + (1 - pull) * 0.45
     ctx.fillStyle = `rgba(${ink}, ${alpha})`
     const px = Math.cos(orbit) * r
     const py = Math.sin(orbit) * r
@@ -262,15 +264,16 @@ function paintHole(
   }
   if (!lean) ctx.globalCompositeOperation = 'source-over'
 
-  const halo = ctx.createRadialGradient(0, 0, core * 0.55, 0, 0, core * 2.4)
+  // Soft photon bloom only around the void — not a hard outer edge on the arms.
+  const halo = ctx.createRadialGradient(0, 0, core * 0.55, 0, 0, core * 2.6)
   halo.addColorStop(0, `rgba(${hot}, 0)`)
-  halo.addColorStop(0.38, `rgba(${hot}, ${lean ? 0.45 : 0.95})`)
-  halo.addColorStop(0.58, `rgba(${hot}, 0.55)`)
-  halo.addColorStop(0.82, red ? 'rgba(255, 48, 72, 0.18)' : 'rgba(255, 255, 255, 0.22)')
+  halo.addColorStop(0.36, `rgba(${hot}, ${lean ? 0.5 : 0.98})`)
+  halo.addColorStop(0.55, `rgba(${hot}, 0.58)`)
+  halo.addColorStop(0.78, red ? 'rgba(255, 48, 72, 0.16)' : 'rgba(255, 255, 255, 0.18)')
   halo.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = halo
   ctx.beginPath()
-  ctx.arc(0, 0, core * 2.4, 0, Math.PI * 2)
+  ctx.arc(0, 0, core * 2.6, 0, Math.PI * 2)
   ctx.fill()
 
   if (!lean) {
