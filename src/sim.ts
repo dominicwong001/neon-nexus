@@ -2336,7 +2336,7 @@ function collapseHole(state: GameState, well: Hole, events: StepEvents): void {
   well.life = 0
   well.radius = 0
   state.shake = Math.min(18, state.shake + 6.5 + Math.min(8, well.absorbed * 0.008))
-  state.flash = Math.min(0.7, 0.28 + Math.min(0.35, well.absorbed * 0.0005))
+  // No global red hurt-flash — dust, rings, and shake already sell the detonation.
   // Layered expanding shockwave rings.
   state.shocks.push({
     x: well.x,
