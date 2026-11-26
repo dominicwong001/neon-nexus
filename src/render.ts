@@ -160,12 +160,16 @@ function paintHoleWisp(
   ink: string,
   alpha: number,
   steps: number,
+  suck: number,
 ): void {
   const a0 = Math.max(0, Math.min(0.98, startT))
   const a1 = Math.max(a0 + 0.04, Math.min(1, endT))
   const count = Math.max(4, Math.ceil(steps * (a1 - a0)))
-  ctx.strokeStyle = `rgba(${ink}, ${alpha})`
-  ctx.lineWidth = width
+  // Pull the whole ribbon toward the void so arms read as being sucked in.
+  const pull = Math.min(0.92, Math.max(0, suck))
+  const span = (reach - core * 1.06) * (1 - pull * 0.82)
+  ctx.strokeStyle = `rgba(${ink}, ${alpha * (1 - pull * 0.25)})`
+  ctx.lineWidth = width * (1 - pull * 0.35)
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
   ctx.beginPath()
@@ -173,7 +177,7 @@ function paintHoleWisp(
     const u = i / count
     const t = a0 + (a1 - a0) * u
     const ang = base + t * twist
-    const r = core * 1.06 + (reach - core * 1.06) * Math.pow(t, 0.78)
+    const r = core * 1.06 + span * Math.pow(t, 0.72)
     const px = Math.cos(ang) * r
     const py = Math.sin(ang) * r
     if (i === 0) ctx.moveTo(px, py)
@@ -202,16 +206,17 @@ function paintHole(
   const rim = red ? '#ff3a2d' : '#ffffff'
   const hot = red ? '255, 120, 80' : '255, 255, 255'
   const spinBoost = (1 - born) * 10 + (well.closing > 0 ? (1 - closeScale) * 14 : 0)
-  const spin = time * (red ? 1.4 : 1.2) + spinBoost + well.x * 0.01
+  // Opposite spin direction from before (negative time term).
+  const spin = -time * (red ? 1.4 : 1.2) - spinBoost - well.x * 0.01
   const twistMul = 1 + (well.closing > 0 ? (1 - closeScale) * 2.1 : 0)
   const core = Math.max(22 * BODY, well.radius * 0.42) * scale
   const reach = well.radius * (lean ? 1.7 : 2.05) * scale
   if (reach < 2) return
-  const steps = lean ? 12 : 20
-  const outerN = lean ? 14 : 26
-  const midN = lean ? 18 : 34
-  const innerN = lean ? 22 : 40
-  const dustN = lean || still ? 28 : 72
+  const steps = lean ? 12 : 18
+  const outerN = lean ? 28 : 56
+  const midN = lean ? 36 : 72
+  const innerN = lean ? 40 : 80
+  const dustN = lean || still ? 36 : 90
 
   if (!lean) {
     const aura = Math.max(core * 5, reach * 1.45)
@@ -243,45 +248,50 @@ function paintHole(
 
   if (!lean) ctx.globalCompositeOperation = 'lighter'
 
-  // Outer torn fragments — irregular lengths so the rim never reads as a hard circle.
+  // Outer torn fragments — each arm has its own spin rate and inward suck cycle.
   for (let i = 0; i < outerN; i++) {
     const n0 = holeNoise(i * 3.1 + 1.7)
     const n1 = holeNoise(i * 5.9 + 2.3)
     const n2 = holeNoise(i * 7.3 + 4.1)
-    const base = spin * 0.85 + n0 * Math.PI * 2
-    const twist = (1.6 + n1 * 1.4) * twistMul
+    const rate = 0.35 + n0 * 2.6
+    const base = spin * (0.45 + n1 * 1.4) - time * rate + n0 * Math.PI * 2
+    const twist = -(1.6 + n1 * 1.4) * twistMul
     const startT = 0.42 + n2 * 0.35
     const endT = Math.min(1, startT + 0.18 + n1 * 0.4)
+    const suck = still ? n2 * 0.35 : (time * (0.55 + n1 * 1.1) + n0) % 1
     const ink = holeShade(red, n0 > 0.55 ? 3 : 2)
-    const width = Math.max(0.45, (0.9 + n2 * 1.8) * BODY * scale)
-    paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.18 : 0.32, steps)
+    const width = Math.max(0.45, (0.85 + n2 * 1.6) * BODY * scale)
+    paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.16 : 0.3, steps, suck * suck)
   }
 
-  // Mid painterly ribbons — uneven spacing and multi-shade depth.
+  // Mid painterly ribbons — denser pack, independent speeds.
   for (let i = 0; i < midN; i++) {
     const n0 = holeNoise(i * 2.7 + 11.2)
     const n1 = holeNoise(i * 4.4 + 8.6)
     const n2 = holeNoise(i * 9.1 + 3.5)
-    const base = spin + n0 * Math.PI * 2 + (i % 3) * 0.07
-    const twist = (2.05 + n1 * 1.1) * twistMul
+    const rate = 0.5 + n0 * 3.1
+    const base = spin * (0.6 + n2) - time * rate + n0 * Math.PI * 2
+    const twist = -(2.05 + n1 * 1.1) * twistMul
     const startT = 0.08 + n2 * 0.22
     const endT = 0.55 + n1 * 0.35
+    const suck = still ? n1 * 0.4 : (time * (0.7 + n0 * 1.4) + n2 * 3.1) % 1
     const ink = holeShade(red, n0 > 0.66 ? 2 : 1)
-    const width = Math.max(0.55, (1.4 + n2 * 2.4) * BODY * scale)
-    paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.28 : 0.48, steps)
-    if (!lean && n1 > 0.4) {
+    const width = Math.max(0.5, (1.2 + n2 * 2.1) * BODY * scale)
+    paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.26 : 0.46, steps, suck * suck)
+    if (!lean && n1 > 0.35) {
       paintHoleWisp(
         ctx,
         core,
         reach,
-        base + 0.04,
-        twist * 1.05,
-        startT + 0.1,
+        base - 0.05,
+        twist * 1.08,
+        startT + 0.08,
         endT,
-        width * 0.55,
+        width * 0.5,
         holeShade(red, 3),
-        0.2,
+        0.18,
         steps,
+        Math.min(0.95, suck * suck + 0.12),
       )
     }
   }
@@ -291,23 +301,25 @@ function paintHole(
     const n0 = holeNoise(i * 1.9 + 21.4)
     const n1 = holeNoise(i * 6.2 + 17.8)
     const n2 = holeNoise(i * 3.8 + 13.1)
-    const base = spin * 1.15 + n0 * Math.PI * 2
-    const twist = (2.4 + n1 * 0.9) * twistMul
+    const rate = 0.7 + n0 * 3.6
+    const base = spin * (0.8 + n1) - time * rate + n0 * Math.PI * 2
+    const twist = -(2.4 + n1 * 0.9) * twistMul
     const startT = n2 * 0.06
     const endT = 0.28 + n1 * 0.32
+    const suck = still ? n0 * 0.45 : (time * (0.9 + n2 * 1.6) + n1 * 2.4) % 1
     const ink = holeShade(red, n0 > 0.7 ? 1 : 0)
-    const width = Math.max(0.6, (1.6 + n2 * 2.8) * BODY * scale)
-    paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.4 : 0.72, steps)
+    const width = Math.max(0.55, (1.4 + n2 * 2.5) * BODY * scale)
+    paintHoleWisp(ctx, core, reach, base, twist, startT, endT, width, ink, lean ? 0.38 : 0.7, steps, suck * suck)
   }
 
-  // Dense multi-speed cosmic dust spiraling inward.
+  // Dense multi-speed cosmic dust spiraling inward (same reverse direction).
   for (let i = 0; i < dustN; i++) {
     const n0 = holeNoise(i * 1.3 + 40.2)
     const n1 = holeNoise(i * 2.1 + 44.7)
     const pace = 0.35 + n0 * 1.4 + (i % 5) * 0.12
     const drift = still ? (n1 * 0.97) % 1 : (time * pace + i * 0.137) % 1
     const pull = drift * drift * (3 - 2 * drift)
-    const orbit = spin * (0.7 + n0 * 0.9) + i * 0.49 + drift * (2.6 + n1 * 2.2)
+    const orbit = spin * (0.7 + n0 * 0.9) - time * (0.4 + n1 * 2.8) - i * 0.49 - drift * (2.6 + n1 * 2.2)
     const r = reach * (0.97 - (0.97 - (core * 1.08) / Math.max(reach, 1)) * pull)
     if (r <= core * 1.04) continue
     const size = (0.45 + n1 * 1.8 + (i % 7 === 0 ? 1.2 : 0)) * BODY * scale
