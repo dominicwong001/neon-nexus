@@ -427,8 +427,8 @@ export function holeCloseTime(crimson: boolean): number {
 
 export function holeRadius(rank: number): number {
   if (rank <= 0) return 0
-  // Early ranks stay small; grows toward Singularity size (same curve, no extra bump).
-  return (95 + Math.max(0, rank - 1) * 88) * BODY
+  // Slightly larger base well; each rank adds a modest radius bump (no Singularity extra).
+  return (130 + Math.max(0, rank - 1) * 40) * BODY
 }
 
 export function holeDuration(rank: number): number {

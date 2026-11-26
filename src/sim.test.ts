@@ -1000,10 +1000,12 @@ describe('orbs', () => {
     chooseUpgrade(state, state.offers.indexOf(evolved))
     assert.equal(state.mods.hole, 5)
     assert.equal(singularity(5), true)
-    // Evolution keeps the rank-5 size curve (no extra radius bump); early ranks stay smaller.
-    assert.ok(holeRadius(1) < 120 * BODY)
-    assert.equal(holeRadius(5), holeRadius(4) + 88 * BODY)
+    // Evolution keeps the rank-5 size curve (no extra radius bump); modest per-rank growth.
+    assert.ok(holeRadius(1) >= 120 * BODY)
+    assert.ok(holeRadius(1) < 160 * BODY)
+    assert.equal(holeRadius(5), holeRadius(4) + 40 * BODY)
     assert.ok(holeRadius(5) > holeRadius(4))
+    assert.ok(holeRadius(5) - holeRadius(1) < 200 * BODY)
     assert.ok(holePull(5) > holePull(4))
     assert.ok(holeCloseTime(true) > holeCloseTime(false))
     assert.ok(holeBlastRadius(200) > holeBlastRadius(40))
