@@ -390,7 +390,7 @@ describe('hostiles', () => {
     const early = createGame(0, 7)
     early.fireCd = 10
     const earlyCounts = [0, 0, 0, 0]
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 200; i++) {
       early.spawnCd = 0
       early.enemies.length = 0
       step(early, input({ viewRadius: 400, aimActive: false }), 1 / 60)
@@ -401,8 +401,10 @@ describe('hostiles', () => {
     }
     assert.ok((earlyCounts[3] ?? 0) >= 1)
     assert.ok((earlyCounts[2] ?? 0) >= 1)
+    assert.ok((earlyCounts[1] ?? 0) >= 1)
     assert.ok((earlyCounts[3] ?? 0) < (earlyCounts[0] ?? 0))
-    assert.ok((earlyCounts[2] ?? 0) < (earlyCounts[1] ?? 0))
+    assert.ok((earlyCounts[1] ?? 0) < (earlyCounts[0] ?? 0))
+    assert.ok((earlyCounts[1] ?? 0) < (earlyCounts[2] ?? 0))
     assert.ok((earlyCounts[0] ?? 0) > 0)
 
     const state = createGame(0, 7)
@@ -412,6 +414,8 @@ describe('hostiles', () => {
     const counts = [0, 0, 0, 0]
     let plainHex = 0
     let giantHex = 0
+    let plainPent = 0
+    let giantPent = 0
     for (let i = 0; i < 160; i++) {
       state.spawnCd = 0
       state.enemies.length = 0
@@ -419,17 +423,23 @@ describe('hostiles', () => {
       for (const hostile of state.enemies) {
         if (hostile.ballistic) continue
         counts[hostile.kind] += 1
-        if (hostile.kind !== 3) continue
-        assert.equal(hostile.hp, 1000)
-        assert.ok(hostile.speed < 66)
-        if (hostile.radius > 40) giantHex += 1
-        else plainHex += 1
+        if (hostile.kind === 3) {
+          assert.equal(hostile.hp, 1000)
+          assert.ok(hostile.speed < 66)
+          if (hostile.radius > 40) giantHex += 1
+          else plainHex += 1
+        } else if (hostile.kind === 1) {
+          assert.ok(Math.abs(hostile.radius - (hostile.maxHp >= 1000 ? 40 * BODY * 1.95 : 40 * BODY)) < 0.01)
+          if (hostile.maxHp >= 1000) giantPent += 1
+          else plainPent += 1
+        }
       }
     }
     assert.ok(plainHex >= 1)
     assert.ok(giantHex >= 1)
+    assert.ok(plainPent + giantPent >= 1)
     assert.ok(counts[3] < (counts[0] ?? 0) / 4)
-    assert.ok(counts[3] < (counts[1] ?? 0))
+    assert.ok(counts[1] < (counts[0] ?? 0) / 4)
   })
 
   it('spawns outside the view', () => {
@@ -476,15 +486,17 @@ describe('hostiles', () => {
       y: 0,
       hp: 200,
       maxHp: 200,
-      radius: 22,
+      radius: 40 * BODY,
       speed: 200,
       kind: 1,
+      spin: 1.15,
       shotCd: 0.05,
       angle: Math.PI,
     })
     state.enemies.push(pent)
     assert.equal(isPentagon(pent), true)
     assert.equal(giantPentagon(pent), false)
+    assert.equal(pent.radius, 40 * BODY)
     // Close into the stop band.
     run(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 2.2)
     assert.ok(pent.parked)
@@ -495,7 +507,7 @@ describe('hostiles', () => {
     assert.ok(parkedX >= PENT.stopMin - 40)
     // Tip should face the player (leftward toward origin).
     assert.ok(Math.cos(pent.angle) < -0.85)
-    // Clear any early bolts, then fire one clean 3-shot fan from the forward tip.
+    // Clear any early bolts, then fire one clean bolt from the forward tip.
     state.enemies = state.enemies.filter((e) => !e.ballistic)
     pent.shotCd = 0
     pent.windup = 0.001
@@ -504,11 +516,11 @@ describe('hostiles', () => {
     const tipY = pent.y + Math.sin(pent.angle) * pent.radius
     step(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 60)
     const bolts = state.enemies.filter((e) => e.ballistic && e.kind === 1)
-    assert.equal(bolts.length, 3)
-    for (const bolt of bolts) {
-      // Spawned at the tip, then moved one frame — stay near the muzzle.
-      assert.ok(Math.hypot(bolt.x - tipX, bolt.y - tipY) < PENT.shotSpeed / 50 + 6)
-    }
+    assert.equal(bolts.length, 1)
+    const bolt = bolts[0]!
+    assert.equal(bolt.immortal, true)
+    assert.ok(Math.hypot(bolt.vx, bolt.vy) <= PENT.shotSpeed + 1)
+    assert.ok(Math.hypot(bolt.x - tipX, bolt.y - tipY) < PENT.shotSpeed / 50 + 6)
     // Player moves closer — never backs away.
     state.playerX = parkedX - 120
     run(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 0.4)
@@ -527,9 +539,9 @@ describe('hostiles', () => {
     const elite = enemy({
       x: GIANT_PENT.stopMin + 20,
       y: 0,
-      hp: 1200,
-      maxHp: 1200,
-      radius: 40,
+      hp: 1000,
+      maxHp: 1000,
+      radius: 40 * BODY * 1.95,
       speed: 0,
       kind: 1,
       parked: true,
@@ -540,6 +552,7 @@ describe('hostiles', () => {
     })
     giant.enemies.push(elite)
     assert.equal(giantPentagon(elite), true)
+    assert.ok(Math.abs(elite.radius - 40 * BODY * 1.95) < 0.01)
     step(giant, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 30)
     // Radial burst: 2 shots from each of 5 tips.
     assert.equal(giant.enemies.filter((e) => e.ballistic && e.kind === 1).length, 10)
@@ -757,14 +770,14 @@ describe('orbs', () => {
   it('hardens late shapes and throws hex pieces that cannot break', () => {
     const state = createGame(0, 23)
     state.fireCd = 10
-    state.time = 56
-    state.level = 8
+    state.time = 70
+    state.level = 9
     const best = [0, 0, 0, 0]
     const pace = [0, 0, 0, 0]
     const size = [0, 0, 0, 0]
     const giant = [0, 0, 0, 0]
     const plain = [0, 0, 0, 0]
-    for (let n = 0; n < 100; n++) {
+    for (let n = 0; n < 160; n++) {
       state.spawnCd = 0
       state.enemies.length = 0
       step(state, input({ viewRadius: 400, aimActive: false }), 1 / 60)
@@ -773,7 +786,8 @@ describe('orbs', () => {
         best[hostile.kind] = Math.max(best[hostile.kind] ?? 0, hostile.hp)
         pace[hostile.kind] = Math.max(pace[hostile.kind] ?? 0, hostile.speed)
         size[hostile.kind] = Math.max(size[hostile.kind] ?? 0, hostile.radius)
-        const huge = hostile.radius > [18, 28, 24, 40][hostile.kind]
+        // Pentagon base matches hex (40*BODY); giants scale ×1.95 like hex.
+        const huge = hostile.radius > [18, 40 * BODY + 1, 24, 40][hostile.kind]!
         if (huge) giant[hostile.kind] += 1
         else plain[hostile.kind] += 1
       }
@@ -786,7 +800,7 @@ describe('orbs', () => {
     assert.ok((giant[0] ?? 0) > 0)
     assert.ok((giant[1] ?? 0) > 0)
     assert.ok((giant[0] ?? 0) < (plain[0] ?? 0) / 4)
-    assert.ok((giant[1] ?? 0) < (plain[1] ?? 0) / 4)
+    assert.ok((giant[1] ?? 0) <= (plain[1] ?? 0))
 
     state.spawnCd = 999
     state.fireCd = 0

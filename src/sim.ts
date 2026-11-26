@@ -370,7 +370,8 @@ export interface StepEvents {
 
 const KIND = [
   { radius: 14 * BODY, hp: 100, speed: 70, spin: 2.8 },
-  { radius: 22 * BODY, hp: 200, speed: 31, spin: 1.15 },
+  // Pentagon matches normal hex size; rarer spawn than the old square slot.
+  { radius: 40 * BODY, hp: 200, speed: 31, spin: 1.15 },
   { radius: 20 * BODY, hp: 300, speed: 34, spin: 0.8 },
   { radius: 40 * BODY, hp: 1000, speed: 22, spin: 0.55 },
 ] as const
@@ -654,8 +655,8 @@ export const PENT = {
   resume: 490,
   charge: 0.75,
   reload: 1.4,
-  shotSpeed: 300,
-  shotLife: 2.4,
+  shotSpeed: 155,
+  shotLife: 3.2,
   shotRadius: 7 * BODY,
   fanSpread: 0.38,
 } as const
@@ -666,7 +667,7 @@ export const GIANT_PENT = {
   resume: 530,
   charge: 0.85,
   reload: 1.65,
-  shotSpeed: 340,
+  shotSpeed: 175,
   fanSpread: 0.52,
   stagger: 0.16,
 } as const
@@ -1248,9 +1249,9 @@ function spawn(state: GameState, input: Input, dt: number): void {
 function spawnOne(state: GameState, viewRadius: number): void {
   const roll = state.rng()
   let kind: EnemyKind = 0
-  if (roll > 0.96) kind = 3
-  else if (roll > 0.9) kind = 2
-  else if (roll > 0.42) kind = 1
+  // Pentagon shares the rare band with hex (~4% total, split evenly).
+  if (roll > 0.96) kind = state.rng() < 0.5 ? 3 : 1
+  else if (roll > 0.5) kind = 2
   const spec = KIND[kind]
   const ang = state.rng() * Math.PI * 2
   const late = lateGame(state)
@@ -1263,14 +1264,14 @@ function spawnOne(state: GameState, viewRadius: number): void {
     hp = spec.hp * 3
     speed *= 1.85
     radius *= 2.05
-  } else if (late && kind === 1 && state.rng() < 0.12) {
-    // Giant Pentagon elite — 1000+ hull turret.
-    hp = Math.max(1000, spec.hp * 6)
-    radius *= 2.2
   } else if (late && kind === 2 && state.rng() < 0.32) {
     hp = Math.round(spec.hp * 2.5)
     radius *= 2.6
   } else if (kind === 3 && bigHexSeason(state) && state.rng() < 0.4) {
+    radius *= 1.95
+  } else if (kind === 1 && bigHexSeason(state) && state.rng() < 0.4) {
+    // Giant Pentagon — same scale-up as giant hex, 1000+ hull.
+    hp = Math.max(1000, KIND[3].hp)
     radius *= 1.95
   }
   state.enemies.push({
@@ -1285,7 +1286,7 @@ function spawnOne(state: GameState, viewRadius: number): void {
     hitCd: 0,
     flash: 0,
     orbitCd: 0,
-    spin: kind === 1 ? 0 : spec.spin * (state.rng() < 0.5 ? -1 : 1),
+    spin: spec.spin * (state.rng() < 0.5 ? -1 : 1),
     angle: state.rng() * Math.PI * 2,
     phase: state.rng() * Math.PI * 2,
     speed,
@@ -1363,8 +1364,6 @@ function firePentRadial(state: GameState, enemy: Enemy, speed: number): void {
 function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, dx: number, dy: number, inside: boolean, fieldRank: number): void {
   const giant = giantPentagon(enemy)
   const band = giant ? GIANT_PENT : PENT
-  const want = Math.atan2(dy, dx)
-  turnToward(enemy, want, dt, giant ? 7.5 : 9)
 
   if (!enemy.parked) {
     if (dist <= band.stopMax) {
@@ -1372,17 +1371,20 @@ function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, 
       enemy.vx = 0
       enemy.vy = 0
     } else {
+      // Advance and spin like other hostiles — tip-aim only after parking.
       const speed = enemy.speed * (inside ? fieldSlow(fieldRank) : 1)
       const steer = 1 - Math.exp(-3.1 * dt)
       enemy.vx += ((dx / dist) * speed - enemy.vx) * steer
       enemy.vy += ((dy / dist) * speed - enemy.vy) * steer
       enemy.x += enemy.vx * dt
       enemy.y += enemy.vy * dt
+      enemy.angle += enemy.spin * dt
     }
   } else {
-    // Stand your ground — never back away; only resume if the player flees past resume range.
+    // Stand your ground — never back away; tip tracks the player while turreted.
     enemy.vx = 0
     enemy.vy = 0
+    turnToward(enemy, Math.atan2(dy, dx), dt, giant ? 7.5 : 9)
     if (dist > band.resume) enemy.parked = false
   }
 
@@ -1415,7 +1417,8 @@ function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, 
       }
       enemy.salvo += 1
     } else {
-      firePentFan(state, enemy, 3, PENT.fanSpread, speed)
+      // Standard Pentagon: single bolt from the forward tip.
+      firePentFan(state, enemy, 1, PENT.fanSpread, speed)
       enemy.shotCd = band.reload
     }
     return
