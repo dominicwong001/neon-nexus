@@ -613,6 +613,9 @@ describe('orbs', () => {
     assert.ok(state.orbs.some((item) => item.x === 5000 && item.y === -4000))
     assert.equal(state.orbs.find((item) => item.x === 420)?.homing, false)
     assert.ok(TUNING.invuln < 0.45)
+    assert.equal(TUNING.mercy, 2)
+    const spawn = createGame(0, 34)
+    assert.equal(spawn.invuln, TUNING.mercy)
 
     const slow = createGame(0, 33)
     slow.spawnCd = 999

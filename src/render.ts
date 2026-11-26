@@ -1202,7 +1202,7 @@ function drawDrone(
 }
 
 function drawPlayer(ctx: CanvasRenderingContext2D, state: GameState): void {
-  const blink = state.invuln > 0 && state.invuln <= TUNING.invuln && Math.sin(state.time * 38) > 0
+  const blink = state.invuln > 0 && Math.sin(state.time * 38) > 0
   ctx.save()
   if (blink) ctx.globalAlpha = 0.32
 

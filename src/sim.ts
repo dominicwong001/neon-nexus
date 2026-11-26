@@ -14,7 +14,7 @@ export const TUNING = {
   hullMax: 8,
   invuln: 0.28,
   hitCooldown: 0.05,
-  mercy: 1.4,
+  mercy: 2,
 } as const
 
 export const HIT = 100
