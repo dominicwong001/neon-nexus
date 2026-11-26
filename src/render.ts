@@ -355,37 +355,40 @@ function paintHoleBody(
   const closing = well.closing > 0 && well.closeMax > 0
   const closeFrac = closing ? well.closing / well.closeMax : 1
 
-  // Singularity collapse: soft concentric rings racing inward (never opaque).
+  // Singularity collapse: explosion-style shockwave rings racing inward.
   if (red && closing) {
-    const rings = lean ? 8 : 16
-    const segs = lean ? 18 : 28
-    ctx.globalCompositeOperation = 'source-over'
+    const rings = lean ? 7 : 12
+    if (!lean) ctx.globalCompositeOperation = 'lighter'
+    else ctx.globalCompositeOperation = 'source-over'
+    const blastInk = [
+      '255, 255, 255',
+      '255, 220, 180',
+      '255, 176, 64',
+      '255, 122, 40',
+      '255, 74, 32',
+      '255, 45, 58',
+    ]
     for (let i = 0; i < rings; i++) {
       const n0 = holeNoise(i * 4.7 + 19.3)
       const n1 = holeNoise(i * 2.9 + 41.1)
-      const phase = still ? ((i + 0.5) / rings) : ((time * (2.1 + n0 * 0.9) + i / rings) % 1)
-      const r = Math.max(core * 1.05, reach * (1 - phase) * (0.52 + closeFrac * 0.48))
-      // Match Singularity palette: white → orange → red by phase.
-      const shade = phase < 0.28 ? 0 : phase < 0.55 ? 1 : phase < 0.8 ? 2 : 3
-      const ink = holeShade(true, shade)
-      // Varied stroke width across rings (thin wisps to thicker bands).
-      const width = Math.max(0.7, (0.7 + n1 * 4.8 + (1 - phase) * 1.6) * BODY * scale)
-      const peak = (0.12 + (1 - phase) * 0.18 + closeFrac * 0.08) * (0.75 + n0 * 0.35)
-      // Segment the ring so left/right sides fade out; top/bottom stay a bit stronger.
-      for (let s = 0; s < segs; s++) {
-        const a0 = (s / segs) * Math.PI * 2
-        const a1 = ((s + 1.05) / segs) * Math.PI * 2
-        const mid = (a0 + a1) * 0.5
-        // More transparent on the horizontal sides (left/right).
-        const side = Math.abs(Math.cos(mid))
-        const fade = Math.pow(1 - side * 0.88, 1.35)
-        const alpha = peak * fade
-        if (alpha < 0.012) continue
-        ctx.strokeStyle = `rgba(${ink}, ${alpha})`
-        ctx.lineWidth = width
-        ctx.lineCap = 'butt'
+      const phase = still ? ((i + 0.5) / rings) : ((time * (2.35 + n0 * 0.7) + i / rings) % 1)
+      const r = Math.max(core * 1.08, reach * (1 - phase) * (0.55 + closeFrac * 0.45))
+      const ink = blastInk[i % blastInk.length]!
+      // Same language as the detonation rings: varied full circles, not opaque.
+      const width = Math.max(1.4, (2.0 + n1 * 5.2 + (1 - phase) * 2.4) * BODY * scale)
+      const alpha = (0.28 + (1 - phase) * 0.42 + closeFrac * 0.12) * (0.7 + n0 * 0.3)
+      ctx.strokeStyle = `rgba(${ink}, ${Math.min(0.85, alpha)})`
+      ctx.lineWidth = width
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.arc(0, 0, r, 0, Math.PI * 2)
+      ctx.stroke()
+      // Inner echo like the blast shock double-stroke.
+      if (n1 > 0.35) {
+        ctx.strokeStyle = `rgba(${ink}, ${Math.min(0.5, alpha * 0.45)})`
+        ctx.lineWidth = Math.max(1, width * 0.42)
         ctx.beginPath()
-        ctx.arc(0, 0, r, a0, a1)
+        ctx.arc(0, 0, r * (0.72 + n0 * 0.08), 0, Math.PI * 2)
         ctx.stroke()
       }
     }
@@ -556,7 +559,7 @@ function paintHoleVoid(
   ctx.restore()
 }
 
-/** Slight horizon glow only — no second opaque void (that hid enemies in Fast mode). */
+/** Slight horizon glow drawn above enemies (additive — never hides them). */
 function paintHoleCenterGlow(
   ctx: CanvasRenderingContext2D,
   well: Hole,
@@ -568,20 +571,21 @@ function paintHoleCenterGlow(
   const y = Y(well.y)
   const { scale, core, red } = holePose(well, time)
   if (core < 1.2) return
-  const hot = red ? '255, 200, 140' : '255, 255, 255'
+  const hot = red ? '255, 210, 150' : '255, 255, 255'
 
   ctx.save()
   ctx.translate(x, y)
-  ctx.globalAlpha = Math.min(1, 0.35 + scale * 0.55)
-  if (!lean) ctx.globalCompositeOperation = 'lighter'
-  const glow = ctx.createRadialGradient(0, 0, core * 0.35, 0, 0, core * 1.85)
-  glow.addColorStop(0, `rgba(${hot}, ${lean ? 0.18 : 0.38})`)
-  glow.addColorStop(0.4, red ? `rgba(255, 140, 70, ${lean ? 0.12 : 0.26})` : `rgba(235, 240, 250, ${lean ? 0.1 : 0.22})`)
-  glow.addColorStop(0.75, red ? 'rgba(255, 60, 40, 0.06)' : 'rgba(200, 210, 230, 0.05)')
+  ctx.globalAlpha = Math.min(1, 0.45 + scale * 0.55)
+  // Additive so Fast mode still gets a readable wash without covering hostiles.
+  ctx.globalCompositeOperation = 'lighter'
+  const glow = ctx.createRadialGradient(0, 0, core * 0.15, 0, 0, core * 2.05)
+  glow.addColorStop(0, `rgba(${hot}, ${lean ? 0.42 : 0.55})`)
+  glow.addColorStop(0.35, red ? `rgba(255, 150, 70, ${lean ? 0.28 : 0.36})` : `rgba(235, 240, 250, ${lean ? 0.24 : 0.32})`)
+  glow.addColorStop(0.7, red ? 'rgba(255, 70, 40, 0.14)' : 'rgba(200, 210, 230, 0.1)')
   glow.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = glow
   ctx.beginPath()
-  ctx.arc(0, 0, core * 1.85, 0, Math.PI * 2)
+  ctx.arc(0, 0, core * 2.05, 0, Math.PI * 2)
   ctx.fill()
   ctx.restore()
 }
