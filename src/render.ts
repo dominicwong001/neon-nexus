@@ -535,14 +535,19 @@ function paintHoleVoid(
   ])
   ctx.globalCompositeOperation = 'source-over'
   ctx.globalAlpha = 1
-  fillRadial(ctx, 0, core * 1.38, [
-    [0, 'rgba(0,0,0,1)'], [0.48, 'rgba(0,0,0,1)'], [0.7, 'rgba(0,0,0,0.94)'],
-    [0.86, 'rgba(0,0,0,0.55)'], [0.95, 'rgba(0,0,0,0.18)'], [1, 'rgba(0,0,0,0)'],
+  // Pitch-black core stays solid longer, then soft-falls only at the outer rim.
+  fillRadial(ctx, 0, core * 1.48, [
+    [0, 'rgba(0,0,0,1)'],
+    [0.62, 'rgba(0,0,0,1)'],
+    [0.78, 'rgba(0,0,0,0.98)'],
+    [0.88, 'rgba(0,0,0,0.7)'],
+    [0.95, 'rgba(0,0,0,0.28)'],
+    [1, 'rgba(0,0,0,0)'],
   ])
   ctx.restore()
 }
 
-/** Soft horizon glow above enemies — slight wash, not a white core bleach. */
+/** Soft horizon glow above enemies — kept off the pitch-black core. */
 function paintHoleCenterGlow(
   ctx: CanvasRenderingContext2D,
   well: Hole,
@@ -554,11 +559,12 @@ function paintHoleCenterGlow(
   if (core < 1.2) return
   ctx.save()
   ctx.translate(X(well.x), Y(well.y))
-  ctx.globalAlpha = Math.min(1, 0.65 + scale * 0.35)
+  ctx.globalAlpha = Math.min(1, 0.55 + scale * 0.35)
   ctx.globalCompositeOperation = 'lighter'
-  fillRadial(ctx, core * 0.1, core * 1.9, red
-    ? [[0, 'rgba(255,200,140,0.28)'], [0.35, 'rgba(255,130,55,0.42)'], [0.7, 'rgba(255,60,35,0.18)'], [1, 'rgba(255,40,30,0)']]
-    : [[0, 'rgba(235,240,250,0.24)'], [0.35, 'rgba(200,212,235,0.36)'], [0.7, 'rgba(170,180,205,0.14)'], [1, 'rgba(150,160,180,0)']])
+  // Start outside the solid void so the center stays black.
+  fillRadial(ctx, core * 0.85, core * 1.95, red
+    ? [[0, 'rgba(255,200,140,0)'], [0.25, 'rgba(255,130,55,0.32)'], [0.65, 'rgba(255,60,35,0.14)'], [1, 'rgba(255,40,30,0)']]
+    : [[0, 'rgba(235,240,250,0)'], [0.25, 'rgba(200,212,235,0.26)'], [0.65, 'rgba(170,180,205,0.1)'], [1, 'rgba(150,160,180,0)']])
   ctx.restore()
 }
 
