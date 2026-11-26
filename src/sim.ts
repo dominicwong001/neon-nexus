@@ -457,8 +457,8 @@ export function holePull(rank: number): number {
 export function holeInterval(rank: number): number {
   if (rank <= 0) return 0
   // Higher ranks hit harder and wider — spawn less often to keep pressure fair.
-  const wait = 6.6 + Math.max(0, rank - 1) * 0.95
-  return singularity(rank) ? wait + 1.4 : wait
+  const wait = 5.8 + Math.max(0, rank - 1) * 0.75
+  return singularity(rank) ? wait + 0.8 : wait
 }
 
 export function holeBlastRadius(absorbed: number): number {
@@ -466,7 +466,7 @@ export function holeBlastRadius(absorbed: number): number {
 }
 
 export function holeBlastDamage(absorbed: number): number {
-  return Math.min(260, 18 + Math.round(absorbed * 0.18))
+  return Math.min(300, 18 + Math.round(absorbed * 0.2))
 }
 
 export function teslaBolts(rank: number, _reactor: boolean): number {
