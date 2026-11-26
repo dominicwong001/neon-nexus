@@ -12,7 +12,7 @@ export const TUNING = {
   ringRadius: 34 * BODY,
   ringSpin: 0.65,
   hullMax: 8,
-  invuln: 0.28,
+  invuln: 0.58,
   hitCooldown: 0.05,
   mercy: 2,
 } as const
