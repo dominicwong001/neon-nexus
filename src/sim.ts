@@ -141,6 +141,8 @@ export interface Hole {
   tickCd: number
   absorbed: number
   crimson: boolean
+  closing: number
+  closeMax: number
   blast: number
   blastMax: number
   blastRadius: number
@@ -406,6 +408,8 @@ export function arcReactor(rank: number): boolean {
 export const HOLE = {
   evolveRank: 5,
   tick: 0.2,
+  spawn: 0.32,
+  close: 0.4,
 } as const
 
 export function singularity(rank: number): boolean {
@@ -2167,6 +2171,13 @@ function updateHoles(state: GameState, dt: number, events: StepEvents, viewW: nu
       if (well.blast <= 0) state.holes.splice(i, 1)
       continue
     }
+    if (well.closing > 0) {
+      well.closing = Math.max(0, well.closing - dt)
+      if (well.closing > 0) continue
+      if (well.crimson) collapseHole(state, well, events)
+      else state.holes.splice(i, 1)
+      continue
+    }
     well.life -= dt
     well.tickCd -= dt
     pullIntoHole(state, well, dt)
@@ -2175,8 +2186,8 @@ function updateHoles(state: GameState, dt: number, events: StepEvents, viewW: nu
       tickHole(state, well, events)
     }
     if (well.life > 0) continue
-    if (well.crimson) collapseHole(state, well, events)
-    else state.holes.splice(i, 1)
+    well.closing = HOLE.close
+    well.closeMax = HOLE.close
   }
   if (rank <= 0) return
   state.holeCd -= dt
@@ -2199,6 +2210,8 @@ function spawnHole(state: GameState, rank: number, viewW: number, viewH: number)
     tickCd: HOLE.tick * 0.35,
     absorbed: 0,
     crimson: singularity(rank),
+    closing: 0,
+    closeMax: HOLE.close,
     blast: 0,
     blastMax: 0,
     blastRadius: 0,

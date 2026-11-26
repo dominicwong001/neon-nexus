@@ -1058,6 +1058,8 @@ describe('orbs', () => {
       tickCd: 1,
       absorbed: 180,
       crimson: true,
+      closing: 0,
+      closeMax: 0.4,
       blast: 0,
       blastMax: 0,
       blastRadius: 0,
@@ -1066,6 +1068,9 @@ describe('orbs', () => {
     const far = enemy({ x: 900, y: 0, hp: 2000, radius: 16, speed: 0 })
     nova.enemies.push(near, far)
     step(nova, input({ aimActive: false }), 1 / 30)
+    assert.ok((nova.holes[0]?.closing ?? 0) > 0)
+    assert.equal(nova.holes[0]?.blast ?? 0, 0)
+    run(nova, input({ aimActive: false }), 0.5)
     assert.ok(nova.holes[0]?.blast > 0)
     assert.ok((nova.holes[0]?.blastRadius ?? 0) >= holeBlastRadius(180) - 1)
     assert.ok(near.hp < 2000)

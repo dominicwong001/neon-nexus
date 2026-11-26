@@ -1,4 +1,4 @@
-import { BODY, ENEMY_COLOR, TUNING, droneAnchor, droneBlasterTips, droneStorm, fieldColor, fieldRadius, fieldRipple, hexFuseLit, orbitDiscs, placeStrikeTop, shellPose, type GameState, type Hole } from './sim.ts'
+import { BODY, ENEMY_COLOR, HOLE, TUNING, droneAnchor, droneBlasterTips, droneStorm, fieldColor, fieldRadius, fieldRipple, hexFuseLit, orbitDiscs, placeStrikeTop, shellPose, type GameState, type Hole } from './sim.ts'
 
 export interface StickView {
   x: number
@@ -132,15 +132,15 @@ function drawHoles(
 
 function holeArmTone(red: boolean, shade: number): string {
   if (red) {
-    if (shade === 0) return '255, 58, 40'
-    if (shade === 1) return '255, 105, 52'
-    if (shade === 2) return '210, 28, 68'
-    return '255, 160, 100'
+    if (shade === 0) return '255, 72, 48'
+    if (shade === 1) return '255, 120, 70'
+    if (shade === 2) return '230, 40, 70'
+    return '255, 170, 120'
   }
   if (shade === 0) return '255, 255, 255'
-  if (shade === 1) return '238, 244, 255'
-  if (shade === 2) return '205, 216, 232'
-  return '250, 252, 255'
+  if (shade === 1) return '230, 238, 255'
+  if (shade === 2) return '200, 210, 230'
+  return '245, 248, 255'
 }
 
 function paintHole(
@@ -153,146 +153,120 @@ function paintHole(
 ): void {
   const x = X(well.x)
   const y = Y(well.y)
-  const born = well.max > 0 ? Math.min(1, (well.max - well.life) / 0.16) : 1
-  const dying = well.max > 0 ? Math.min(1, well.life / Math.max(0.18, well.max * 0.18)) : 1
-  const fade = Math.min(1, born, dying)
+  const age = Math.max(0, well.max - well.life)
+  const bornT = Math.min(1, age / HOLE.spawn)
+  // Ease-out expand from a pinpoint.
+  const born = 1 - Math.pow(1 - bornT, 3)
+  const closing = well.closing > 0 && well.closeMax > 0 ? well.closing / well.closeMax : 1
+  // Ease-in suck: stays large longer, then snaps inward.
+  const closeScale = well.closing > 0 ? Math.pow(closing, 1.55) : 1
+  const scale = Math.max(0.02, born * closeScale)
   const red = well.crimson
   const rim = red ? '#ff3a2d' : '#ffffff'
   const hot = red ? '255, 90, 48' : '255, 255, 255'
-  const spin = time * (red ? 1.15 : 0.95) + well.x * 0.01
-  // Larger void so the center reads as a true pitch-black hole, not a white cluster.
-  const core = Math.max(22 * BODY, well.radius * 0.42)
-  const reach = well.radius * (lean ? 1.55 : 1.75)
-  const streaks = lean ? 16 : 28
-  const steps = lean ? 18 : 28
-  const motes = lean || still ? 20 : 40
+  const spinBoost = (1 - born) * 10 + (well.closing > 0 ? (1 - closeScale) * 14 : 0)
+  const spin = time * (red ? 1.35 : 1.15) + spinBoost + well.x * 0.01
+  // Tighten curl while collapsing so wisps wind into the void.
+  const twistMul = 1 + (well.closing > 0 ? (1 - closeScale) * 1.8 : 0)
+  const core = Math.max(20 * BODY, well.radius * 0.4) * scale
+  const reach = well.radius * (lean ? 1.65 : 1.9) * scale
+  if (reach < 2) return
+  const wisps = lean ? 22 : 42
+  const steps = lean ? 14 : 22
+  const motes = lean || still ? 18 : 36
 
   if (!lean) {
-    const aura = reach * 2.6
+    const aura = Math.max(core * 4, reach * 1.6)
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
-    ctx.globalAlpha = (red ? 0.24 : 0.28) * fade
+    ctx.globalAlpha = (red ? 0.18 : 0.22) * scale
     ctx.drawImage(glowFor(rim), x - aura / 2, y - aura / 2, aura, aura)
-    ctx.globalAlpha = (red ? 0.28 : 0.34) * fade
-    const bloom = core * 3.2
+    ctx.globalAlpha = (red ? 0.26 : 0.32) * scale
+    const bloom = core * 3.4
     ctx.drawImage(glowFor('#ffffff'), x - bloom / 2, y - bloom / 2, bloom, bloom)
     ctx.restore()
   }
 
   ctx.save()
   ctx.translate(x, y)
-  ctx.globalAlpha = fade
-
-  // Soft cyclone body starts outside the void so the center stays dark.
-  const body = ctx.createRadialGradient(0, 0, core * 1.05, 0, 0, reach)
-  body.addColorStop(0, `rgba(${hot}, ${lean ? 0.28 : 0.42})`)
-  body.addColorStop(0.4, red ? 'rgba(255, 70, 50, 0.24)' : 'rgba(235, 242, 255, 0.28)')
-  body.addColorStop(0.75, red ? 'rgba(180, 30, 50, 0.08)' : 'rgba(200, 210, 230, 0.08)')
-  body.addColorStop(1, 'rgba(0, 0, 0, 0)')
-  ctx.fillStyle = body
-  ctx.beginPath()
-  ctx.arc(0, 0, reach, 0, Math.PI * 2)
-  ctx.fill()
+  ctx.globalAlpha = Math.min(1, 0.35 + scale * 0.65)
 
   if (!lean) ctx.globalCompositeOperation = 'lighter'
-  // Long continuous feathered arcs — one path per streak so they read as fluid ribbons.
-  for (let s = 0; s < streaks; s++) {
-    const jitter = ((s * 17) % 11) * 0.012
-    const base = spin + (s / streaks) * Math.PI * 2 + jitter
-    const twist = 2.85 + (s % 5) * 0.1
-    const fat = 0.9 + (s % 4) * 0.2
+  // Thin overlapping spiral wisps — background shows through; no solid disc fill.
+  for (let s = 0; s < wisps; s++) {
+    const jitter = ((s * 19) % 13) * 0.01
+    const base = spin + (s / wisps) * Math.PI * 2 + jitter
+    const twist = (2.2 + (s % 6) * 0.08) * twistMul
+    const thin = 0.35 + (s % 5) * 0.12
     const ink = holeArmTone(red, s % 4)
     const pts: { x: number; y: number }[] = []
     for (let step = 0; step <= steps; step++) {
       const t = step / steps
       const ang = base + t * twist
-      const r = core * 1.06 + (reach - core * 1.06) * Math.pow(t, 0.88)
+      const r = core * 1.08 + (reach - core * 1.08) * Math.pow(t, 0.82)
       pts.push({ x: Math.cos(ang) * r, y: Math.sin(ang) * r })
     }
     const first = pts[0]
     if (!first) continue
-    // Soft outer feather pass.
-    ctx.strokeStyle = `rgba(${ink}, ${lean ? 0.18 : 0.28})`
-    ctx.lineWidth = Math.max(2, (16 * fat + 3) * BODY)
+    ctx.strokeStyle = `rgba(${ink}, ${lean ? 0.28 : 0.45})`
+    ctx.lineWidth = Math.max(0.55, (2.4 * thin + 0.7) * BODY * scale)
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.beginPath()
     ctx.moveTo(first.x, first.y)
     for (let i = 1; i < pts.length; i++) {
       const p = pts[i]
-      if (p) ctx.lineTo(p.x, p.y)
+      if (!p) continue
+      // Soft fade toward the tip by ending early with lower alpha on a second pass.
+      ctx.lineTo(p.x, p.y)
     }
     ctx.stroke()
-    // Brighter continuous core ribbon.
-    ctx.strokeStyle = `rgba(${ink}, ${lean ? 0.42 : 0.68})`
-    ctx.lineWidth = Math.max(1.2, (9.5 * fat + 1.6) * BODY)
-    ctx.beginPath()
-    ctx.moveTo(first.x, first.y)
-    for (let i = 1; i < pts.length; i++) {
-      const p = pts[i]
-      if (p) ctx.lineTo(p.x, p.y)
-    }
-    ctx.stroke()
-    // Tip fade: thin wispy end stroke over the outer third.
-    const tipStart = Math.floor(pts.length * 0.55)
-    const tip = pts[tipStart]
-    if (tip && !lean) {
+    if (!lean) {
       ctx.strokeStyle = `rgba(${ink}, 0.22)`
-      ctx.lineWidth = Math.max(0.8, 4.5 * fat * BODY)
-      ctx.beginPath()
-      ctx.moveTo(tip.x, tip.y)
-      for (let i = tipStart + 1; i < pts.length; i++) {
-        const p = pts[i]
-        if (p) ctx.lineTo(p.x, p.y)
+      ctx.lineWidth = Math.max(0.4, (1.2 * thin + 0.4) * BODY * scale)
+      const mid = Math.floor(pts.length * 0.4)
+      const midPt = pts[mid]
+      if (midPt) {
+        ctx.beginPath()
+        ctx.moveTo(midPt.x, midPt.y)
+        for (let i = mid + 1; i < pts.length; i++) {
+          const p = pts[i]
+          if (p) ctx.lineTo(p.x, p.y)
+        }
+        ctx.stroke()
       }
-      ctx.stroke()
     }
   }
 
   for (let i = 0; i < motes; i++) {
-    const pace = 0.45 + (i % 7) * 0.4 + (i % 5) * 0.12
+    const pace = 0.55 + (i % 7) * 0.48 + (i % 5) * 0.15
     const drift = still ? (i * 0.097) % 1 : (time * pace + i * 0.173) % 1
     const pull = drift * drift * (3 - 2 * drift)
-    const orbit = spin * (0.85 + (i % 6) * 0.2) + i * 0.57 + drift * (3.1 + (i % 4) * 0.7)
-    const r = reach * 0.92 * (0.98 - (0.98 - (core * 1.08) / (reach * 0.92)) * pull)
-    if (r <= core * 1.05) continue
-    const size = (0.9 + (i % 4) * 0.45) * BODY
+    const orbit = spin * (1.05 + (i % 6) * 0.25) + i * 0.57 + drift * (3.4 + (i % 4) * 0.8)
+    const r = reach * (0.96 - (0.96 - (core * 1.1) / Math.max(reach, 1)) * pull)
+    if (r <= core * 1.06) continue
+    const size = (0.7 + (i % 4) * 0.35) * BODY * scale
     const ink = holeArmTone(red, i % 4)
-    const alpha = (red ? 0.2 : 0.28) + (1 - pull) * 0.55
-    ctx.fillStyle = `rgba(${ink}, ${alpha})`
+    ctx.fillStyle = `rgba(${ink}, ${(red ? 0.22 : 0.3) + (1 - pull) * 0.5})`
     ctx.fillRect(Math.cos(orbit) * r - size * 0.5, Math.sin(orbit) * r - size * 0.5, size, size)
   }
   if (!lean) ctx.globalCompositeOperation = 'source-over'
 
-  // Soft blazing glow hugging the void rim — kept outside the black center.
-  const halo = ctx.createRadialGradient(0, 0, core * 0.85, 0, 0, core * 2.15)
+  // Soft glow hugging the void rim only — never a filled white disc.
+  const halo = ctx.createRadialGradient(0, 0, core * 0.9, 0, 0, core * 1.85)
   halo.addColorStop(0, `rgba(${hot}, 0)`)
-  halo.addColorStop(0.28, `rgba(${hot}, ${lean ? 0.5 : 0.95})`)
-  halo.addColorStop(0.55, `rgba(${hot}, 0.4)`)
+  halo.addColorStop(0.35, `rgba(${hot}, ${lean ? 0.45 : 0.85})`)
+  halo.addColorStop(0.7, `rgba(${hot}, 0.22)`)
   halo.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = halo
   ctx.beginPath()
-  ctx.arc(0, 0, core * 2.15, 0, Math.PI * 2)
+  ctx.arc(0, 0, core * 1.85, 0, Math.PI * 2)
   ctx.fill()
 
-  if (!lean) {
-    ctx.globalCompositeOperation = 'lighter'
-    const rimGlow = ctx.createRadialGradient(0, 0, core * 0.95, 0, 0, core * 1.4)
-    rimGlow.addColorStop(0, `rgba(${hot}, 0)`)
-    rimGlow.addColorStop(0.5, `rgba(${hot}, 0.85)`)
-    rimGlow.addColorStop(1, `rgba(${hot}, 0)`)
-    ctx.fillStyle = rimGlow
-    ctx.beginPath()
-    ctx.arc(0, 0, core * 1.4, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.globalCompositeOperation = 'source-over'
-  }
-
-  ctx.globalAlpha = fade
   ctx.globalCompositeOperation = 'source-over'
   ctx.fillStyle = '#000000'
   ctx.beginPath()
-  ctx.arc(0, 0, core, 0, Math.PI * 2)
+  ctx.arc(0, 0, Math.max(1.5, core), 0, Math.PI * 2)
   ctx.fill()
   ctx.restore()
 }
