@@ -209,7 +209,7 @@ function paintHole(
   // Opposite spin direction from before (negative time term).
   const spin = -time * (red ? 1.4 : 1.2) - spinBoost - well.x * 0.01
   const twistMul = 1 + (well.closing > 0 ? (1 - closeScale) * 2.1 : 0)
-  const core = Math.max(22 * BODY, well.radius * 0.42) * scale
+  const core = Math.max(30 * BODY, well.radius * 0.58) * scale
   const reach = well.radius * (lean ? 1.7 : 2.05) * scale
   if (reach < 2) return
   const steps = lean ? 12 : 18
