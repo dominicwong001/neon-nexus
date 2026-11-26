@@ -2711,107 +2711,58 @@ function rollOffers(state: GameState): Offer[] {
   return picked.map((id) => describeOffer(state, id))
 }
 
+const OFFER_COPY: Record<Exclude<UpgradeId, 'cache'>, { title: string; detail: string }> = {
+  pulse: { title: 'Pulse', detail: 'Shots leave the core sooner.' },
+  caliber: { title: 'Caliber', detail: 'Each round hits a little harder.' },
+  drift: { title: 'Drift', detail: 'Top speed climbs.' },
+  magnet: { title: 'Magnet', detail: 'Orbs race toward the core faster. Each rank pulls harder and reaches a little farther.' },
+  fork: { title: 'Fork', detail: 'Two streams sit on the reticle. The next rank adds a third, still tight on the aim.' },
+  greed: { title: 'Greed', detail: 'Every orb pays a bonus, and bigger orbs pay a little more.' },
+  regen: { title: 'Regeneration', detail: 'Each level restores one health. Ranks restore more.' },
+  orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
+  field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
+  ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off giant circles and any hostile whose hull is 1000 or more, no matter how much health is left.' },
+  drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
+  tesla: { title: 'Tesla Coil', detail: 'One lightning bolt falls on a hostile in view, leaning toward the tougher ones. Later ranks hit harder and strike again sooner.' },
+  hole: { title: 'Black Hole', detail: 'A pitch-black core wrapped in a dense white swirling vortex. It violently pulls hostiles across its full reach and burns them lightly while it lasts.' },
+}
+
+const OFFER_RANK_UP: Partial<Record<Exclude<UpgradeId, 'cache'>, string>> = {
+  orbiter: 'One more disc. They last longer, hit harder, spin faster, and nudge harder.',
+  field: 'The field widens, burns harder, slows more, and pulses faster.',
+  ball: 'More balls. They hit harder and stay out longer.',
+  drone: 'More rockets in each fan, a wider blast, and a shorter wait between volleys.',
+  tesla: 'Still one bolt. It hits harder, and the pause before the next strike is shorter.',
+  hole: 'A wider well, a longer burn, and a more violent pull across the full vortex.',
+  magnet: 'Orbs snap in faster, and the pull reaches a little farther.',
+  regen: 'Each level restores a little more health.',
+}
+
+const OFFER_EVOLVE: Partial<Record<Exclude<UpgradeId, 'cache'>, { title: string; detail: string }>> = {
+  tesla: { title: 'Arc Reactor', detail: 'One red bolt strikes, then chain-arcs through nearby hostiles. It hits harder and falls again sooner.' },
+  drone: { title: 'Bulletstorm', detail: 'The drone turns red. Each volley is a wide fan of rockets, and the wait between them is short.' },
+  orbiter: { title: "Guardian's Halo", detail: 'Six red discs stay out and spin faster. They carve hostiles without knocking them away.' },
+  ball: { title: 'Quantum Core', detail: 'Hyper-fast red balls. They bounce off giant circles and hostiles with 1000 hull or more, and a hit replaces each one with two smaller balls.' },
+  field: { title: 'Null Zone', detail: 'The field turns red, reaches farther, burns harder, and slows hostiles and flying shards inside it.' },
+  hole: { title: 'Singularity', detail: 'Same-size crimson vortex: red to orange to white into a black core. It yanks hostiles in hard, then collapses into a storm of dust and a blast that grows with everything it absorbed.' },
+}
+
 function describeOffer(state: GameState, id: UpgradeId): Offer {
-  if (id === 'cache') {
-    return { id, title: 'Cache', detail: 'Bank 40 score.', rank: 1, max: 1, overdrive: false }
-  }
+  if (id === 'cache') return { id, title: 'Cache', detail: 'Bank 40 score.', rank: 1, max: 1, overdrive: false }
   const rank = state.mods[id] + 1
   const max = UPGRADE_MAX[id]
-  const overdrive = rank >= OVERDRIVE && (id === 'orbiter' || id === 'field' || id === 'ball')
-  if (id === 'tesla' && arcReactor(rank)) {
-    return {
-      id,
-      title: 'Arc Reactor',
-      detail: 'One red bolt strikes, then chain-arcs through nearby hostiles. It hits harder and falls again sooner.',
-      rank,
-      max,
-      overdrive: true,
-    }
+  const evolved =
+    (id === 'tesla' && arcReactor(rank)) ||
+    (id === 'drone' && droneStorm(rank)) ||
+    (id === 'hole' && singularity(rank)) ||
+    ((id === 'orbiter' || id === 'field' || id === 'ball') && rank >= OVERDRIVE)
+  if (evolved) {
+    const evo = OFFER_EVOLVE[id]!
+    return { id, title: evo.title, detail: evo.detail, rank, max, overdrive: true }
   }
-  if (id === 'drone' && droneStorm(rank)) {
-    return {
-      id,
-      title: 'Bulletstorm',
-      detail: 'The drone turns red. Each volley is a wide fan of rockets, and the wait between them is short.',
-      rank,
-      max,
-      overdrive: true,
-    }
-  }
-  if (id === 'orbiter' && overdrive) {
-    return {
-      id,
-      title: "Guardian's Halo",
-      detail: 'Six red discs stay out and spin faster. They carve hostiles without knocking them away.',
-      rank,
-      max,
-      overdrive: true,
-    }
-  }
-  if (id === 'ball' && overdrive) {
-    return {
-      id,
-      title: 'Quantum Core',
-      detail: 'Hyper-fast red balls. They bounce off giant circles and hostiles with 1000 hull or more, and a hit replaces each one with two smaller balls.',
-      rank,
-      max,
-      overdrive: true,
-    }
-  }
-  if (id === 'field' && overdrive) {
-    return {
-      id,
-      title: 'Null Zone',
-      detail: 'The field turns red, reaches farther, burns harder, and slows hostiles and flying shards inside it.',
-      rank,
-      max,
-      overdrive: true,
-    }
-  }
-  if (id === 'hole' && singularity(rank)) {
-    return {
-      id,
-      title: 'Singularity',
-      detail: 'Same-size crimson vortex: red to orange to white into a black core. It yanks hostiles in hard, then collapses into a storm of dust and a blast that grows with everything it absorbed.',
-      rank,
-      max,
-      overdrive: true,
-    }
-  }
-  const copy: Record<Exclude<UpgradeId, 'cache'>, { title: string; detail: string }> = {
-    pulse: { title: 'Pulse', detail: 'Shots leave the core sooner.' },
-    caliber: { title: 'Caliber', detail: 'Each round hits a little harder.' },
-    drift: { title: 'Drift', detail: 'Top speed climbs.' },
-    magnet: { title: 'Magnet', detail: 'Orbs race toward the core faster. Each rank pulls harder and reaches a little farther.' },
-    fork: { title: 'Fork', detail: 'Two streams sit on the reticle. The next rank adds a third, still tight on the aim.' },
-    greed: { title: 'Greed', detail: 'Every orb pays a bonus, and bigger orbs pay a little more.' },
-    regen: { title: 'Regeneration', detail: 'Each level restores one health. Ranks restore more.' },
-    orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
-    field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
-    ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off giant circles and any hostile whose hull is 1000 or more, no matter how much health is left.' },
-    drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
-    tesla: { title: 'Tesla Coil', detail: 'One lightning bolt falls on a hostile in view, leaning toward the tougher ones. Later ranks hit harder and strike again sooner.' },
-    hole: { title: 'Black Hole', detail: 'A pitch-black core wrapped in a dense white swirling vortex. It violently pulls hostiles across its full reach and burns them lightly while it lasts.' },
-  }
-  const detail =
-    id === 'orbiter' && rank > 1
-      ? 'One more disc. They last longer, hit harder, spin faster, and nudge harder.'
-      : id === 'field' && rank > 1
-        ? 'The field widens, burns harder, slows more, and pulses faster.'
-        : id === 'ball' && rank > 1
-          ? 'More balls. They hit harder and stay out longer.'
-            : id === 'drone' && rank > 1
-              ? 'More rockets in each fan, a wider blast, and a shorter wait between volleys.'
-              : id === 'tesla' && rank > 1 && rank < TESLA.evolveRank
-                ? 'Still one bolt. It hits harder, and the pause before the next strike is shorter.'
-                : id === 'hole' && rank > 1 && rank < HOLE.evolveRank
-                  ? 'A wider well, a longer burn, and a more violent pull across the full vortex.'
-                  : id === 'magnet' && rank > 1
-                    ? 'Orbs snap in faster, and the pull reaches a little farther.'
-                    : id === 'regen' && rank > 1
-                      ? 'Each level restores a little more health.'
-                      : copy[id].detail
-  return { id, title: copy[id].title, detail, rank, max, overdrive: false }
+  const base = OFFER_COPY[id]
+  const ranked = rank > 1 && (id === 'tesla' ? rank < TESLA.evolveRank : id === 'hole' ? rank < HOLE.evolveRank : true)
+  return { id, title: base.title, detail: ranked && OFFER_RANK_UP[id] ? OFFER_RANK_UP[id]! : base.detail, rank, max, overdrive: false }
 }
 
 function applyUpgrade(state: GameState, id: UpgradeId): void {
