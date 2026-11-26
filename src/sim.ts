@@ -65,6 +65,10 @@ export interface Particle {
   max: number
   size: number
   color: string
+  /** Broken enemy chip — visual only, no collision. */
+  shard?: boolean
+  ang?: number
+  spin?: number
 }
 
 export interface Shock {
@@ -1078,7 +1082,8 @@ function finishEnemy(state: GameState, enemy: Enemy, events: StepEvents): void {
     max: 0.28,
     color: ENEMY_COLOR[enemy.kind],
   })
-  burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 14, 280)
+  burst(state, enemy.x, enemy.y, ENEMY_COLOR[enemy.kind], 10, 240)
+  shatterEnemyDebris(state, enemy)
   dropOrb(state, enemy)
   if (enemy.kind === 2 && enemy.radius > KIND[2].radius * 1.5) splitCircle(state, enemy, 'normal')
   else if (enemy.kind === 2 && enemy.generation === 0) splitCircle(state, enemy, 'piece')
@@ -1249,12 +1254,14 @@ function moveEnemies(state: GameState, input: Input, dt: number): void {
       if (e.fuse <= 0) {
         shatterHex(state, e)
         burst(state, e.x, e.y, ENEMY_COLOR[3], 22, 360)
+        shatterEnemyDebris(state, e)
         state.enemies.splice(j, 1)
       }
       continue
     }
     if (e.ballistic && e.orbitCd <= 0) {
       burst(state, e.x, e.y, ENEMY_COLOR[e.kind], 6, 140)
+      shatterEnemyDebris(state, e)
       state.enemies.splice(j, 1)
       continue
     }
@@ -2868,6 +2875,38 @@ function burst(state: GameState, x: number, y: number, color: string, count: num
   }
 }
 
+const SHARD_INK: Record<number, string[]> = {
+  0: ['#ff3df2', '#ff7af5', '#c010a8', '#ffffff'],
+  1: ['#ffd23a', '#ffe080', '#c9a010', '#ffffff'],
+  2: ['#8dff6a', '#b8ff9a', '#4cb828', '#ffffff'],
+  3: ['#ff2d3a', '#ff6a70', '#b01020', '#ffffff'],
+}
+
+/** Visual-only broken chips of the enemy body — never deal damage. */
+function shatterEnemyDebris(state: GameState, enemy: Enemy): void {
+  const palette = SHARD_INK[enemy.kind] ?? ['#ffffff']
+  const count = Math.min(36, 12 + Math.floor(enemy.radius * 0.9))
+  for (let i = 0; i < count; i++) {
+    const a = state.rng() * Math.PI * 2
+    const s = (90 + state.rng() * 280) * (0.55 + enemy.radius / 40)
+    const life = 0.28 + state.rng() * 0.42
+    const chip = 1.4 + state.rng() * Math.max(2.2, enemy.radius * 0.22)
+    pushParticle(state, {
+      x: enemy.x + (state.rng() - 0.5) * enemy.radius * 0.6,
+      y: enemy.y + (state.rng() - 0.5) * enemy.radius * 0.6,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s,
+      life,
+      max: life,
+      size: chip * BODY,
+      color: palette[Math.floor(state.rng() * palette.length)]!,
+      shard: true,
+      ang: a + (state.rng() - 0.5) * 0.8,
+      spin: (state.rng() - 0.5) * 14,
+    })
+  }
+}
+
 function pushParticle(state: GameState, particle: Particle): void {
   if (state.particles.length > 1900) state.particles.shift()
   state.particles.push(particle)
@@ -2887,6 +2926,7 @@ function decayFx(state: GameState, dt: number): void {
     }
     p.x += p.vx * dt
     p.y += p.vy * dt
+    if (p.shard && p.spin) p.ang = (p.ang ?? 0) + p.spin * dt
     const damp = Math.exp(-2.2 * dt)
     p.vx *= damp
     p.vy *= damp

@@ -683,12 +683,30 @@ function drawParticles(
     ctx.globalAlpha = Math.max(0, p.life / p.max)
     ctx.fillStyle = p.color
     const s = p.size
+    const px = X(p.x)
+    const py = Y(p.y)
+    if (p.shard) {
+      // Broken enemy chips — short rotated shards, visual only.
+      ctx.save()
+      ctx.translate(px, py)
+      ctx.rotate(p.ang ?? 0)
+      ctx.fillRect(-s * 1.1, -s * 0.28, s * 2.2, s * 0.56)
+      ctx.strokeStyle = p.color
+      ctx.globalAlpha = Math.max(0, p.life / p.max) * 0.85
+      ctx.lineWidth = Math.max(0.8, s * 0.22)
+      ctx.beginPath()
+      ctx.moveTo(-s * 1.15, 0)
+      ctx.lineTo(s * 1.15, 0)
+      ctx.stroke()
+      ctx.restore()
+      continue
+    }
     if (s > 3.5 * BODY) {
       ctx.beginPath()
-      ctx.arc(X(p.x), Y(p.y), s * 0.45, 0, Math.PI * 2)
+      ctx.arc(px, py, s * 0.45, 0, Math.PI * 2)
       ctx.fill()
     } else {
-      ctx.fillRect(X(p.x) - s / 2, Y(p.y) - s / 2, s, s)
+      ctx.fillRect(px - s / 2, py - s / 2, s, s)
     }
   }
   ctx.restore()
