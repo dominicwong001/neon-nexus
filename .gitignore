@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+halo-preview.html
 
 # Editor directories and files
 .vscode/*
