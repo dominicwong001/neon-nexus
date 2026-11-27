@@ -371,7 +371,7 @@ export interface StepEvents {
 const KIND = [
   { radius: 14 * BODY, hp: 100, speed: 70, spin: 2.8 },
   // Pentagon matches normal hex size; rarer spawn than the old square slot.
-  { radius: 40 * BODY, hp: 200, speed: 31, spin: 1.15 },
+  { radius: 40 * BODY, hp: 500, speed: 31, spin: 1.15 },
   { radius: 20 * BODY, hp: 300, speed: 34, spin: 0.8 },
   { radius: 40 * BODY, hp: 1000, speed: 22, spin: 0.55 },
 ] as const
@@ -658,7 +658,7 @@ export const PENT = {
   shotSpeed: 155,
   shotLife: 3.2,
   shotRadius: 11 * BODY,
-  fanSpread: 0.38,
+  fanSpread: 0.78,
 } as const
 
 export const GIANT_PENT = {
@@ -668,12 +668,12 @@ export const GIANT_PENT = {
   charge: 0.85,
   reload: 1.65,
   shotSpeed: 175,
-  fanSpread: 0.52,
+  fanSpread: 1.12,
   stagger: 0.16,
 } as const
 
 export function giantPentagon(enemy: Enemy): boolean {
-  return enemy.kind === 1 && !enemy.ballistic && enemy.maxHp >= 1000
+  return enemy.kind === 1 && !enemy.ballistic && enemy.maxHp >= 5000
 }
 
 export function isPentagon(enemy: Enemy): boolean {
@@ -1272,8 +1272,8 @@ function spawnOne(state: GameState, viewRadius: number): void {
   } else if (kind === 3 && bigHexSeason(state) && state.rng() < 0.4) {
     radius *= 1.95
   } else if (kind === 1 && bigHexSeason(state) && state.rng() < 0.4) {
-    // Giant Pentagon — same scale-up as giant hex, 1000+ hull.
-    hp = Math.max(1000, KIND[3].hp)
+    // Giant Pentagon — same scale-up as giant hex, much thicker hull.
+    hp = 5000
     radius *= 1.95
   }
   state.enemies.push({

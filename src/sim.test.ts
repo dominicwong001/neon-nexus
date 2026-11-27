@@ -396,7 +396,7 @@ describe('hostiles', () => {
       step(early, input({ viewRadius: 400, aimActive: false }), 1 / 60)
       for (const hostile of early.enemies) {
         earlyCounts[hostile.kind] += 1
-        assert.equal(hostile.hp, [100, 200, 300, 1000][hostile.kind])
+        assert.equal(hostile.hp, [100, 500, 300, 1000][hostile.kind])
       }
     }
     assert.ok((earlyCounts[3] ?? 0) >= 1)
@@ -429,8 +429,8 @@ describe('hostiles', () => {
           if (hostile.radius > 40) giantHex += 1
           else plainHex += 1
         } else if (hostile.kind === 1) {
-          assert.ok(Math.abs(hostile.radius - (hostile.maxHp >= 1000 ? 40 * BODY * 1.95 : 40 * BODY)) < 0.01)
-          if (hostile.maxHp >= 1000) giantPent += 1
+          assert.ok(Math.abs(hostile.radius - (hostile.maxHp >= 5000 ? 40 * BODY * 1.95 : 40 * BODY)) < 0.01)
+          if (hostile.maxHp >= 5000) giantPent += 1
           else plainPent += 1
         }
       }
@@ -484,8 +484,8 @@ describe('hostiles', () => {
     const pent = enemy({
       x: 500,
       y: 0,
-      hp: 200,
-      maxHp: 200,
+      hp: 500,
+      maxHp: 500,
       radius: 40 * BODY,
       speed: 200,
       kind: 1,
@@ -578,8 +578,8 @@ describe('hostiles', () => {
     const elite = enemy({
       x: GIANT_PENT.stopMin + 20,
       y: 0,
-      hp: 1000,
-      maxHp: 1000,
+      hp: 5000,
+      maxHp: 5000,
       radius: 40 * BODY * 1.95,
       speed: 0,
       kind: 1,
@@ -831,7 +831,7 @@ describe('orbs', () => {
         else plain[hostile.kind] += 1
       }
     }
-    assert.ok((best[1] ?? 0) >= 1000)
+    assert.ok((best[1] ?? 0) >= 5000)
     assert.ok((best[2] ?? 0) >= 750)
     assert.ok((best[0] ?? 0) >= 250)
     assert.ok((pace[0] ?? 0) > 110)
