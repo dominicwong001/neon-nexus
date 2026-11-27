@@ -7,11 +7,11 @@ import {
   DISC,
   chooseUpgrade,
   createGame,
-  GIANT_PENT,
   HEX_FUSE,
   PENT,
   giantPentagon,
   isPentagon,
+  orbTier,
   hexFuseLit,
   hexRingReach,
   orbitActive,
@@ -727,21 +727,49 @@ describe('hostiles', () => {
 })
 
 describe('orbs', () => {
-  it('drops a richer orb from a healthier shape', () => {
+  it('drops orb tiers by shape class', () => {
+    const tri = enemy({ x: 0, y: 0, kind: 0, hp: 100, maxHp: 100, radius: 14 * BODY })
+    const mini = enemy({ x: 0, y: 0, kind: 2, hp: 100, maxHp: 100, radius: 20 * BODY * 0.48, generation: 2 })
+    const circle = enemy({ x: 0, y: 0, kind: 2, hp: 300, maxHp: 300, radius: 20 * BODY, generation: 0 })
+    const giantTri = enemy({ x: 0, y: 0, kind: 0, hp: 300, maxHp: 300, radius: 14 * BODY * 2.05 })
+    const hex = enemy({ x: 0, y: 0, kind: 3, hp: 1000, maxHp: 1000, radius: 40 * BODY })
+    const pent = enemy({ x: 0, y: 0, kind: 1, hp: 500, maxHp: 500, radius: 40 * BODY })
+    const giantCirc = enemy({ x: 0, y: 0, kind: 2, hp: 750, maxHp: 750, radius: 20 * BODY * 2.6 })
+    const giantHex = enemy({ x: 0, y: 0, kind: 3, hp: 5000, maxHp: 5000, radius: 40 * BODY * 1.95 })
+    const giantPent = enemy({ x: 0, y: 0, kind: 1, hp: 2500, maxHp: 2500, radius: 40 * BODY * 1.95 })
+    assert.equal(orbTier(tri), 1)
+    assert.equal(orbTier(mini), 1)
+    assert.equal(orbTier(circle), 2)
+    assert.equal(orbTier(giantTri), 3)
+    assert.equal(orbTier(hex), 3)
+    assert.equal(orbTier(pent), 3)
+    assert.equal(orbTier(giantCirc), 4)
+    assert.equal(orbTier(giantHex), 5)
+    assert.equal(orbTier(giantPent), 5)
+
     const state = createGame(0, 31)
     state.spawnCd = 999
+    state.fireCd = 10
     state.xpNeed = 9999
-    state.enemies.push(enemy({ x: 220, y: 0, kind: 1, hp: 200, speed: 0, radius: 16 }))
-    state.enemies.push(enemy({ x: 320, y: 0, kind: 2, hp: 300, speed: 0, radius: 14, generation: 2 }))
-    run(state, input({ aimX: 900, aimY: 0 }), 3)
-    const square = state.orbs.find((item) => item.value === 2)
-    const circle = state.orbs.find((item) => item.value === 3)
-    assert.ok(square)
-    assert.ok(circle)
-    assert.ok(circle.radius > square.radius)
-    assert.equal(square.color, '#7dff9a')
-    assert.equal(circle.color, '#ffe14a')
-    assert.notEqual(circle.color, square.color)
+    const marks = [
+      { x: 80, kind: 0 as const, maxHp: 100, radius: 14 * BODY, generation: 0 },
+      { x: 220, kind: 2 as const, maxHp: 300, radius: 20 * BODY, generation: 0 },
+      { x: 360, kind: 1 as const, maxHp: 500, radius: 40 * BODY, generation: 0 },
+      { x: 520, kind: 2 as const, maxHp: 750, radius: 20 * BODY * 2.6, generation: 0 },
+      { x: 700, kind: 3 as const, maxHp: 5000, radius: 40 * BODY * 1.95, generation: 0 },
+    ]
+    for (const mark of marks) {
+      state.enemies.push(enemy({ x: mark.x, y: 0, kind: mark.kind, hp: 1, maxHp: mark.maxHp, speed: 0, radius: mark.radius, generation: mark.generation }))
+      state.bullets.push({ x: mark.x, y: 0, vx: 0, vy: 0, life: 1 })
+    }
+    step(state, input({ aimActive: false, viewW: 1600, viewH: 900 }), 1 / 60)
+    const tiers = state.orbs.map((item) => item.value).sort((a, b) => a - b)
+    assert.deepEqual(tiers, [1, 2, 3, 4, 5])
+    assert.equal(state.orbs.find((item) => item.value === 1)?.color, '#eef3ff')
+    assert.equal(state.orbs.find((item) => item.value === 2)?.color, '#7dff9a')
+    assert.equal(state.orbs.find((item) => item.value === 3)?.color, '#ffe14a')
+    assert.equal(state.orbs.find((item) => item.value === 4)?.color, '#ff8a24')
+    assert.equal(state.orbs.find((item) => item.value === 5)?.color, '#ff2d3a')
   })
 
   it('pulls a nearby orb into the bar and keeps far orbs around', () => {

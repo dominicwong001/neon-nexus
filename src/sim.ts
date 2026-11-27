@@ -1604,22 +1604,37 @@ function touchPlayer(state: GameState, events: StepEvents): void {
   }
 }
 
-function orbValue(hp: number): number {
-  return Math.max(1, Math.round(hp / 100))
+/** Orb tiers: 1 pale → 5 red. Value matches the tier. */
+const ORB_TIER = [
+  { value: 1, color: '#eef3ff', radius: 3.4 },
+  { value: 2, color: '#7dff9a', radius: 4.4 },
+  { value: 3, color: '#ffe14a', radius: 5.4 },
+  { value: 4, color: '#ff8a24', radius: 6.6 },
+  { value: 5, color: '#ff2d3a', radius: 7.8 },
+] as const
+
+function giantTriangle(enemy: Enemy): boolean {
+  return enemy.kind === 0 && !enemy.ballistic && enemy.radius > KIND[0].radius * 1.5
 }
 
-function orbColor(value: number): string {
-  if (value >= 12) return '#ff2d3a'
-  if (value >= 8) return '#ff4d9a'
-  if (value >= 5) return '#ff8a24'
-  if (value >= 3) return '#ffe14a'
-  if (value >= 2) return '#7dff9a'
-  return '#eef3ff'
+function miniCircle(enemy: Enemy): boolean {
+  return enemy.kind === 2 && !enemy.ballistic && (enemy.generation > 0 || enemy.radius <= KIND[2].radius * 0.6)
+}
+
+/** Which orb a kill drops — by shape class, not raw HP. */
+export function orbTier(enemy: Enemy): number {
+  if (enemy.ballistic) return 1
+  if (giantHex(enemy) || giantPentagon(enemy)) return 5
+  if (giantCircle(enemy)) return 4
+  if (giantTriangle(enemy) || enemy.kind === 3 || isPentagon(enemy)) return 3
+  if (enemy.kind === 2 && !miniCircle(enemy)) return 2
+  // Triangle + mini circle.
+  return 1
 }
 
 function dropOrb(state: GameState, enemy: Enemy): void {
-  const value = orbValue(enemy.maxHp)
-  const radius = 3.1 + Math.min(5.6, value * 0.7)
+  const tier = Math.max(1, Math.min(5, orbTier(enemy)))
+  const spec = ORB_TIER[tier - 1]!
   const a = state.rng() * Math.PI * 2
   const kick = 18 + state.rng() * 36
   state.orbs.push({
@@ -1627,10 +1642,10 @@ function dropOrb(state: GameState, enemy: Enemy): void {
     y: enemy.y,
     vx: Math.cos(a) * kick,
     vy: Math.sin(a) * kick,
-    radius,
-    value,
-    color: orbColor(value),
-    rare: value >= 5,
+    radius: spec.radius,
+    value: spec.value,
+    color: spec.color,
+    rare: tier >= 4,
     homing: false,
     pulse: state.rng() * Math.PI * 2,
   })
