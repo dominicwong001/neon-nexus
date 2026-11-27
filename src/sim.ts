@@ -1568,12 +1568,11 @@ function moveEnemies(state: GameState, input: Input, dt: number): void {
 
 function insideActiveHole(state: GameState, enemy: Enemy): boolean {
   for (const well of state.holes) {
-    if (well.blast > 0) continue
-    const scale = well.closing > 0
-      ? Math.max(0.08, well.closeMax > 0 ? well.closing / well.closeMax : 0.2)
-      : 1
-    const reach = well.radius * scale + enemy.radius
-    if (Math.hypot(enemy.x - well.x, enemy.y - well.y) <= reach) return true
+    // Keep soft-overlap for the whole close (and Singularity blast) so stacked
+    // hostiles release in one pop — not once as the well pinches, then again on vanish.
+    const span = well.blast > 0 ? well.blastRadius : well.radius
+    if (span <= 0) continue
+    if (Math.hypot(enemy.x - well.x, enemy.y - well.y) <= span + enemy.radius) return true
   }
   return false
 }
@@ -2522,8 +2521,15 @@ function updateHoles(state: GameState, dt: number, events: StepEvents, viewW: nu
         }
         continue
       }
+      // Closing finished — end the well once (never re-enter close/collapse).
+      well.closing = 0
+      well.closeMax = -1
       if (well.crimson) collapseHole(state, well, events)
-      else state.holes.splice(i, 1)
+      else {
+        // Base Black Hole: one outward release of stacked hostiles, then gone.
+        releaseHoleStack(state, well)
+        state.holes.splice(i, 1)
+      }
       continue
     }
     well.life -= dt
@@ -2534,6 +2540,8 @@ function updateHoles(state: GameState, dt: number, events: StepEvents, viewW: nu
       tickHole(state, well, events)
     }
     if (well.life > 0) continue
+    // Already spent / blasting — never wind down twice.
+    if (well.blast > 0 || well.closeMax < 0) continue
     const close = holeCloseTime(well.crimson)
     well.closing = close
     well.closeMax = close
@@ -2647,7 +2655,42 @@ function tickHole(state: GameState, well: Hole, events: StepEvents): void {
   well.absorbed += Math.max(0, state.dealt.hole - before)
 }
 
+/** Hostiles currently stacked inside a well (non-ballistic). */
+function enemiesInWell(state: GameState, well: Hole, reach: number): Enemy[] {
+  const hit: Enemy[] = []
+  for (const enemy of state.enemies) {
+    if (!enemy || enemy.ballistic || enemy.fuse > 0) continue
+    if (Math.hypot(enemy.x - well.x, enemy.y - well.y) <= reach + enemy.radius) hit.push(enemy)
+  }
+  return hit
+}
+
+/** One outward release — spreads the stack so separation does not pop them again. */
+function releaseHoleStack(state: GameState, well: Hole, reach = well.radius, kickBase = 280): void {
+  const trapped = enemiesInWell(state, well, Math.max(reach, 1))
+  if (trapped.length === 0) return
+  const step = (Math.PI * 2) / trapped.length
+  for (let i = 0; i < trapped.length; i++) {
+    const enemy = trapped[i]!
+    const dx = enemy.x - well.x
+    const dy = enemy.y - well.y
+    const dist = Math.hypot(dx, dy)
+    const ang = dist < 0.01 ? enemy.phase + i * step : Math.atan2(dy, dx)
+    const nx = Math.cos(ang)
+    const ny = Math.sin(ang)
+    const kick = kickBase + Math.min(220, well.absorbed * 0.05)
+    enemy.vx = nx * kick
+    enemy.vy = ny * kick
+    // Fan them onto a ring past their radii so the next separate pass is quiet.
+    const park = Math.max(dist, enemy.radius * 2.2) + i * enemy.radius * 0.15
+    enemy.x = well.x + nx * park
+    enemy.y = well.y + ny * park
+  }
+}
+
 function collapseHole(state: GameState, well: Hole, events: StepEvents): void {
+  // Guard: blast already running means we already detonated.
+  if (well.blast > 0) return
   const radius = holeBlastRadius(well.absorbed)
   const dealt = holeBlastDamage(well.absorbed)
   well.blastRadius = radius
@@ -2655,6 +2698,7 @@ function collapseHole(state: GameState, well: Hole, events: StepEvents): void {
   well.blast = well.blastMax
   well.life = 0
   well.radius = 0
+  well.closeMax = -1
   state.shake = Math.min(18, state.shake + 6.5 + Math.min(8, well.absorbed * 0.008))
   // No global red hurt-flash — dust, rings, and shake already sell the detonation.
   // Layered expanding shockwave rings.
@@ -2686,20 +2730,18 @@ function collapseHole(state: GameState, well: Hole, events: StepEvents): void {
     width: 2.8,
   })
   singularityDust(state, well.x, well.y, well.absorbed)
-  for (let j = state.enemies.length - 1; j >= 0; j--) {
-    const enemy = state.enemies[j]
-    if (!enemy || enemy.immortal) continue
-    const dist = Math.hypot(enemy.x - well.x, enemy.y - well.y)
-    if (dist > radius + enemy.radius) continue
+  // Snapshot before damage removes anyone — one blast kick only.
+  const trapped = enemiesInWell(state, well, radius)
+  for (const enemy of trapped) {
+    if (enemy.immortal) continue
     damageEnemy(state, enemy, events, dealt, '#ff2d3a', 'hole')
-    if (enemy.fuse > 0) continue
-    const dx = enemy.x - well.x
-    const dy = enemy.y - well.y
-    const span = Math.hypot(dx, dy) || 1
-    const kick = 240 + Math.min(300, well.absorbed * 0.08)
-    enemy.vx += (dx / span) * kick
-    enemy.vy += (dy / span) * kick
   }
+  releaseHoleStack(
+    state,
+    well,
+    radius,
+    240 + Math.min(300, well.absorbed * 0.08),
+  )
 }
 
 const SINGULARITY_DUST = [

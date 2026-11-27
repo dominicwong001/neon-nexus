@@ -1428,6 +1428,56 @@ describe('orbs', () => {
     assert.equal(well.dealt.hole, holeDealtBeforeClose)
     assert.equal(well.shocks.length, shocksBefore)
 
+    // Stacked hostiles are released outward once when the well ends — not twice.
+    const pop = createGame(0, 2802)
+    pop.spawnCd = 999
+    pop.fireCd = 10
+    pop.invuln = 5
+    pop.holeCd = 999
+    pop.holes.push({
+      x: 0,
+      y: 0,
+      life: 0.01,
+      max: 3,
+      radius: 200,
+      pull: 0,
+      damage: 0,
+      tickCd: 99,
+      absorbed: 40,
+      crimson: false,
+      closing: 0,
+      closeMax: holeCloseTime(false),
+      blast: 0,
+      blastMax: 0,
+      blastRadius: 0,
+    })
+    const stacked = [
+      enemy({ x: -4, y: 0, radius: 18, hp: 80, speed: 0, vx: 0, vy: 0, phase: 0.2 }),
+      enemy({ x: 4, y: 0, radius: 18, hp: 80, speed: 0, vx: 0, vy: 0, phase: 1.1 }),
+      enemy({ x: 0, y: 4, radius: 18, hp: 80, speed: 0, vx: 0, vy: 0, phase: 2.0 }),
+    ]
+    pop.enemies.push(...stacked)
+    step(pop, input({ aimActive: false }), 1 / 30)
+    assert.ok((pop.holes[0]?.closing ?? 0) > 0)
+    // Still stacked while closing — no early bust.
+    for (const foe of stacked) {
+      assert.ok(Math.hypot(foe.x, foe.y) < 40, `early release at ${Math.hypot(foe.x, foe.y)}`)
+    }
+    run(pop, input({ aimActive: false }), holeCloseTime(false) + 1 / 60)
+    assert.equal(pop.holes.length, 0)
+    const outward = stacked.map((foe) => foe.vx * foe.x + foe.vy * foe.y)
+    assert.ok(outward.every((dot) => dot > 0), 'expected one outward release')
+    const speeds = stacked.map((foe) => Math.hypot(foe.vx, foe.vy))
+    assert.ok(speeds.every((s) => s > 100))
+    // Next frames must not re-impulse — speed only decays / steers, not a second burst.
+    const before = speeds.slice()
+    step(pop, input({ aimActive: false }), 1 / 60)
+    step(pop, input({ aimActive: false }), 1 / 60)
+    for (let i = 0; i < stacked.length; i++) {
+      const now = Math.hypot(stacked[i]!.vx, stacked[i]!.vy)
+      assert.ok(now < before[i]! * 1.15, `second bust boosted speed ${before[i]} -> ${now}`)
+    }
+
     const nova = createGame(0, 29)
     nova.spawnCd = 999
     nova.fireCd = 10
