@@ -610,7 +610,7 @@ function enemyBodyPath(
 
 const ENEMY_RGB: [number, number, number][] = [
   [255, 61, 242],
-  [255, 210, 58],
+  [61, 184, 255],
   [141, 255, 106],
   [255, 45, 58],
 ]
@@ -899,7 +899,7 @@ function drawEnemies(
 ): void {
   // Subtle kind-colored bloom — off in Fast mode.
   if (!lean) {
-    const sheets = [glowFor('#ff3df2'), glowFor('#ffd23a'), glowFor('#8dff6a'), glowFor('#ff2d3a')]
+    const sheets = [glowFor('#ff3df2'), glowFor('#3db8ff'), glowFor('#8dff6a'), glowFor('#ff2d3a')]
     const hurtGlow = glowFor('#ffffff')
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
@@ -940,7 +940,7 @@ function drawEnemies(
     if (bolt || shard) {
       // Solid neon projectiles — same lit fill as hex shards / pent bolts.
       ctx.fillStyle = ENEMY_COLOR[e.kind]
-      ctx.strokeStyle = bolt ? '#ffe566' : ENEMY_COLOR[3]
+      ctx.strokeStyle = bolt ? '#9adcff' : ENEMY_COLOR[3]
       ctx.lineWidth = (bolt ? 1.8 : 3.1) * BODY
       enemyBodyPath(ctx, e)
       ctx.fill()
@@ -956,7 +956,7 @@ function drawEnemies(
     }
     if (charging) {
       enemyBodyPath(ctx, e)
-      ctx.fillStyle = `rgba(255, 210, 58, ${0.2 + chargeT * 0.65})`
+      ctx.fillStyle = `rgba(61, 184, 255, ${0.2 + chargeT * 0.65})`
       ctx.fill()
       ctx.strokeStyle = `rgba(255, 255, 255, ${0.35 + chargeT * 0.65})`
       ctx.lineWidth = (2.4 + chargeT * 2.2) * BODY

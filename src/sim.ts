@@ -19,7 +19,7 @@ export const TUNING = {
 
 export const HIT = 100
 
-export const ENEMY_COLOR = ['#ff3df2', '#ffd23a', '#8dff6a', '#ff2d3a'] as const
+export const ENEMY_COLOR = ['#ff3df2', '#3db8ff', '#8dff6a', '#ff2d3a'] as const
 
 export type EnemyKind = 0 | 1 | 2 | 3
 export type Phase = 'play' | 'dead' | 'level'
@@ -3030,7 +3030,7 @@ function burst(state: GameState, x: number, y: number, color: string, count: num
 
 const SHARD_INK: Record<number, string[]> = {
   0: ['#ff3df2', '#ff7af5', '#c010a8', '#ffffff'],
-  1: ['#ffd23a', '#ffe080', '#c9a010', '#ffffff'],
+  1: ['#3db8ff', '#9adcff', '#1a6cb0', '#ffffff'],
   2: ['#8dff6a', '#b8ff9a', '#4cb828', '#ffffff'],
   3: ['#ff2d3a', '#ff6a70', '#b01020', '#ffffff'],
 }
