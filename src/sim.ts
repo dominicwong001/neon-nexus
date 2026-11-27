@@ -81,6 +81,10 @@ export interface Particle {
   color: string
   /** Broken enemy chip — visual only, no collision. */
   shard?: boolean
+  /** Shard length scale (visual only). */
+  stretch?: number
+  /** Shard width scale (visual only). */
+  fat?: number
   ang?: number
   spin?: number
 }
@@ -1674,17 +1678,24 @@ function touchPlayer(state: GameState, events: StepEvents): void {
     state.flash = 1
     state.shake = 9
     events.hurt = true
-    if (e.ballistic && e.kind === 3) {
-      const awayX = (state.playerX - e.x) / dist
-      const awayY = (state.playerY - e.y) / dist
-      const kick = 720
-      state.playerVx += awayX * kick
-      state.playerVy += awayY * kick
-      burst(state, e.x, e.y, ENEMY_COLOR[3], 18, 340)
-      state.shocks.push({ x: e.x, y: e.y, life: 0.28, max: 0.28, color: ENEMY_COLOR[3] })
-      state.enemies.splice(j, 1)
-    } else if (e.ballistic && e.kind === 1) {
-      burst(state, e.x, e.y, ENEMY_COLOR[1], 10, 200)
+    if (e.ballistic) {
+      if (e.kind === 3) {
+        const awayX = (state.playerX - e.x) / dist
+        const awayY = (state.playerY - e.y) / dist
+        const kick = 720
+        state.playerVx += awayX * kick
+        state.playerVy += awayY * kick
+      }
+      // Projectiles detonate into shaded body shards on contact.
+      burst(state, e.x, e.y, ENEMY_COLOR[e.kind] ?? '#ff2d3a', e.kind === 3 ? 14 : 10, e.kind === 3 ? 320 : 220)
+      shatterEnemyDebris(state, e)
+      state.shocks.push({
+        x: e.x,
+        y: e.y,
+        life: 0.28,
+        max: 0.28,
+        color: ENEMY_COLOR[e.kind] ?? '#ff2d3a',
+      })
       state.enemies.splice(j, 1)
     } else {
       burst(state, state.playerX, state.playerY, '#ff3df2', 12, 220)
@@ -3142,23 +3153,27 @@ function burst(state: GameState, x: number, y: number, color: string, count: num
   }
 }
 
+/** Shades of each enemy ink — never white. */
 const SHARD_INK: Record<number, string[]> = {
-  0: ['#ff3df2', '#ff7af5', '#c010a8', '#ffffff'],
-  1: ['#3db8ff', '#9adcff', '#1a6cb0', '#ffffff'],
-  2: ['#8dff6a', '#b8ff9a', '#4cb828', '#ffffff'],
-  3: ['#ff2d3a', '#ff6a70', '#b01020', '#ffffff'],
-  4: ['#ffd23a', '#ffe080', '#c9a010', '#ffffff'],
+  0: ['#ff3df2', '#ff7af5', '#e010c0', '#c010a8', '#ff1490', '#a00880', '#ff55e0'],
+  1: ['#3db8ff', '#6eccff', '#9adcff', '#1a6cb0', '#5ec8ff', '#0d4a8a', '#70d0ff'],
+  2: ['#8dff6a', '#b8ff9a', '#6ae048', '#4cb828', '#a8ff7a', '#2f8a18', '#c4ffb0'],
+  3: ['#ff2d3a', '#ff6a70', '#ff4450', '#b01020', '#ff8a90', '#7a0c18', '#e01828'],
+  4: ['#ffd23a', '#ffe080', '#f0c020', '#c9a010', '#ffea9a', '#a08008', '#ffe456'],
 }
 
 /** Visual-only broken chips of the enemy body — never deal damage. */
 function shatterEnemyDebris(state: GameState, enemy: Enemy): void {
-  const palette = SHARD_INK[enemy.kind] ?? ['#ffffff']
-  const count = Math.min(36, 12 + Math.floor(enemy.radius * 0.9))
+  const palette = SHARD_INK[enemy.kind] ?? [ENEMY_COLOR[enemy.kind] ?? '#ff2d3a']
+  const count = Math.min(40, 14 + Math.floor(enemy.radius * 1.05))
   for (let i = 0; i < count; i++) {
     const a = state.rng() * Math.PI * 2
     const s = (90 + state.rng() * 280) * (0.55 + enemy.radius / 40)
     const life = 0.28 + state.rng() * 0.42
-    const chip = 1.4 + state.rng() * Math.max(2.2, enemy.radius * 0.22)
+    // Size and width vary independently so chips look irregular.
+    const chip = 1.1 + state.rng() * Math.max(2.8, enemy.radius * 0.28)
+    const stretch = 0.55 + state.rng() * 1.35
+    const fat = 0.35 + state.rng() * 1.45
     pushParticle(state, {
       x: enemy.x + (state.rng() - 0.5) * enemy.radius * 0.6,
       y: enemy.y + (state.rng() - 0.5) * enemy.radius * 0.6,
@@ -3169,6 +3184,8 @@ function shatterEnemyDebris(state: GameState, enemy: Enemy): void {
       size: chip * BODY,
       color: palette[Math.floor(state.rng() * palette.length)]!,
       shard: true,
+      stretch,
+      fat,
       ang: a + (state.rng() - 0.5) * 0.8,
       spin: (state.rng() - 0.5) * 14,
     })

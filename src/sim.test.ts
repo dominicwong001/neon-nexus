@@ -800,6 +800,54 @@ describe('hostiles', () => {
     assert.ok(state.playerVx < -400)
     assert.ok(state.flash > 0.5)
     assert.ok(state.shocks.some((shock) => shock.color === '#ff2d3a'))
+    const chips = state.particles.filter((p) => p.shard)
+    assert.ok(chips.length >= 8)
+    for (const chip of chips) {
+      assert.notEqual(chip.color.toLowerCase(), '#ffffff')
+      assert.ok((chip.fat ?? 0) > 0)
+      assert.ok((chip.stretch ?? 0) > 0)
+    }
+    const fats = new Set(chips.map((c) => Math.round((c.fat ?? 1) * 20)))
+    const sizes = new Set(chips.map((c) => Math.round(c.size * 10)))
+    assert.ok(fats.size >= 2)
+    assert.ok(sizes.size >= 2)
+  })
+
+  it('detonates a pentagon bolt into shaded shards on contact', () => {
+    const state = createGame(0, 41)
+    state.spawnCd = 999
+    state.fireCd = 10
+    state.invuln = 0
+    state.enemies.push(
+      enemy({
+        x: 10,
+        y: 0,
+        vx: -80,
+        vy: 0,
+        radius: 12,
+        kind: 1,
+        hp: 1,
+        ballistic: true,
+        immortal: true,
+        orbitCd: 2,
+        speed: 230,
+        angle: Math.PI,
+      }),
+    )
+    const events = step(state, input({ aimActive: false }), 1 / 60)
+    assert.equal(events.hurt, true)
+    assert.equal(state.enemies.length, 0)
+    assert.ok(state.shocks.some((shock) => shock.color === '#3db8ff'))
+    const chips = state.particles.filter((p) => p.shard)
+    assert.ok(chips.length >= 8)
+    const shades = new Set(chips.map((c) => c.color.toLowerCase()))
+    assert.ok(shades.size >= 2)
+    for (const chip of chips) {
+      assert.notEqual(chip.color.toLowerCase(), '#ffffff')
+      assert.match(chip.color, /^#[0-9a-f]{6}$/i)
+      // Stay in the blue family — no white wash.
+      assert.ok(!/^#f{2}/i.test(chip.color))
+    }
   })
 
   it('cracks the hull once, then goes dark at zero', () => {
