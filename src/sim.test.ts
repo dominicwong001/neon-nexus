@@ -391,24 +391,52 @@ describe('hostiles', () => {
     const early = createGame(0, 7)
     early.fireCd = 10
     const earlyCounts = [0, 0, 0, 0, 0]
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 280; i++) {
       early.spawnCd = 0
       early.enemies.length = 0
       step(early, input({ viewRadius: 400, aimActive: false }), 1 / 60)
       for (const hostile of early.enemies) {
         earlyCounts[hostile.kind] += 1
+        // Early run: normals only, no giants yet.
         assert.equal(hostile.hp, [100, 500, 300, 1000, 200][hostile.kind])
       }
     }
-    assert.ok((earlyCounts[3] ?? 0) >= 1)
-    assert.ok((earlyCounts[2] ?? 0) >= 1)
-    assert.ok((earlyCounts[4] ?? 0) >= 1)
+    // High → low: triangle > square > circle > pentagon ≈ hexagon.
+    assert.ok((earlyCounts[0] ?? 0) > (earlyCounts[4] ?? 0))
+    assert.ok((earlyCounts[4] ?? 0) > (earlyCounts[2] ?? 0))
+    assert.ok((earlyCounts[2] ?? 0) > (earlyCounts[1] ?? 0))
+    assert.ok((earlyCounts[2] ?? 0) > (earlyCounts[3] ?? 0))
     assert.ok((earlyCounts[1] ?? 0) >= 1)
-    assert.ok((earlyCounts[3] ?? 0) < (earlyCounts[0] ?? 0))
-    assert.ok((earlyCounts[1] ?? 0) < (earlyCounts[0] ?? 0))
-    assert.ok((earlyCounts[1] ?? 0) < (earlyCounts[2] ?? 0))
-    assert.ok((earlyCounts[1] ?? 0) < (earlyCounts[4] ?? 0))
-    assert.ok((earlyCounts[0] ?? 0) > 0)
+    assert.ok((earlyCounts[3] ?? 0) >= 1)
+
+    const mid = createGame(0, 8)
+    mid.fireCd = 10
+    mid.time = 50
+    mid.level = 7
+    let giantTri = 0
+    let giantSq = 0
+    let giantCirc = 0
+    let earlyElite = 0
+    for (let i = 0; i < 200; i++) {
+      mid.spawnCd = 0
+      mid.enemies.length = 0
+      step(mid, input({ viewRadius: 400, aimActive: false }), 1 / 60)
+      for (const hostile of mid.enemies) {
+        if (hostile.ballistic) continue
+        if (hostile.kind === 0 && hostile.radius > 14 * BODY * 1.5) giantTri += 1
+        if (hostile.kind === 4 && hostile.radius > 16 * BODY * 1.5) giantSq += 1
+        if (hostile.kind === 2 && hostile.radius > 20 * BODY * 1.5) giantCirc += 1
+        if (hostile.kind === 3 && hostile.maxHp >= 5000) earlyElite += 1
+        if (hostile.kind === 1 && hostile.maxHp >= 2500) earlyElite += 1
+      }
+    }
+    assert.ok(giantTri >= 1)
+    assert.ok(giantSq >= 1)
+    assert.ok(giantCirc >= 1)
+    assert.ok(giantTri >= giantSq)
+    assert.ok(giantSq >= giantCirc)
+    // Elite giants still locked at mid-run.
+    assert.equal(earlyElite, 0)
 
     const state = createGame(0, 7)
     state.fireCd = 10
@@ -419,7 +447,7 @@ describe('hostiles', () => {
     let giantHex = 0
     let plainPent = 0
     let giantPent = 0
-    for (let i = 0; i < 160; i++) {
+    for (let i = 0; i < 200; i++) {
       state.spawnCd = 0
       state.enemies.length = 0
       step(state, input({ viewRadius: 400, aimActive: false }), 1 / 60)
@@ -449,9 +477,11 @@ describe('hostiles', () => {
     }
     assert.ok(plainHex >= 1)
     assert.ok(giantHex >= 1)
-    assert.ok(plainPent + giantPent >= 1)
+    assert.ok(plainPent >= 1)
+    assert.ok(giantPent >= 1)
     assert.ok(counts[3] < (counts[0] ?? 0) / 4)
     assert.ok(counts[1] < (counts[0] ?? 0) / 4)
+    assert.ok(counts[4] > counts[2])
   })
 
   it('spawns outside the view', () => {

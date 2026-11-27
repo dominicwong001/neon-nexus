@@ -1238,8 +1238,28 @@ function lateGame(state: GameState): boolean {
   return state.heat >= 6 || state.level >= 7
 }
 
-function bigHexSeason(state: GameState): boolean {
+/** Lesser giants (triangle / square / circle) enter mid-run. */
+function lesserGiantSeason(state: GameState): boolean {
+  return state.heat >= 7 || state.level >= 7
+}
+
+/** Elite giants (hex / pentagon) arrive even later. */
+function eliteGiantSeason(state: GameState): boolean {
   return state.heat >= 9 || state.level >= 9
+}
+
+/**
+ * Spawn weight high → low:
+ * triangle > square > circle > pentagon = hexagon
+ * (giants unlock later and keep the same relative order)
+ */
+function pickSpawnKind(state: GameState): EnemyKind {
+  const roll = state.rng()
+  if (roll < 0.42) return 0
+  if (roll < 0.7) return 4
+  if (roll < 0.88) return 2
+  if (roll < 0.94) return 1
+  return 3
 }
 
 function spawn(state: GameState, input: Input, dt: number): void {
@@ -1256,12 +1276,7 @@ function spawn(state: GameState, input: Input, dt: number): void {
 }
 
 function spawnOne(state: GameState, viewRadius: number): void {
-  const roll = state.rng()
-  let kind: EnemyKind = 0
-  // Pentagon shares the rare band with hex (~4% total, split evenly).
-  if (roll > 0.96) kind = state.rng() < 0.5 ? 3 : 1
-  else if (roll > 0.5) kind = 2
-  else if (roll > 0.24) kind = 4
+  const kind = pickSpawnKind(state)
   const spec = KIND[kind]
   const ang = state.rng() * Math.PI * 2
   const late = lateGame(state)
@@ -1270,21 +1285,21 @@ function spawnOne(state: GameState, viewRadius: number): void {
   let hp: number = spec.hp
   let radius = spec.radius
   let speed = spec.speed * heatScale
-  if (late && kind === 0 && state.rng() < 0.1) {
+  // Giant rates keep: gTri > gSq > gCirc > gHex = gPent, and only after their season unlocks.
+  if (kind === 0 && lesserGiantSeason(state) && state.rng() < 0.14) {
     hp = spec.hp * 3
     speed *= 1.85
     radius *= 2.05
-  } else if (late && kind === 2 && state.rng() < 0.32) {
-    hp = Math.round(spec.hp * 2.5)
-    radius *= 2.6
-  } else if (late && kind === 4 && state.rng() < 0.22) {
+  } else if (kind === 4 && lesserGiantSeason(state) && state.rng() < 0.11) {
     hp = Math.round(spec.hp * 2.5)
     radius *= 2.2
-  } else if (kind === 3 && bigHexSeason(state) && state.rng() < 0.4) {
+  } else if (kind === 2 && lesserGiantSeason(state) && state.rng() < 0.09) {
+    hp = Math.round(spec.hp * 2.5)
+    radius *= 2.6
+  } else if (kind === 3 && eliteGiantSeason(state) && state.rng() < 0.22) {
     hp = 5000
     radius *= 1.95
-  } else if (kind === 1 && bigHexSeason(state) && state.rng() < 0.4) {
-    // Giant Pentagon — same scale-up as giant hex.
+  } else if (kind === 1 && eliteGiantSeason(state) && state.rng() < 0.22) {
     hp = 2500
     radius *= 1.95
   }
