@@ -653,7 +653,7 @@ export const PENT = {
   charge: 0.75,
   reload: 1.4,
   shotSpeed: 230,
-  shotLife: 3.2,
+  shotLife: 5.0,
   shotRadius: 11 * BODY,
   fanSpread: 0.78,
 } as const
