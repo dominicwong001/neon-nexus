@@ -673,7 +673,7 @@ export const GIANT_PENT = {
 } as const
 
 export function giantPentagon(enemy: Enemy): boolean {
-  return enemy.kind === 1 && !enemy.ballistic && enemy.maxHp >= 5000
+  return enemy.kind === 1 && !enemy.ballistic && enemy.maxHp >= 2500
 }
 
 export function isPentagon(enemy: Enemy): boolean {
@@ -1270,10 +1270,11 @@ function spawnOne(state: GameState, viewRadius: number): void {
     hp = Math.round(spec.hp * 2.5)
     radius *= 2.6
   } else if (kind === 3 && bigHexSeason(state) && state.rng() < 0.4) {
+    hp = 5000
     radius *= 1.95
   } else if (kind === 1 && bigHexSeason(state) && state.rng() < 0.4) {
-    // Giant Pentagon — same scale-up as giant hex, much thicker hull.
-    hp = 5000
+    // Giant Pentagon — same scale-up as giant hex.
+    hp = 2500
     radius *= 1.95
   }
   state.enemies.push({
