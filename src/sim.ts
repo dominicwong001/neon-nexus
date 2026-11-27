@@ -54,7 +54,7 @@ export interface Enemy {
   immortal: boolean
   ballistic: boolean
   fuse: number
-  /** Pentagon turret: locked in place and firing. */
+  /** Pentagon briefly brakes while charging / firing. */
   parked: boolean
   /** Charge-up remaining before a volley (0 = idle). */
   windup: number
@@ -648,11 +648,8 @@ function freshMods(): Mods {
   return { pulse: 0, caliber: 0, drift: 0, magnet: 0, fork: 0, greed: 0, regen: 0, orbiter: 0, field: 0, ball: 0, drone: 0, tesla: 0, hole: 0 }
 }
 
-/** Pentagon / Giant Pentagon stand-off bands (px). */
+/** Pentagon / Giant Pentagon fire timing. */
 export const PENT = {
-  stopMin: 370,
-  stopMax: 450,
-  resume: 490,
   charge: 0.75,
   reload: 1.4,
   shotSpeed: 155,
@@ -662,9 +659,6 @@ export const PENT = {
 } as const
 
 export const GIANT_PENT = {
-  stopMin: 410,
-  stopMax: 490,
-  resume: 530,
   charge: 0.85,
   reload: 1.65,
   shotSpeed: 175,
@@ -1365,38 +1359,27 @@ function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, 
   // Always spin like other hostiles — never lock a tip toward the player.
   enemy.angle += enemy.spin * dt
 
-  if (!enemy.parked) {
-    if (dist <= band.stopMax) {
-      enemy.parked = true
-      enemy.vx = 0
-      enemy.vy = 0
-    } else {
-      const speed = enemy.speed * (inside ? fieldSlow(fieldRank) : 1)
-      const steer = 1 - Math.exp(-3.1 * dt)
-      enemy.vx += ((dx / dist) * speed - enemy.vx) * steer
-      enemy.vy += ((dy / dist) * speed - enemy.vy) * steer
-      enemy.x += enemy.vx * dt
-      enemy.y += enemy.vy * dt
-    }
-  } else {
-    // Stand your ground — never back away; keep spinning in place.
+  const holdStill = () => {
+    enemy.parked = true
     enemy.vx = 0
     enemy.vy = 0
-    if (dist > band.resume) enemy.parked = false
   }
 
-  // Finish charge / staggered volleys even if the player fled the stop band.
+  // Brake only while charging or finishing a staggered volley, then keep closing in.
   if (enemy.pendingFan > 0) {
+    holdStill()
     enemy.pendingCd -= dt
     if (enemy.pendingCd <= 0) {
       firePentFan(state, enemy, enemy.pendingFan, band.fanSpread, giant ? GIANT_PENT.shotSpeed : PENT.shotSpeed, aim)
       enemy.pendingFan = 0
       enemy.shotCd = band.reload
+      enemy.parked = false
     }
     return
   }
 
   if (enemy.windup > 0) {
+    holdStill()
     enemy.windup = Math.max(0, enemy.windup - dt)
     const chargeMax = pentChargeMax(enemy)
     enemy.flash = Math.max(enemy.flash, 0.06 + (1 - enemy.windup / chargeMax) * 0.2)
@@ -1410,20 +1393,31 @@ function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, 
       } else {
         firePentRadial(state, enemy, speed)
         enemy.shotCd = band.reload
+        enemy.parked = false
       }
       enemy.salvo += 1
     } else {
       firePentFan(state, enemy, 3, PENT.fanSpread, speed, aim)
       enemy.shotCd = band.reload
+      enemy.parked = false
     }
     return
   }
 
-  // New volleys only while parked in the stop band.
-  if (!enemy.parked) return
+  // Between volleys: always advance toward the player (no range parking).
+  enemy.parked = false
+  const speed = enemy.speed * (inside ? fieldSlow(fieldRank) : 1)
+  const steer = 1 - Math.exp(-3.1 * dt)
+  enemy.vx += ((dx / dist) * speed - enemy.vx) * steer
+  enemy.vy += ((dy / dist) * speed - enemy.vy) * steer
+  enemy.x += enemy.vx * dt
+  enemy.y += enemy.vy * dt
 
   enemy.shotCd = Math.max(0, enemy.shotCd - dt)
-  if (enemy.shotCd <= 0) enemy.windup = band.charge
+  if (enemy.shotCd <= 0) {
+    enemy.windup = band.charge
+    holdStill()
+  }
 }
 
 function moveEnemies(state: GameState, input: Input, dt: number): void {

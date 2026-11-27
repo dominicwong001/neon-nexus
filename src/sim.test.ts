@@ -485,7 +485,7 @@ describe('hostiles', () => {
     assert.ok(hostile.x < 340)
   })
 
-  it('parks a Pentagon as a turret, spins freely, and fans three bolts toward the player', () => {
+  it('advances, brakes to fire, then keeps closing in', () => {
     const state = createGame(0, 44)
     state.spawnCd = 999
     state.fireCd = 10
@@ -499,34 +499,34 @@ describe('hostiles', () => {
       speed: 200,
       kind: 1,
       spin: 1.15,
-      shotCd: 0.05,
+      shotCd: 0.4,
       angle: Math.PI,
     })
     state.enemies.push(pent)
     assert.equal(isPentagon(pent), true)
     assert.equal(giantPentagon(pent), false)
     assert.equal(pent.radius, 40 * BODY)
-    // Close into the stop band.
-    run(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 2.2)
-    assert.ok(pent.parked)
-    assert.equal(pent.vx, 0)
-    assert.equal(pent.vy, 0)
-    const parkedX = pent.x
-    assert.ok(parkedX <= PENT.stopMax + 20)
-    assert.ok(parkedX >= PENT.stopMin - 40)
+    // Between shots it keeps walking in — no range parking.
+    const startX = pent.x
+    run(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 0.3)
+    assert.equal(pent.parked, false)
+    assert.ok(pent.x < startX)
     // Body keeps spinning — no tip lock toward the player.
     const spun = pent.angle
     step(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 30)
     assert.notEqual(pent.angle, spun)
-    // Clear any early bolts, then fire a 3-shot fan aimed at the player.
+    // Charge brakes in place, then a 3-shot fan fires toward the player.
     state.enemies = state.enemies.filter((e) => !e.ballistic)
     pent.shotCd = 0
     pent.windup = 0.001
     pent.pendingFan = 0
+    const holdX = pent.x
     const aim = Math.atan2(state.playerY - pent.y, state.playerX - pent.x)
     const tipX = pent.x + Math.cos(aim) * pent.radius
     const tipY = pent.y + Math.sin(aim) * pent.radius
     step(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 60)
+    assert.equal(pent.parked, false)
+    assert.ok(Math.abs(pent.x - holdX) < 1)
     const bolts = state.enemies.filter((e) => e.ballistic && e.kind === 1)
     assert.equal(bolts.length, 3)
     for (const bolt of bolts) {
@@ -550,34 +550,27 @@ describe('hostiles', () => {
     step(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 60)
     assert.equal(state.bullets.length, 1)
     assert.ok(state.enemies.includes(ghost))
-    // Player moves closer — never backs away.
-    state.playerX = parkedX - 120
-    run(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 0.4)
-    assert.ok(pent.parked)
-    assert.ok(Math.abs(pent.x - parkedX) < 1)
-    // Player flees past resume range — advances again.
-    state.playerX = parkedX - (PENT.resume + 40)
+    // After the volley it resumes closing — even near the core.
+    const afterShot = pent.x
+    pent.shotCd = 99
+    pent.windup = 0
+    state.playerX = 0
     state.playerY = 0
-    run(state, input({ aimActive: false, viewW: 1600, viewH: 900 }), 0.35)
+    run(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 0.45)
     assert.equal(pent.parked, false)
-
-    // Mid-charge still finishes and fires after the player flees the stop band.
+    assert.ok(pent.x < afterShot)
+    // Mid-charge still finishes while held still, then resumes walking.
     state.enemies = state.enemies.filter((e) => e === pent)
-    pent.parked = true
-    pent.vx = 0
-    pent.vy = 0
-    pent.x = parkedX
+    pent.x = 420
     pent.shotCd = 0
     pent.windup = PENT.charge
     pent.pendingFan = 0
-    state.playerX = parkedX - (PENT.resume + 80)
-    state.playerY = 0
-    // One short step unparks; charge must keep ticking while chasing.
     step(state, input({ aimActive: false, viewW: 1600, viewH: 900 }), 1 / 60)
-    assert.equal(pent.parked, false)
+    assert.equal(pent.parked, true)
     assert.ok(pent.windup > 0)
     run(state, input({ aimActive: false, viewW: 1600, viewH: 900 }), PENT.charge + 0.05)
     assert.equal(pent.windup, 0)
+    assert.equal(pent.parked, false)
     assert.equal(state.enemies.filter((e) => e.ballistic && e.kind === 1).length, 3)
 
     const giant = createGame(0, 45)
@@ -585,7 +578,7 @@ describe('hostiles', () => {
     giant.fireCd = 10
     giant.invuln = 30
     const elite = enemy({
-      x: GIANT_PENT.stopMin + 20,
+      x: 430,
       y: 0,
       hp: 2500,
       maxHp: 2500,
