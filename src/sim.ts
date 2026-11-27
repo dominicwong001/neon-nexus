@@ -19,9 +19,9 @@ export const TUNING = {
 
 export const HIT = 100
 
-export const ENEMY_COLOR = ['#ff3df2', '#3db8ff', '#8dff6a', '#ff2d3a'] as const
+export const ENEMY_COLOR = ['#ff3df2', '#3db8ff', '#8dff6a', '#ff2d3a', '#ffd23a'] as const
 
-export type EnemyKind = 0 | 1 | 2 | 3
+export type EnemyKind = 0 | 1 | 2 | 3 | 4
 export type Phase = 'play' | 'dead' | 'level'
 export type UpgradeId = 'pulse' | 'caliber' | 'drift' | 'magnet' | 'fork' | 'greed' | 'regen' | 'orbiter' | 'field' | 'ball' | 'drone' | 'tesla' | 'hole' | 'cache'
 export type DamageSource = 'stream' | 'orbiter' | 'field' | 'ball' | 'drone' | 'tesla' | 'hole'
@@ -370,10 +370,12 @@ export interface StepEvents {
 
 const KIND = [
   { radius: 14 * BODY, hp: 100, speed: 70, spin: 2.8 },
-  // Pentagon matches normal hex size; rarer spawn than the old square slot.
+  // Pentagon matches normal hex size; rare with hex.
   { radius: 40 * BODY, hp: 500, speed: 31, spin: 1.15 },
   { radius: 20 * BODY, hp: 300, speed: 34, spin: 0.8 },
   { radius: 40 * BODY, hp: 1000, speed: 22, spin: 0.55 },
+  // Common yellow square.
+  { radius: 16 * BODY, hp: 200, speed: 44, spin: 1.55 },
 ] as const
 
 export const OVERDRIVE = 6
@@ -672,6 +674,14 @@ export function giantPentagon(enemy: Enemy): boolean {
 
 export function isPentagon(enemy: Enemy): boolean {
   return enemy.kind === 1 && !enemy.ballistic
+}
+
+export function isSquare(enemy: Enemy): boolean {
+  return enemy.kind === 4 && !enemy.ballistic
+}
+
+export function giantSquare(enemy: Enemy): boolean {
+  return isSquare(enemy) && enemy.radius > KIND[4].radius * 1.5
 }
 
 export function pentChargeMax(enemy: Enemy): number {
@@ -1248,6 +1258,7 @@ function spawnOne(state: GameState, viewRadius: number): void {
   // Pentagon shares the rare band with hex (~4% total, split evenly).
   if (roll > 0.96) kind = state.rng() < 0.5 ? 3 : 1
   else if (roll > 0.5) kind = 2
+  else if (roll > 0.24) kind = 4
   const spec = KIND[kind]
   const ang = state.rng() * Math.PI * 2
   const late = lateGame(state)
@@ -1263,6 +1274,9 @@ function spawnOne(state: GameState, viewRadius: number): void {
   } else if (late && kind === 2 && state.rng() < 0.32) {
     hp = Math.round(spec.hp * 2.5)
     radius *= 2.6
+  } else if (late && kind === 4 && state.rng() < 0.22) {
+    hp = Math.round(spec.hp * 2.5)
+    radius *= 2.2
   } else if (kind === 3 && bigHexSeason(state) && state.rng() < 0.4) {
     hp = 5000
     radius *= 1.95
@@ -1625,9 +1639,9 @@ function miniCircle(enemy: Enemy): boolean {
 export function orbTier(enemy: Enemy): number {
   if (enemy.ballistic) return 1
   if (giantHex(enemy) || giantPentagon(enemy)) return 5
-  if (giantCircle(enemy)) return 4
+  if (giantCircle(enemy) || giantSquare(enemy)) return 4
   if (giantTriangle(enemy) || enemy.kind === 3 || isPentagon(enemy)) return 3
-  if (enemy.kind === 2 && !miniCircle(enemy)) return 2
+  if (isSquare(enemy) || (enemy.kind === 2 && !miniCircle(enemy))) return 2
   // Triangle + mini circle.
   return 1
 }
@@ -3043,6 +3057,7 @@ const SHARD_INK: Record<number, string[]> = {
   1: ['#3db8ff', '#9adcff', '#1a6cb0', '#ffffff'],
   2: ['#8dff6a', '#b8ff9a', '#4cb828', '#ffffff'],
   3: ['#ff2d3a', '#ff6a70', '#b01020', '#ffffff'],
+  4: ['#ffd23a', '#ffe080', '#c9a010', '#ffffff'],
 }
 
 /** Visual-only broken chips of the enemy body — never deal damage. */

@@ -605,6 +605,7 @@ function enemyBodyPath(
   // Pentagon: vertex 0 at local angle 0 so the tip tracks e.angle after rotate.
   else if (e.kind === 1) polyPath(ctx, 0, 0, e.radius, 5, 0)
   else if (e.kind === 3) polyPath(ctx, 0, 0, e.radius, 6, -Math.PI / 2)
+  else if (e.kind === 4) polyPath(ctx, 0, 0, e.radius, 4, Math.PI / 4)
   else ctx.arc(0, 0, e.radius, 0, Math.PI * 2)
 }
 
@@ -613,6 +614,7 @@ const ENEMY_RGB: [number, number, number][] = [
   [61, 184, 255],
   [141, 255, 106],
   [255, 45, 58],
+  [255, 210, 58],
 ]
 
 /** Subtle kind-colored skin wash on the black body (off in Fast mode). */
@@ -899,7 +901,7 @@ function drawEnemies(
 ): void {
   // Subtle kind-colored bloom — off in Fast mode.
   if (!lean) {
-    const sheets = [glowFor('#ff3df2'), glowFor('#3db8ff'), glowFor('#8dff6a'), glowFor('#ff2d3a')]
+    const sheets = [glowFor('#ff3df2'), glowFor('#3db8ff'), glowFor('#8dff6a'), glowFor('#ff2d3a'), glowFor('#ffd23a')]
     const hurtGlow = glowFor('#ffffff')
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'

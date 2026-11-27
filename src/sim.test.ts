@@ -389,29 +389,31 @@ describe('hostiles', () => {
   it('sends a rare red hex with a much thicker hull', () => {
     const early = createGame(0, 7)
     early.fireCd = 10
-    const earlyCounts = [0, 0, 0, 0]
+    const earlyCounts = [0, 0, 0, 0, 0]
     for (let i = 0; i < 200; i++) {
       early.spawnCd = 0
       early.enemies.length = 0
       step(early, input({ viewRadius: 400, aimActive: false }), 1 / 60)
       for (const hostile of early.enemies) {
         earlyCounts[hostile.kind] += 1
-        assert.equal(hostile.hp, [100, 500, 300, 1000][hostile.kind])
+        assert.equal(hostile.hp, [100, 500, 300, 1000, 200][hostile.kind])
       }
     }
     assert.ok((earlyCounts[3] ?? 0) >= 1)
     assert.ok((earlyCounts[2] ?? 0) >= 1)
+    assert.ok((earlyCounts[4] ?? 0) >= 1)
     assert.ok((earlyCounts[1] ?? 0) >= 1)
     assert.ok((earlyCounts[3] ?? 0) < (earlyCounts[0] ?? 0))
     assert.ok((earlyCounts[1] ?? 0) < (earlyCounts[0] ?? 0))
     assert.ok((earlyCounts[1] ?? 0) < (earlyCounts[2] ?? 0))
+    assert.ok((earlyCounts[1] ?? 0) < (earlyCounts[4] ?? 0))
     assert.ok((earlyCounts[0] ?? 0) > 0)
 
     const state = createGame(0, 7)
     state.fireCd = 10
     state.time = 70
     state.level = 9
-    const counts = [0, 0, 0, 0]
+    const counts = [0, 0, 0, 0, 0]
     let plainHex = 0
     let giantHex = 0
     let plainPent = 0
@@ -730,20 +732,24 @@ describe('orbs', () => {
   it('drops orb tiers by shape class', () => {
     const tri = enemy({ x: 0, y: 0, kind: 0, hp: 100, maxHp: 100, radius: 14 * BODY })
     const mini = enemy({ x: 0, y: 0, kind: 2, hp: 100, maxHp: 100, radius: 20 * BODY * 0.48, generation: 2 })
+    const square = enemy({ x: 0, y: 0, kind: 4, hp: 200, maxHp: 200, radius: 16 * BODY })
     const circle = enemy({ x: 0, y: 0, kind: 2, hp: 300, maxHp: 300, radius: 20 * BODY, generation: 0 })
     const giantTri = enemy({ x: 0, y: 0, kind: 0, hp: 300, maxHp: 300, radius: 14 * BODY * 2.05 })
     const hex = enemy({ x: 0, y: 0, kind: 3, hp: 1000, maxHp: 1000, radius: 40 * BODY })
     const pent = enemy({ x: 0, y: 0, kind: 1, hp: 500, maxHp: 500, radius: 40 * BODY })
     const giantCirc = enemy({ x: 0, y: 0, kind: 2, hp: 750, maxHp: 750, radius: 20 * BODY * 2.6 })
+    const giantSq = enemy({ x: 0, y: 0, kind: 4, hp: 500, maxHp: 500, radius: 16 * BODY * 2.2 })
     const giantHex = enemy({ x: 0, y: 0, kind: 3, hp: 5000, maxHp: 5000, radius: 40 * BODY * 1.95 })
     const giantPent = enemy({ x: 0, y: 0, kind: 1, hp: 2500, maxHp: 2500, radius: 40 * BODY * 1.95 })
     assert.equal(orbTier(tri), 1)
     assert.equal(orbTier(mini), 1)
+    assert.equal(orbTier(square), 2)
     assert.equal(orbTier(circle), 2)
     assert.equal(orbTier(giantTri), 3)
     assert.equal(orbTier(hex), 3)
     assert.equal(orbTier(pent), 3)
     assert.equal(orbTier(giantCirc), 4)
+    assert.equal(orbTier(giantSq), 4)
     assert.equal(orbTier(giantHex), 5)
     assert.equal(orbTier(giantPent), 5)
 
@@ -841,11 +847,11 @@ describe('orbs', () => {
     state.fireCd = 10
     state.time = 70
     state.level = 9
-    const best = [0, 0, 0, 0]
-    const pace = [0, 0, 0, 0]
-    const size = [0, 0, 0, 0]
-    const giant = [0, 0, 0, 0]
-    const plain = [0, 0, 0, 0]
+    const best = [0, 0, 0, 0, 0]
+    const pace = [0, 0, 0, 0, 0]
+    const size = [0, 0, 0, 0, 0]
+    const giant = [0, 0, 0, 0, 0]
+    const plain = [0, 0, 0, 0, 0]
     for (let n = 0; n < 160; n++) {
       state.spawnCd = 0
       state.enemies.length = 0
@@ -856,7 +862,7 @@ describe('orbs', () => {
         pace[hostile.kind] = Math.max(pace[hostile.kind] ?? 0, hostile.speed)
         size[hostile.kind] = Math.max(size[hostile.kind] ?? 0, hostile.radius)
         // Pentagon base matches hex (40*BODY); giants scale ×1.95 like hex.
-        const huge = hostile.radius > [18, 40 * BODY + 1, 24, 40][hostile.kind]!
+        const huge = hostile.radius > [18, 40 * BODY + 1, 24, 40, 16 * BODY + 1][hostile.kind]!
         if (huge) giant[hostile.kind] += 1
         else plain[hostile.kind] += 1
       }
@@ -864,11 +870,13 @@ describe('orbs', () => {
     assert.ok((best[1] ?? 0) >= 2500)
     assert.ok((best[3] ?? 0) >= 5000)
     assert.ok((best[2] ?? 0) >= 750)
+    assert.ok((best[4] ?? 0) >= 500)
     assert.ok((best[0] ?? 0) >= 250)
     assert.ok((pace[0] ?? 0) > 110)
     assert.ok((size[2] ?? 0) > 30)
     assert.ok((giant[0] ?? 0) > 0)
     assert.ok((giant[1] ?? 0) > 0)
+    assert.ok((giant[4] ?? 0) > 0)
     assert.ok((giant[0] ?? 0) < (plain[0] ?? 0) / 4)
     assert.ok((giant[1] ?? 0) <= (plain[1] ?? 0))
 
