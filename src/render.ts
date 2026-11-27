@@ -1352,46 +1352,37 @@ function drawOrbiters(
     if (disc.fade < 0.04) continue
     const x = X(disc.x)
     const y = Y(disc.y)
-    const hub = disc.radius * 0.42
+    const hub = disc.radius * 0.4
     ctx.save()
     ctx.translate(x, y)
     if (!lean && glow) {
-      // Ring glow only — keep the hub clear so the hole stays hollow.
-      const glowSize = disc.radius * (disc.halo ? 6.4 : 5.2)
-      ctx.save()
-      ctx.beginPath()
-      ctx.arc(0, 0, disc.radius * 1.35, 0, Math.PI * 2)
-      ctx.arc(0, 0, hub * 0.92, 0, Math.PI * 2, true)
-      ctx.clip('evenodd')
-      ctx.globalAlpha = disc.fade * (disc.halo ? 0.85 : 0.7)
+      // Same soft aura as Bouncy Ball — soft core + wider falloff.
+      const glowSize = disc.radius * (disc.halo ? 7.4 : 6.2)
       ctx.globalCompositeOperation = 'lighter'
+      ctx.globalAlpha = disc.fade * (disc.halo ? 0.95 : 0.82)
       ctx.drawImage(glow, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
-      ctx.restore()
+      ctx.globalAlpha = disc.fade * 0.4
+      ctx.drawImage(glow, -glowSize, -glowSize, glowSize * 2, glowSize * 2)
+      ctx.globalCompositeOperation = 'source-over'
     }
     ctx.globalAlpha = disc.fade
     ctx.rotate(disc.spin)
     drawSaw(ctx, disc.radius, disc.halo, hub)
-    // Clear the hub so the arena shows through — no glow fill in the hole.
-    ctx.globalCompositeOperation = 'destination-out'
-    ctx.beginPath()
-    ctx.arc(0, 0, hub * 0.88, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.globalCompositeOperation = 'source-over'
     ctx.restore()
   }
 }
 
-function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean, hub = r * 0.42): void {
+function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean, hub = r * 0.4): void {
   const edge = halo ? '#ff2d3a' : '#ffffff'
   const hot = halo ? '#ff9aa0' : '#ffffff'
-  // Short, fat swept teeth with a hollow center.
-  const spikes = halo ? 9 : 7
-  const tip = r * 0.96
-  const ring = r * 0.78
+  // Spikier swept teeth; solid black body + black hub disc.
+  const spikes = halo ? 10 : 8
+  const tip = r * 1.2
+  const ring = r * 0.7
   const hole = hub
   const step = (Math.PI * 2) / spikes
-  const base = step * 0.54
-  const leanAmt = step * 0.3
+  const base = step * 0.34
+  const leanAmt = step * 0.48
   ctx.beginPath()
   for (let i = 0; i < spikes; i++) {
     const a = (i / spikes) * Math.PI * 2 - Math.PI / 2
@@ -1403,30 +1394,28 @@ function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean, hub = 
     ctx.lineTo(Math.cos(a1) * ring, Math.sin(a1) * ring)
   }
   ctx.closePath()
-  // Hollow hub — cut out the center with even-odd.
-  ctx.moveTo(hole, 0)
-  ctx.arc(0, 0, hole, 0, Math.PI * 2, true)
   ctx.fillStyle = '#050508'
-  ctx.fill('evenodd')
-  // White/red outline: hot inner edge, hard colored stroke.
+  ctx.fill()
   ctx.strokeStyle = hot
   ctx.lineJoin = 'miter'
-  ctx.miterLimit = 8
-  ctx.lineWidth = Math.max(3.2, r * 0.17)
-  ctx.stroke()
-  ctx.strokeStyle = edge
-  ctx.lineWidth = Math.max(2.0, r * 0.1)
-  ctx.stroke()
-  // Rim around the empty hole.
-  ctx.beginPath()
-  ctx.arc(0, 0, hole, 0, Math.PI * 2)
-  ctx.strokeStyle = hot
+  ctx.miterLimit = 10
   ctx.lineWidth = Math.max(2.8, r * 0.14)
   ctx.stroke()
+  ctx.strokeStyle = edge
+  ctx.lineWidth = Math.max(1.8, r * 0.09)
+  ctx.stroke()
+  // Solid black hub — outlined, not see-through.
+  ctx.beginPath()
+  ctx.arc(0, 0, hole, 0, Math.PI * 2)
+  ctx.fillStyle = '#050508'
+  ctx.fill()
+  ctx.strokeStyle = hot
+  ctx.lineWidth = Math.max(2.4, r * 0.12)
+  ctx.stroke()
   ctx.beginPath()
   ctx.arc(0, 0, hole, 0, Math.PI * 2)
   ctx.strokeStyle = edge
-  ctx.lineWidth = Math.max(1.8, r * 0.09)
+  ctx.lineWidth = Math.max(1.6, r * 0.08)
   ctx.stroke()
 }
 
