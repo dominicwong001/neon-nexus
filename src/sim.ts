@@ -657,7 +657,7 @@ export const PENT = {
   reload: 1.4,
   shotSpeed: 155,
   shotLife: 3.2,
-  shotRadius: 7 * BODY,
+  shotRadius: 11 * BODY,
   fanSpread: 0.38,
 } as const
 
@@ -930,6 +930,8 @@ function moveBullets(state: GameState, input: Input, dt: number, events: StepEve
     }
     for (let j = state.enemies.length - 1; j >= 0; j--) {
       const e = state.enemies[j]
+      // Enemy projectiles are ghosts — stream passes straight through.
+      if (!e || e.ballistic) continue
       const dx = b.x - e.x
       const dy = b.y - e.y
       const reach = e.radius + 8 * BODY
@@ -1303,14 +1305,6 @@ function spawnOne(state: GameState, viewRadius: number): void {
   })
 }
 
-function turnToward(enemy: Enemy, want: number, dt: number, rate = 9): void {
-  let diff = want - enemy.angle
-  while (diff > Math.PI) diff -= Math.PI * 2
-  while (diff < -Math.PI) diff += Math.PI * 2
-  enemy.angle += diff * (1 - Math.exp(-rate * dt))
-  enemy.spin = 0
-}
-
 function spawnPentShot(state: GameState, x: number, y: number, angle: number, speed: number): void {
   state.enemies.push({
     x,
@@ -1324,7 +1318,7 @@ function spawnPentShot(state: GameState, x: number, y: number, angle: number, sp
     hitCd: 0,
     flash: 0,
     orbitCd: PENT.shotLife,
-    spin: 0,
+    spin: 3.4 * (state.rng() < 0.5 ? -1 : 1),
     angle,
     phase: 0,
     speed,
@@ -1341,12 +1335,13 @@ function spawnPentShot(state: GameState, x: number, y: number, angle: number, sp
   })
 }
 
-function firePentFan(state: GameState, enemy: Enemy, count: number, spread: number, speed: number): void {
-  const tipX = enemy.x + Math.cos(enemy.angle) * enemy.radius
-  const tipY = enemy.y + Math.sin(enemy.angle) * enemy.radius
+function firePentFan(state: GameState, enemy: Enemy, count: number, spread: number, speed: number, aim: number): void {
+  // Muzzle on the rim toward the aim — body keeps spinning freely, no tip lock.
+  const tipX = enemy.x + Math.cos(aim) * enemy.radius
+  const tipY = enemy.y + Math.sin(aim) * enemy.radius
   for (let i = 0; i < count; i++) {
     const t = count <= 1 ? 0 : i / (count - 1) - 0.5
-    spawnPentShot(state, tipX, tipY, enemy.angle + t * spread, speed)
+    spawnPentShot(state, tipX, tipY, aim + t * spread, speed)
   }
 }
 
@@ -1364,6 +1359,10 @@ function firePentRadial(state: GameState, enemy: Enemy, speed: number): void {
 function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, dx: number, dy: number, inside: boolean, fieldRank: number): void {
   const giant = giantPentagon(enemy)
   const band = giant ? GIANT_PENT : PENT
+  const aim = Math.atan2(dy, dx)
+
+  // Always spin like other hostiles — never lock a tip toward the player.
+  enemy.angle += enemy.spin * dt
 
   if (!enemy.parked) {
     if (dist <= band.stopMax) {
@@ -1371,27 +1370,24 @@ function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, 
       enemy.vx = 0
       enemy.vy = 0
     } else {
-      // Advance and spin like other hostiles — tip-aim only after parking.
       const speed = enemy.speed * (inside ? fieldSlow(fieldRank) : 1)
       const steer = 1 - Math.exp(-3.1 * dt)
       enemy.vx += ((dx / dist) * speed - enemy.vx) * steer
       enemy.vy += ((dy / dist) * speed - enemy.vy) * steer
       enemy.x += enemy.vx * dt
       enemy.y += enemy.vy * dt
-      enemy.angle += enemy.spin * dt
     }
   } else {
-    // Stand your ground — never back away; tip tracks the player while turreted.
+    // Stand your ground — never back away; keep spinning in place.
     enemy.vx = 0
     enemy.vy = 0
-    turnToward(enemy, Math.atan2(dy, dx), dt, giant ? 7.5 : 9)
     if (dist > band.resume) enemy.parked = false
   }
 
   if (enemy.pendingFan > 0) {
     enemy.pendingCd -= dt
     if (enemy.pendingCd <= 0) {
-      firePentFan(state, enemy, enemy.pendingFan, band.fanSpread, giant ? GIANT_PENT.shotSpeed : PENT.shotSpeed)
+      firePentFan(state, enemy, enemy.pendingFan, band.fanSpread, giant ? GIANT_PENT.shotSpeed : PENT.shotSpeed, aim)
       enemy.pendingFan = 0
       enemy.shotCd = band.reload
     }
@@ -1408,7 +1404,7 @@ function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, 
     const speed = giant ? GIANT_PENT.shotSpeed : PENT.shotSpeed
     if (giant) {
       if (enemy.salvo % 2 === 0) {
-        firePentFan(state, enemy, 7, GIANT_PENT.fanSpread, speed)
+        firePentFan(state, enemy, 7, GIANT_PENT.fanSpread, speed, aim)
         enemy.pendingFan = 6
         enemy.pendingCd = GIANT_PENT.stagger
       } else {
@@ -1417,8 +1413,7 @@ function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, 
       }
       enemy.salvo += 1
     } else {
-      // Standard Pentagon: single bolt from the forward tip.
-      firePentFan(state, enemy, 1, PENT.fanSpread, speed)
+      firePentFan(state, enemy, 3, PENT.fanSpread, speed, aim)
       enemy.shotCd = band.reload
     }
     return
@@ -1732,7 +1727,7 @@ function pulseField(state: GameState, events: StepEvents): void {
   const dealt = fieldDamage(rank)
   for (let j = state.enemies.length - 1; j >= 0; j--) {
     const enemy = state.enemies[j]
-    if (!enemy) continue
+    if (!enemy || enemy.ballistic) continue
     const dx = enemy.x - state.playerX
     const dy = enemy.y - state.playerY
     if (dx * dx + dy * dy > (radius + enemy.radius) ** 2) continue
@@ -1832,7 +1827,7 @@ function moveBalls(state: GameState, input: Input, dt: number, events: StepEvent
     }
     for (let j = state.enemies.length - 1; j >= 0; j--) {
       const enemy = state.enemies[j]
-      if (!enemy) continue
+      if (!enemy || enemy.ballistic) continue
       if (ball.touched.some((touch) => touch.enemy === enemy)) continue
       const dx = ball.x - enemy.x
       const dy = ball.y - enemy.y
@@ -1938,7 +1933,7 @@ function strikeOrbits(state: GameState, events: StepEvents): void {
     if (disc.fade < 0.45) continue
     for (let j = state.enemies.length - 1; j >= 0; j--) {
       const enemy = state.enemies[j]
-      if (!enemy || enemy.orbitCd > 0) continue
+      if (!enemy || enemy.ballistic || enemy.orbitCd > 0) continue
       const dx = disc.x - enemy.x
       const dy = disc.y - enemy.y
       const reach = disc.radius + enemy.radius
@@ -2372,7 +2367,7 @@ function explodeShell(state: GameState, shell: Mortar, events: StepEvents): void
   burst(state, shell.tx, shell.ty, color, shell.storm ? 4 : 9, 170)
   for (let j = state.enemies.length - 1; j >= 0; j--) {
     const enemy = state.enemies[j]
-    if (!enemy) continue
+    if (!enemy || enemy.ballistic) continue
     const dx = enemy.x - shell.tx
     const dy = enemy.y - shell.ty
     const reach = shell.radius + enemy.radius

@@ -476,7 +476,7 @@ describe('hostiles', () => {
     assert.ok(hostile.x < 340)
   })
 
-  it('parks a Pentagon as a turret, aims its tip, and fires from the forward vertex', () => {
+  it('parks a Pentagon as a turret, spins freely, and fans three bolts toward the player', () => {
     const state = createGame(0, 44)
     state.spawnCd = 999
     state.fireCd = 10
@@ -505,22 +505,42 @@ describe('hostiles', () => {
     const parkedX = pent.x
     assert.ok(parkedX <= PENT.stopMax + 20)
     assert.ok(parkedX >= PENT.stopMin - 40)
-    // Tip should face the player (leftward toward origin).
-    assert.ok(Math.cos(pent.angle) < -0.85)
-    // Clear any early bolts, then fire one clean bolt from the forward tip.
+    // Body keeps spinning — no tip lock toward the player.
+    const spun = pent.angle
+    step(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 30)
+    assert.notEqual(pent.angle, spun)
+    // Clear any early bolts, then fire a 3-shot fan aimed at the player.
     state.enemies = state.enemies.filter((e) => !e.ballistic)
     pent.shotCd = 0
     pent.windup = 0.001
     pent.pendingFan = 0
-    const tipX = pent.x + Math.cos(pent.angle) * pent.radius
-    const tipY = pent.y + Math.sin(pent.angle) * pent.radius
+    const aim = Math.atan2(state.playerY - pent.y, state.playerX - pent.x)
+    const tipX = pent.x + Math.cos(aim) * pent.radius
+    const tipY = pent.y + Math.sin(aim) * pent.radius
     step(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 60)
     const bolts = state.enemies.filter((e) => e.ballistic && e.kind === 1)
-    assert.equal(bolts.length, 1)
-    const bolt = bolts[0]!
-    assert.equal(bolt.immortal, true)
-    assert.ok(Math.hypot(bolt.vx, bolt.vy) <= PENT.shotSpeed + 1)
-    assert.ok(Math.hypot(bolt.x - tipX, bolt.y - tipY) < PENT.shotSpeed / 50 + 6)
+    assert.equal(bolts.length, 3)
+    for (const bolt of bolts) {
+      assert.equal(bolt.immortal, true)
+      assert.ok(Math.abs(bolt.spin) > 0)
+      assert.ok(Math.hypot(bolt.vx, bolt.vy) <= PENT.shotSpeed + 1)
+      assert.ok(Math.hypot(bolt.x - tipX, bolt.y - tipY) < PENT.shotSpeed / 50 + 6)
+    }
+    // Stream passes through ghost bolts without being consumed.
+    const ghost = bolts[0]!
+    ghost.x = pent.x - 220
+    ghost.y = pent.y
+    ghost.vx = 0
+    ghost.vy = 0
+    state.fireCd = 10
+    pent.shotCd = 99
+    pent.windup = 0
+    pent.pendingFan = 0
+    state.enemies = state.enemies.filter((e) => e === pent || e === ghost)
+    state.bullets = [{ x: ghost.x, y: ghost.y, vx: 0, vy: 0, life: 1 }]
+    step(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 60)
+    assert.equal(state.bullets.length, 1)
+    assert.ok(state.enemies.includes(ghost))
     // Player moves closer — never backs away.
     state.playerX = parkedX - 120
     run(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 0.4)
