@@ -1347,12 +1347,13 @@ function drawOrbiters(
     const y = Y(disc.y)
     ctx.save()
     ctx.translate(x, y)
-    ctx.globalAlpha = disc.fade * (disc.halo ? 0.82 : 1)
     if (!lean && glow) {
-    const glowSize = disc.radius * (disc.halo ? 4.8 : 3.1)
-    ctx.globalCompositeOperation = 'lighter'
-    ctx.drawImage(glow, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
-    ctx.globalCompositeOperation = 'source-over'
+      const glowSize = disc.radius * (disc.halo ? 7.2 : 5.8)
+      ctx.globalAlpha = disc.fade * (disc.halo ? 0.9 : 0.75)
+      ctx.globalCompositeOperation = 'lighter'
+      ctx.drawImage(glow, -glowSize / 2, -glowSize / 2, glowSize, glowSize)
+      ctx.drawImage(glow, -glowSize * 0.35, -glowSize * 0.35, glowSize * 0.7, glowSize * 0.7)
+      ctx.globalCompositeOperation = 'source-over'
     }
     ctx.globalAlpha = disc.fade
     ctx.rotate(disc.spin)
@@ -1362,17 +1363,15 @@ function drawOrbiters(
 }
 
 function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void {
-  const ink = halo ? '#ff2d3a' : '#ffffff'
-  const hot = halo ? '#ff6a70' : '#ffffff'
-  // Fewer, thicker teeth — long wedges with a swept tip for a hard angle.
+  const edge = halo ? '#ff2d3a' : '#ffffff'
+  // Short, fat swept teeth with a hollow center.
   const spikes = halo ? 10 : 8
-  const tip = r * 1.45
-  const ring = r * 0.52
-  const hole = r * 0.36
+  const tip = r * 1.08
+  const ring = r * 0.7
+  const hole = r * 0.4
   const step = (Math.PI * 2) / spikes
-  // Wide base (thick tooth) + tip swept forward (more angled).
-  const base = step * 0.46
-  const lean = step * 0.55
+  const base = step * 0.48
+  const lean = step * 0.42
   ctx.beginPath()
   for (let i = 0; i < spikes; i++) {
     const a = (i / spikes) * Math.PI * 2 - Math.PI / 2
@@ -1380,7 +1379,6 @@ function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void 
     const a1 = a + base
     if (i === 0) ctx.moveTo(Math.cos(a0) * ring, Math.sin(a0) * ring)
     else ctx.lineTo(Math.cos(a0) * ring, Math.sin(a0) * ring)
-    // Steep leading face into a long angled tip, then thick trailing face.
     ctx.lineTo(Math.cos(a + lean) * tip, Math.sin(a + lean) * tip)
     ctx.lineTo(Math.cos(a1) * ring, Math.sin(a1) * ring)
   }
@@ -1388,18 +1386,18 @@ function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void 
   // Hollow hub — cut out the center with even-odd.
   ctx.moveTo(hole, 0)
   ctx.arc(0, 0, hole, 0, Math.PI * 2, true)
-  ctx.fillStyle = ink
+  ctx.fillStyle = '#050508'
   ctx.fill('evenodd')
-  ctx.strokeStyle = hot
+  ctx.strokeStyle = edge
   ctx.lineJoin = 'miter'
-  ctx.miterLimit = 12
-  ctx.lineWidth = Math.max(1.6, r * 0.08)
+  ctx.miterLimit = 10
+  ctx.lineWidth = Math.max(2.4, r * 0.13)
   ctx.stroke()
-  // Rim only — keep the middle empty.
+  // Rim around the empty hole.
   ctx.beginPath()
   ctx.arc(0, 0, hole, 0, Math.PI * 2)
-  ctx.strokeStyle = hot
-  ctx.lineWidth = Math.max(1.8, r * 0.09)
+  ctx.strokeStyle = edge
+  ctx.lineWidth = Math.max(2.2, r * 0.11)
   ctx.stroke()
 }
 

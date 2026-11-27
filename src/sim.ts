@@ -66,6 +66,8 @@ export interface Enemy {
   pendingCd: number
   /** Shots in the pending staggered fan (0 = none). */
   pendingFan: number
+  /** Locked aim for a staggered shotgun follow-up. */
+  pendingAim: number
 }
 
 export interface Particle {
@@ -669,9 +671,9 @@ export const GIANT_PENT = {
   shotSpeed: 260,
   fanSpread: 1.55,
   stagger: 0.16,
-  /** First fan count, then staggered follow-up. */
+  /** First fan count, then staggered follow-up nested in the gaps. */
   fanCount: 5,
-  fanFollow: 3,
+  fanFollow: 4,
 } as const
 
 export function giantPentagon(enemy: Enemy): boolean {
@@ -1196,6 +1198,7 @@ function splitCircle(state: GameState, enemy: Enemy, into: 'normal' | 'piece'): 
       salvo: 0,
       pendingCd: 0,
       pendingFan: 0,
+      pendingAim: 0,
     })
   }
 }
@@ -1234,6 +1237,7 @@ function shatterHex(state: GameState, enemy: Enemy): void {
       salvo: 0,
       pendingCd: 0,
       pendingFan: 0,
+      pendingAim: 0,
     })
   }
 }
@@ -1333,6 +1337,7 @@ function spawnOne(state: GameState, viewRadius: number): void {
     salvo: 0,
     pendingCd: 0,
     pendingFan: 0,
+    pendingAim: 0,
   })
 }
 
@@ -1363,6 +1368,7 @@ function spawnPentShot(state: GameState, x: number, y: number, angle: number, sp
     salvo: 0,
     pendingCd: 0,
     pendingFan: 0,
+    pendingAim: 0,
   })
 }
 
@@ -1372,6 +1378,25 @@ function firePentFan(state: GameState, enemy: Enemy, count: number, spread: numb
   const tipY = enemy.y + Math.sin(aim) * enemy.radius
   for (let i = 0; i < count; i++) {
     const t = count <= 1 ? 0 : i / (count - 1) - 0.5
+    spawnPentShot(state, tipX, tipY, aim + t * spread, speed)
+  }
+}
+
+/** Nested follow-up: one bolt in each gap between a prior fan of `firstCount` shots. */
+function firePentFanGaps(
+  state: GameState,
+  enemy: Enemy,
+  gaps: number,
+  firstCount: number,
+  spread: number,
+  speed: number,
+  aim: number,
+): void {
+  const tipX = enemy.x + Math.cos(aim) * enemy.radius
+  const tipY = enemy.y + Math.sin(aim) * enemy.radius
+  const denom = Math.max(1, firstCount - 1)
+  for (let i = 0; i < gaps; i++) {
+    const t = (i + 0.5) / denom - 0.5
     spawnPentShot(state, tipX, tipY, aim + t * spread, speed)
   }
 }
@@ -1420,7 +1445,16 @@ function tickPentagon(
     holdStill()
     enemy.pendingCd -= dt
     if (enemy.pendingCd <= 0) {
-      firePentFan(state, enemy, enemy.pendingFan, band.fanSpread, giant ? GIANT_PENT.shotSpeed : PENT.shotSpeed, aim)
+      // Same locked aim as the first wave; bolts sit in the gaps.
+      firePentFanGaps(
+        state,
+        enemy,
+        enemy.pendingFan,
+        GIANT_PENT.fanCount,
+        band.fanSpread,
+        giant ? GIANT_PENT.shotSpeed : PENT.shotSpeed,
+        enemy.pendingAim,
+      )
       enemy.pendingFan = 0
       enemy.shotCd = band.reload
       enemy.parked = false
@@ -1439,6 +1473,7 @@ function tickPentagon(
         firePentFan(state, enemy, GIANT_PENT.fanCount, GIANT_PENT.fanSpread, speed, aim)
         enemy.pendingFan = GIANT_PENT.fanFollow
         enemy.pendingCd = GIANT_PENT.stagger
+        enemy.pendingAim = aim
       } else {
         firePentRadial(state, enemy, speed)
         enemy.shotCd = band.reload
@@ -1527,6 +1562,18 @@ function moveEnemies(state: GameState, input: Input, dt: number): void {
   separateEnemies(state)
 }
 
+function insideActiveHole(state: GameState, enemy: Enemy): boolean {
+  for (const well of state.holes) {
+    if (well.blast > 0) continue
+    const scale = well.closing > 0
+      ? Math.max(0.08, well.closeMax > 0 ? well.closing / well.closeMax : 0.2)
+      : 1
+    const reach = well.radius * scale + enemy.radius
+    if (Math.hypot(enemy.x - well.x, enemy.y - well.y) <= reach) return true
+  }
+  return false
+}
+
 function separateEnemies(state: GameState): void {
   const list = state.enemies
   for (let pass = 0; pass < 2; pass++) {
@@ -1539,7 +1586,10 @@ function separateEnemies(state: GameState): void {
         let dx = b.x - a.x
         let dy = b.y - a.y
         let dist = Math.hypot(dx, dy)
-        const min = a.radius + b.radius + 6 * BODY
+        // Black Hole suck lets hostiles stack hard, but not into a single point.
+        const sucked = insideActiveHole(state, a) && insideActiveHole(state, b)
+        const pad = sucked ? -Math.min(a.radius, b.radius) * 0.55 : 6 * BODY
+        const min = Math.max(4 * BODY, a.radius + b.radius + pad)
         if (dist >= min) continue
         if (dist < 0.01) {
           const ang = a.phase + b.phase + pass
@@ -1552,7 +1602,7 @@ function separateEnemies(state: GameState): void {
         const holdA = a.fuse > 0
         const holdB = b.fuse > 0
         if (holdA && holdB) continue
-        const push = (min - dist) * (holdA || holdB ? 1 : 0.5)
+        const push = (min - dist) * (holdA || holdB ? 1 : sucked ? 0.22 : 0.5)
         if (!holdA) {
           a.x -= nx * push
           a.y -= ny * push

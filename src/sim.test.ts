@@ -138,6 +138,7 @@ function enemy(over: Partial<Enemy> = {}): Enemy {
     salvo: 0,
     pendingCd: 0,
     pendingFan: 0,
+    pendingAim: 0,
     ...over,
     maxHp: over.maxHp ?? over.hp ?? 1,
   }
@@ -674,8 +675,28 @@ describe('hostiles', () => {
     })
     shotgun.enemies.push(bruiser)
     step(shotgun, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 30)
-    assert.equal(shotgun.enemies.filter((e) => e.ballistic && e.kind === 1).length, GIANT_PENT.fanCount)
+    const firstWave = shotgun.enemies.filter((e) => e.ballistic && e.kind === 1)
+    assert.equal(firstWave.length, GIANT_PENT.fanCount)
     assert.ok(GIANT_PENT.fanSpread > PENT.fanSpread)
+    assert.equal(bruiser.pendingFan, GIANT_PENT.fanFollow)
+    const lockedAim = bruiser.pendingAim
+    const firstAngles = firstWave.map((bolt) => bolt.angle).sort((a, b) => a - b)
+    // Finish the stagger with the same locked aim; 4 bolts nest in the gaps.
+    bruiser.pendingCd = 0
+    step(shotgun, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 30)
+    const allBolts = shotgun.enemies.filter((e) => e.ballistic && e.kind === 1)
+    assert.equal(allBolts.length, GIANT_PENT.fanCount + GIANT_PENT.fanFollow)
+    assert.equal(bruiser.pendingFan, 0)
+    const secondWave = allBolts.filter((bolt) => !firstWave.includes(bolt))
+    assert.equal(secondWave.length, GIANT_PENT.fanFollow)
+    for (const bolt of secondWave) {
+      assert.ok(Math.abs(bolt.angle - lockedAim) < GIANT_PENT.fanSpread * 0.6)
+    }
+    const secondAngles = secondWave.map((bolt) => bolt.angle).sort((a, b) => a - b)
+    for (let i = 0; i < secondAngles.length; i++) {
+      const gap = secondAngles[i]!
+      assert.ok(gap > firstAngles[i]! && gap < firstAngles[i + 1]!)
+    }
   })
 
   it('shoves every hostile inside the hex ring when the hull cracks', () => {
@@ -1312,6 +1333,39 @@ describe('orbs', () => {
     assert.ok(foe.hp < startHp)
     assert.ok(well.dealt.hole > 0)
     assert.equal(well.holes.length, 1)
+
+    // Suck lets hostiles force-overlap (not collapse to a point).
+    const stack = createGame(0, 2801)
+    stack.spawnCd = 999
+    stack.fireCd = 10
+    stack.invuln = 5
+    stack.holeCd = 999
+    const r = 20
+    stack.holes.push({
+      x: 0,
+      y: 0,
+      life: 3,
+      max: 3,
+      radius: 220,
+      pull: 0,
+      damage: 0,
+      tickCd: 99,
+      absorbed: 0,
+      crimson: false,
+      closing: 0,
+      closeMax: 0,
+      blast: 0,
+      blastMax: 0,
+      blastRadius: 0,
+    })
+    const a = enemy({ x: -8, y: 0, radius: r, hp: 40, speed: 0, vx: 0, vy: 0 })
+    const b = enemy({ x: 8, y: 0, radius: r, hp: 40, speed: 0, vx: 0, vy: 0 })
+    stack.enemies.push(a, b)
+    step(stack, input({ aimActive: false }), 1 / 60)
+    const gap = Math.hypot(b.x - a.x, b.y - a.y)
+    assert.ok(gap < a.radius + b.radius - 4, `expected soft overlap, gap=${gap}`)
+    assert.ok(gap > 4 * BODY, `expected not fully collapsed, gap=${gap}`)
+
     // Base Black Hole: inward collapse only — vanish with no blast / shockwave / burst.
     well.holeCd = 999
     hole.life = 0.01
