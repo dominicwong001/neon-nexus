@@ -1364,36 +1364,41 @@ function drawOrbiters(
 function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void {
   const ink = halo ? '#ff2d3a' : '#ffffff'
   const hot = halo ? '#ff6a70' : '#ffffff'
-  const spikes = halo ? 6 : 6
-  const outer = r * 1.02
-  const inner = r * 0.42
+  const spikes = halo ? 14 : 12
+  const tip = r * 1.14
+  const valley = r * 0.58
+  const hole = r * 0.34
+  // Narrow tip angle so each spike reads as a sharp wedge.
+  const half = (Math.PI / spikes) * 0.28
   ctx.beginPath()
   for (let i = 0; i < spikes; i++) {
     const a = (i / spikes) * Math.PI * 2 - Math.PI / 2
-    const aLeft = a - Math.PI / spikes
-    const aRight = a + Math.PI / spikes
-    if (i === 0) ctx.moveTo(Math.cos(aLeft) * inner, Math.sin(aLeft) * inner)
-    else ctx.lineTo(Math.cos(aLeft) * inner, Math.sin(aLeft) * inner)
-    // Sharp angled tip, then back to the hub ring.
-    ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer)
-    ctx.lineTo(Math.cos(aRight) * inner, Math.sin(aRight) * inner)
+    const aPrev = a - Math.PI / spikes
+    const aNext = a + Math.PI / spikes
+    if (i === 0) ctx.moveTo(Math.cos(aPrev) * valley, Math.sin(aPrev) * valley)
+    else ctx.lineTo(Math.cos(aPrev) * valley, Math.sin(aPrev) * valley)
+    ctx.lineTo(Math.cos(a - half) * valley, Math.sin(a - half) * valley)
+    ctx.lineTo(Math.cos(a) * tip, Math.sin(a) * tip)
+    ctx.lineTo(Math.cos(a + half) * valley, Math.sin(a + half) * valley)
+    ctx.lineTo(Math.cos(aNext) * valley, Math.sin(aNext) * valley)
   }
   ctx.closePath()
+  // Cut a hole in the middle (even-odd).
+  ctx.moveTo(hole, 0)
+  ctx.arc(0, 0, hole, 0, Math.PI * 2, true)
   ctx.fillStyle = ink
-  ctx.fill()
+  ctx.fill('evenodd')
   ctx.strokeStyle = hot
   ctx.lineJoin = 'miter'
-  ctx.lineWidth = Math.max(1.2, r * 0.06)
+  ctx.miterLimit = 8
+  ctx.lineWidth = Math.max(1.15, r * 0.055)
   ctx.stroke()
-  // Solid colored hub — no black fill.
+  // Inner rim around the hole.
   ctx.beginPath()
-  ctx.arc(0, 0, r * 0.28, 0, Math.PI * 2)
-  ctx.fillStyle = hot
-  ctx.fill()
-  ctx.beginPath()
-  ctx.arc(0, 0, r * 0.12, 0, Math.PI * 2)
-  ctx.fillStyle = '#ffffff'
-  ctx.fill()
+  ctx.arc(0, 0, hole, 0, Math.PI * 2)
+  ctx.strokeStyle = hot
+  ctx.lineWidth = Math.max(1.4, r * 0.07)
+  ctx.stroke()
 }
 
 function traceHexWedge(ctx: CanvasRenderingContext2D, span: number): void {
