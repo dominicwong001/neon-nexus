@@ -552,6 +552,25 @@ describe('hostiles', () => {
     run(state, input({ aimActive: false, viewW: 1600, viewH: 900 }), 0.35)
     assert.equal(pent.parked, false)
 
+    // Mid-charge still finishes and fires after the player flees the stop band.
+    state.enemies = state.enemies.filter((e) => e === pent)
+    pent.parked = true
+    pent.vx = 0
+    pent.vy = 0
+    pent.x = parkedX
+    pent.shotCd = 0
+    pent.windup = PENT.charge
+    pent.pendingFan = 0
+    state.playerX = parkedX - (PENT.resume + 80)
+    state.playerY = 0
+    // One short step unparks; charge must keep ticking while chasing.
+    step(state, input({ aimActive: false, viewW: 1600, viewH: 900 }), 1 / 60)
+    assert.equal(pent.parked, false)
+    assert.ok(pent.windup > 0)
+    run(state, input({ aimActive: false, viewW: 1600, viewH: 900 }), PENT.charge + 0.05)
+    assert.equal(pent.windup, 0)
+    assert.equal(state.enemies.filter((e) => e.ballistic && e.kind === 1).length, 3)
+
     const giant = createGame(0, 45)
     giant.spawnCd = 999
     giant.fireCd = 10

@@ -904,9 +904,17 @@ function drawEnemies(
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
     for (const e of state.enemies) {
-      const s = e.radius * 2.6
-      ctx.globalAlpha = 0.55
+      const bolt = e.ballistic && e.kind === 1
+      const shard = e.ballistic && e.kind === 3
+      // Pentagon bolts match hex-shard neon bloom (hot core + wide halo).
+      const s = e.radius * (bolt || shard ? 4.6 : 2.6)
+      ctx.globalAlpha = bolt || shard ? 0.82 : 0.55
       ctx.drawImage(sheets[e.kind]!, X(e.x) - s / 2, Y(e.y) - s / 2, s, s)
+      if (bolt || shard) {
+        const hot = e.radius * 2.8
+        ctx.globalAlpha = 0.55
+        ctx.drawImage(hurtGlow, X(e.x) - hot / 2, Y(e.y) - hot / 2, hot, hot)
+      }
       if (e.flash > 0) {
         const punch = Math.min(1, e.flash / 0.08)
         const hs = e.radius * (3.4 + punch)
@@ -929,17 +937,17 @@ function drawEnemies(
     const charging = !e.ballistic && e.kind === 1 && e.windup > 0
     const chargeT = charging ? 1 - e.windup / Math.max(0.01, pentChargeMax(e)) : 0
     if (lit) ctx.scale(1.08, 1.08)
-    if (bolt) {
-      // Solid neon pentagon bolts — full kind color, no black core.
-      ctx.fillStyle = ENEMY_COLOR[1]
-      ctx.strokeStyle = '#ffe566'
-      ctx.lineWidth = 1.6 * BODY
+    if (bolt || shard) {
+      // Solid neon projectiles — same lit fill as hex shards / pent bolts.
+      ctx.fillStyle = ENEMY_COLOR[e.kind]
+      ctx.strokeStyle = bolt ? '#ffe566' : ENEMY_COLOR[3]
+      ctx.lineWidth = (bolt ? 1.8 : 3.1) * BODY
       enemyBodyPath(ctx, e)
       ctx.fill()
       ctx.stroke()
     } else {
       // Black body; subtle kind skin only when glows are on.
-      ctx.fillStyle = lit ? '#ffffff' : shard ? ENEMY_COLOR[3] : enemySkinFill(ctx, e.kind, e.radius)
+      ctx.fillStyle = lit ? '#ffffff' : enemySkinFill(ctx, e.kind, e.radius)
       ctx.strokeStyle = lit ? '#ffffff' : ENEMY_COLOR[e.kind]
       ctx.lineWidth = ((e.kind === 3 ? 3.1 : 2) + (lit ? 2.4 : 0) + (lean ? 0.7 : 0)) * BODY
       enemyBodyPath(ctx, e)

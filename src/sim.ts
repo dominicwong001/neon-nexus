@@ -1384,6 +1384,7 @@ function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, 
     if (dist > band.resume) enemy.parked = false
   }
 
+  // Finish charge / staggered volleys even if the player fled the stop band.
   if (enemy.pendingFan > 0) {
     enemy.pendingCd -= dt
     if (enemy.pendingCd <= 0) {
@@ -1393,8 +1394,6 @@ function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, 
     }
     return
   }
-
-  if (!enemy.parked) return
 
   if (enemy.windup > 0) {
     enemy.windup = Math.max(0, enemy.windup - dt)
@@ -1418,6 +1417,9 @@ function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, 
     }
     return
   }
+
+  // New volleys only while parked in the stop band.
+  if (!enemy.parked) return
 
   enemy.shotCd = Math.max(0, enemy.shotCd - dt)
   if (enemy.shotCd <= 0) enemy.windup = band.charge
