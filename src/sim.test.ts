@@ -608,13 +608,21 @@ describe('hostiles', () => {
     assert.ok(pent.x < afterShot)
     // Mid-charge still finishes while held still, then resumes walking.
     state.enemies = state.enemies.filter((e) => e === pent)
-    pent.x = 420
+    pent.x = 280
     pent.shotCd = 0
     pent.windup = PENT.charge
     pent.pendingFan = 0
     step(state, input({ aimActive: false, viewW: 1600, viewH: 900 }), 1 / 60)
     assert.equal(pent.parked, true)
     assert.ok(pent.windup > 0)
+    // Taking damage while charging still sets a normal hit flash.
+    pent.flash = 0
+    pent.hitCd = 0
+    state.bullets = [{ x: pent.x, y: pent.y, vx: 0, vy: 0, life: 1 }]
+    state.fireCd = 10
+    step(state, input({ aimActive: false, viewW: 1600, viewH: 900 }), 1 / 60)
+    assert.ok(pent.windup > 0)
+    assert.ok(pent.flash > 0)
     run(state, input({ aimActive: false, viewW: 1600, viewH: 900 }), PENT.charge + 0.05)
     assert.equal(pent.windup, 0)
     assert.equal(pent.parked, false)

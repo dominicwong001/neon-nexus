@@ -963,7 +963,9 @@ function drawEnemies(
       ctx.strokeStyle = `rgba(255, 255, 255, ${0.35 + chargeT * 0.65})`
       ctx.lineWidth = (2.4 + chargeT * 2.2) * BODY
       ctx.stroke()
-    } else if (e.flash > 0) {
+    }
+    // Hit flash still plays on top of a charging pentagon.
+    if (e.flash > 0) {
       const punch = Math.min(1, e.flash / 0.08)
       enemyBodyPath(ctx, e)
       ctx.fillStyle = `rgba(255, 255, 255, ${0.55 + punch * 0.45})`

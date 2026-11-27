@@ -1431,8 +1431,7 @@ function tickPentagon(
   if (enemy.windup > 0) {
     holdStill()
     enemy.windup = Math.max(0, enemy.windup - dt)
-    const chargeMax = pentChargeMax(enemy)
-    enemy.flash = Math.max(enemy.flash, 0.06 + (1 - enemy.windup / chargeMax) * 0.2)
+    // Charge glow is drawn from windup — leave flash for real hit reactions.
     if (enemy.windup > 0) return
     const speed = giant ? GIANT_PENT.shotSpeed : PENT.shotSpeed
     if (giant) {
