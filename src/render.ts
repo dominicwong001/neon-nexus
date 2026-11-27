@@ -1361,52 +1361,37 @@ function drawOrbiters(
 
 function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void {
   const ink = halo ? '#ff2d3a' : '#ffffff'
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-  for (let i = 0; i < 3; i++) {
-    ctx.save()
-    ctx.rotate((i * Math.PI * 2) / 3)
-    traceCrescent(ctx, r)
-    ctx.fillStyle = '#05060a'
-    ctx.fill()
-    ctx.strokeStyle = ink
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.lineWidth = Math.max(1.35, r * 0.05)
-    ctx.stroke()
-    ctx.lineCap = 'butt'
-    traceBladeEdge(ctx, r)
-    ctx.lineWidth = Math.max(2.8, r * 0.16)
-    ctx.stroke()
-    if (halo) {
-      ctx.beginPath()
-      ctx.arc(0, 0, r * 0.78, 0.08, 0.92)
-      ctx.strokeStyle = ink
-      ctx.lineWidth = Math.max(1.1, r * 0.045)
-      ctx.stroke()
-    }
-    ctx.restore()
+  const hot = halo ? '#ff6a70' : '#ffffff'
+  const spikes = halo ? 6 : 6
+  const outer = r * 1.02
+  const inner = r * 0.42
+  ctx.beginPath()
+  for (let i = 0; i < spikes; i++) {
+    const a = (i / spikes) * Math.PI * 2 - Math.PI / 2
+    const aLeft = a - Math.PI / spikes
+    const aRight = a + Math.PI / spikes
+    if (i === 0) ctx.moveTo(Math.cos(aLeft) * inner, Math.sin(aLeft) * inner)
+    else ctx.lineTo(Math.cos(aLeft) * inner, Math.sin(aLeft) * inner)
+    // Sharp angled tip, then back to the hub ring.
+    ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer)
+    ctx.lineTo(Math.cos(aRight) * inner, Math.sin(aRight) * inner)
   }
-  ctx.beginPath()
-  ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2)
-  ctx.fillStyle = '#05060a'
-  ctx.fill()
-  ctx.strokeStyle = ink
-  ctx.lineWidth = Math.max(1.3, r * 0.07)
-  ctx.stroke()
-  ctx.beginPath()
-  ctx.arc(0, 0, r * 0.11, 0, Math.PI * 2)
+  ctx.closePath()
   ctx.fillStyle = ink
   ctx.fill()
-}
-
-function traceCrescent(ctx: CanvasRenderingContext2D, r: number): void {
-  const a0 = -0.32
-  const a1 = 1.1
+  ctx.strokeStyle = hot
+  ctx.lineJoin = 'miter'
+  ctx.lineWidth = Math.max(1.2, r * 0.06)
+  ctx.stroke()
+  // Solid colored hub — no black fill.
   ctx.beginPath()
-  ctx.arc(0, 0, r * 0.98, a0, a1)
-  ctx.arc(0, 0, r * 0.6, a1 - 0.06, a0 + 0.1, true)
-  ctx.closePath()
+  ctx.arc(0, 0, r * 0.28, 0, Math.PI * 2)
+  ctx.fillStyle = hot
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(0, 0, r * 0.12, 0, Math.PI * 2)
+  ctx.fillStyle = '#ffffff'
+  ctx.fill()
 }
 
 function traceHexWedge(ctx: CanvasRenderingContext2D, span: number): void {
@@ -1422,11 +1407,6 @@ function traceHexWedge(ctx: CanvasRenderingContext2D, span: number): void {
   ctx.lineTo(v0x - cx, v0y - cy)
   ctx.lineTo(v1x - cx, v1y - cy)
   ctx.closePath()
-}
-
-function traceBladeEdge(ctx: CanvasRenderingContext2D, r: number): void {
-  ctx.beginPath()
-  ctx.arc(0, 0, r * 0.98, -0.32, 1.1)
 }
 
 function drawReticle(

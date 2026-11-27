@@ -515,12 +515,15 @@ export function droneReload(rank: number): number {
 
 export function droneVolley(rank: number): number {
   if (rank <= 0) return 0
-  return rank + 1
+  // Even counts only: 2 → 2 → 4 → 4 → 6 (firerate upgrades on the even ranks).
+  return 2 * Math.ceil(Math.min(rank, DRONE.stormRank) / 2)
 }
 
 export function droneInterval(rank: number): number {
-  const step = Math.max(0, Math.min(rank, DRONE.stormRank) - 1)
-  return Math.max(0.22, 0.32 - step * 0.02)
+  if (rank <= 0) return 0
+  // Firerate bumps on ranks 2, 4, and Bulletstorm — not when rockets are added.
+  const fireSteps = rank >= 5 ? 3 : rank >= 4 ? 2 : rank >= 2 ? 1 : 0
+  return Math.max(0.18, 0.34 - fireSteps * 0.05)
 }
 
 export function droneBlast(rank: number): number {
@@ -1201,7 +1204,8 @@ function shatterHex(state: GameState, enemy: Enemy): void {
   const span = enemy.radius
   const outset = span / Math.sqrt(3)
   const speed = 190
-  const flight = 560 / speed
+  // Match pentagon bolt travel distance.
+  const flight = (PENT.shotSpeed * PENT.shotLife) / speed
   for (let i = 0; i < 6; i++) {
     const bisector = -Math.PI / 2 + (i + 0.5) * (Math.PI / 3)
     state.enemies.push({
@@ -1399,8 +1403,8 @@ function tickPentagon(
   const giant = giantPentagon(enemy)
   const band = giant ? GIANT_PENT : PENT
   const aim = Math.atan2(dy, dx)
-  // Only open fire once inside the screen's horizontal edge (player is centered).
-  const fireRange = Math.max(220, viewW * 0.5)
+  // Only open fire once well inside the screen (shorter than the horizontal edge).
+  const fireRange = Math.max(160, viewW * 0.28)
 
   // Always spin like other hostiles — never lock a tip toward the player.
   enemy.angle += enemy.spin * dt
@@ -2972,10 +2976,10 @@ const OFFER_COPY: Record<Exclude<UpgradeId, 'cache'>, { title: string; detail: s
   fork: { title: 'Fork', detail: 'Two streams sit on the reticle. The next rank adds a third, still tight on the aim.' },
   greed: { title: 'Greed', detail: 'Every orb pays a bonus, and bigger orbs pay a little more.' },
   regen: { title: 'Regeneration', detail: 'Each level restores one health. Ranks restore more.' },
-  orbiter: { title: 'Sentinel', detail: 'Two discs orbit the core, then fade out and recharge. They nudge what they hit.' },
+  orbiter: { title: 'Sentinel', detail: 'Two spiked discs orbit the core, then fade out and recharge. They nudge what they hit.' },
   field: { title: 'Force Field', detail: 'A white field burns and slows anything inside.' },
   ball: { title: 'Bouncy Ball', detail: 'A glowing ball ricochets inside the screen. It bounces off giant circles and any hostile whose hull is 1000 or more, no matter how much health is left.' },
-  drone: { title: 'Drone', detail: 'A drone fires a fan of rockets at once. Each one plants a reticle where it will land.' },
+  drone: { title: 'Drone', detail: 'A drone fires two rockets at once. Each one plants a reticle where it will land.' },
   tesla: { title: 'Tesla Coil', detail: 'One lightning bolt falls on a hostile in view, leaning toward the tougher ones. Later ranks hit harder and strike again sooner.' },
   hole: { title: 'Black Hole', detail: 'A pitch-black core wrapped in a dense white swirling vortex. It violently pulls hostiles across its full reach and burns them lightly while it lasts.' },
 }
@@ -2984,17 +2988,19 @@ const OFFER_RANK_UP: Partial<Record<Exclude<UpgradeId, 'cache'>, string>> = {
   orbiter: 'One more disc. They last longer, hit harder, spin faster, and nudge harder.',
   field: 'The field widens, burns harder, slows more, and pulses faster.',
   ball: 'More balls. They hit harder and stay out longer.',
-  drone: 'More rockets in each fan, a wider blast, and a shorter wait between volleys.',
+  drone: 'Two more rockets in each fan, and a wider blast.',
   tesla: 'Still one bolt. It hits harder, and the pause before the next strike is shorter.',
   hole: 'A wider well, a longer burn, and a more violent pull — it also appears less often.',
   magnet: 'Orbs snap in faster, and the pull reaches a little farther.',
   regen: 'Each level restores a little more health.',
 }
 
+const DRONE_FIRE_UP = 'Rockets fire faster between volleys.'
+
 const OFFER_EVOLVE: Partial<Record<Exclude<UpgradeId, 'cache'>, { title: string; detail: string }>> = {
   tesla: { title: 'Arc Reactor', detail: 'One red bolt strikes, then chain-arcs through nearby hostiles. It hits harder and falls again sooner.' },
-  drone: { title: 'Bulletstorm', detail: 'The drone turns red. Each volley is a wide fan of rockets, and the wait between them is short.' },
-  orbiter: { title: "Guardian's Halo", detail: 'Six red discs stay out and spin faster. They carve hostiles and shove them aside.' },
+  drone: { title: 'Bulletstorm', detail: 'The drone turns red. Six rockets per volley, and the wait between them is short.' },
+  orbiter: { title: "Guardian's Halo", detail: 'Six red spiked discs stay out and spin faster. They carve hostiles and shove them aside.' },
   ball: { title: 'Quantum Core', detail: 'Hyper-fast red balls. They bounce off giant circles and hostiles with 1000 hull or more, and bouncing off those hostiles replaces one with two smaller balls.' },
   field: { title: 'Null Zone', detail: 'The field turns red, reaches farther, burns harder, and slows hostiles and flying shards inside it.' },
   hole: { title: 'Singularity', detail: 'Same-size crimson vortex: red to orange to white into a black core. It yanks hostiles in hard, then collapses into a storm of dust and a blast that grows with everything it absorbed.' },
@@ -3015,7 +3021,10 @@ function describeOffer(state: GameState, id: UpgradeId): Offer {
   }
   const base = OFFER_COPY[id]
   const ranked = rank > 1 && (id === 'tesla' ? rank < TESLA.evolveRank : id === 'hole' ? rank < HOLE.evolveRank : true)
-  return { id, title: base.title, detail: ranked && OFFER_RANK_UP[id] ? OFFER_RANK_UP[id]! : base.detail, rank, max, overdrive: false }
+  let detail = ranked && OFFER_RANK_UP[id] ? OFFER_RANK_UP[id]! : base.detail
+  // Drone alternates firerate (even ranks) and +2 rockets (odd ranks after the first).
+  if (id === 'drone' && ranked) detail = rank % 2 === 0 ? DRONE_FIRE_UP : OFFER_RANK_UP.drone!
+  return { id, title: base.title, detail, rank, max, overdrive: false }
 }
 
 function applyUpgrade(state: GameState, id: UpgradeId): void {

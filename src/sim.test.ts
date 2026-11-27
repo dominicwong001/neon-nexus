@@ -544,15 +544,15 @@ describe('hostiles', () => {
     run(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 0.3)
     assert.equal(pent.parked, false)
     assert.ok(pent.x < startX)
-    // Far outside the horizontal screen edge — ready to fire but will not charge yet.
-    pent.x = 900
+    // Outside the shorter fire band — ready but will not charge yet.
+    pent.x = 520
     pent.shotCd = 0
     pent.windup = 0
     step(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 60)
     assert.equal(pent.windup, 0)
     assert.equal(pent.parked, false)
-    // Inside the horizontal edge — charge can begin.
-    pent.x = 500
+    // Closer in — charge can begin.
+    pent.x = 280
     pent.shotCd = 0
     step(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 60)
     assert.ok(pent.windup > 0)
@@ -1000,8 +1000,8 @@ describe('orbs', () => {
       assert.ok(piece)
       assert.equal(piece.immortal, true)
       assert.ok(piece.speed < 250)
-      assert.ok(piece.speed * piece.orbitCd > 480)
-      assert.ok(piece.speed * piece.orbitCd < 700)
+      const reach = piece.speed * piece.orbitCd
+      assert.ok(Math.abs(reach - PENT.shotSpeed * PENT.shotLife) < 1)
       assert.equal(piece.phase, 54)
     }
     const chip = bits[0]
@@ -1920,14 +1920,17 @@ describe('orbs', () => {
     assert.ok(droneReload(1) < 1.4)
     assert.ok(droneReload(4) < droneReload(1))
     assert.ok(droneReload(5) < 0.6)
-    assert.ok(droneInterval(4) < droneInterval(1))
-    assert.ok(droneInterval(5) < droneInterval(4))
-    assert.ok(droneInterval(1) > 0.28)
-    assert.ok(droneInterval(1) < 0.36)
-    assert.ok(droneInterval(1) - droneInterval(5) < 0.12)
     assert.equal(droneVolley(1), 2)
-    assert.ok(droneVolley(5) > droneVolley(4))
-    assert.ok(droneVolley(4) > droneVolley(1))
+    assert.equal(droneVolley(2), 2)
+    assert.equal(droneVolley(3), 4)
+    assert.equal(droneVolley(4), 4)
+    assert.equal(droneVolley(5), 6)
+    assert.equal(droneInterval(2), droneInterval(3))
+    assert.ok(droneInterval(2) < droneInterval(1))
+    assert.ok(droneInterval(4) < droneInterval(2))
+    assert.ok(droneInterval(5) < droneInterval(4))
+    assert.ok(droneInterval(1) > 0.3)
+    assert.ok(droneInterval(1) < 0.4)
     assert.ok(droneBlast(4) > droneBlast(1))
     assert.ok(droneBlast(5) > droneBlast(4))
     assert.ok(droneDamage(1) > 0)
