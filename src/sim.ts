@@ -652,7 +652,7 @@ function freshMods(): Mods {
 export const PENT = {
   charge: 0.75,
   reload: 1.4,
-  shotSpeed: 155,
+  shotSpeed: 230,
   shotLife: 3.2,
   shotRadius: 11 * BODY,
   fanSpread: 0.78,
@@ -661,7 +661,7 @@ export const PENT = {
 export const GIANT_PENT = {
   charge: 0.85,
   reload: 1.65,
-  shotSpeed: 175,
+  shotSpeed: 260,
   fanSpread: 1.12,
   stagger: 0.16,
 } as const
