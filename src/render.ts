@@ -1364,40 +1364,42 @@ function drawOrbiters(
 function drawSaw(ctx: CanvasRenderingContext2D, r: number, halo: boolean): void {
   const ink = halo ? '#ff2d3a' : '#ffffff'
   const hot = halo ? '#ff6a70' : '#ffffff'
-  const spikes = halo ? 14 : 12
-  const tip = r * 1.14
-  const valley = r * 0.58
-  const hole = r * 0.34
-  // Narrow tip angle so each spike reads as a sharp wedge.
-  const half = (Math.PI / spikes) * 0.28
+  // Fewer, thicker teeth — long wedges with a swept tip for a hard angle.
+  const spikes = halo ? 10 : 8
+  const tip = r * 1.45
+  const ring = r * 0.52
+  const hole = r * 0.36
+  const step = (Math.PI * 2) / spikes
+  // Wide base (thick tooth) + tip swept forward (more angled).
+  const base = step * 0.46
+  const lean = step * 0.55
   ctx.beginPath()
   for (let i = 0; i < spikes; i++) {
     const a = (i / spikes) * Math.PI * 2 - Math.PI / 2
-    const aPrev = a - Math.PI / spikes
-    const aNext = a + Math.PI / spikes
-    if (i === 0) ctx.moveTo(Math.cos(aPrev) * valley, Math.sin(aPrev) * valley)
-    else ctx.lineTo(Math.cos(aPrev) * valley, Math.sin(aPrev) * valley)
-    ctx.lineTo(Math.cos(a - half) * valley, Math.sin(a - half) * valley)
-    ctx.lineTo(Math.cos(a) * tip, Math.sin(a) * tip)
-    ctx.lineTo(Math.cos(a + half) * valley, Math.sin(a + half) * valley)
-    ctx.lineTo(Math.cos(aNext) * valley, Math.sin(aNext) * valley)
+    const a0 = a - base
+    const a1 = a + base
+    if (i === 0) ctx.moveTo(Math.cos(a0) * ring, Math.sin(a0) * ring)
+    else ctx.lineTo(Math.cos(a0) * ring, Math.sin(a0) * ring)
+    // Steep leading face into a long angled tip, then thick trailing face.
+    ctx.lineTo(Math.cos(a + lean) * tip, Math.sin(a + lean) * tip)
+    ctx.lineTo(Math.cos(a1) * ring, Math.sin(a1) * ring)
   }
   ctx.closePath()
-  // Cut a hole in the middle (even-odd).
+  // Hollow hub — cut out the center with even-odd.
   ctx.moveTo(hole, 0)
   ctx.arc(0, 0, hole, 0, Math.PI * 2, true)
   ctx.fillStyle = ink
   ctx.fill('evenodd')
   ctx.strokeStyle = hot
   ctx.lineJoin = 'miter'
-  ctx.miterLimit = 8
-  ctx.lineWidth = Math.max(1.15, r * 0.055)
+  ctx.miterLimit = 12
+  ctx.lineWidth = Math.max(1.6, r * 0.08)
   ctx.stroke()
-  // Inner rim around the hole.
+  // Rim only — keep the middle empty.
   ctx.beginPath()
   ctx.arc(0, 0, hole, 0, Math.PI * 2)
   ctx.strokeStyle = hot
-  ctx.lineWidth = Math.max(1.4, r * 0.07)
+  ctx.lineWidth = Math.max(1.8, r * 0.09)
   ctx.stroke()
 }
 
