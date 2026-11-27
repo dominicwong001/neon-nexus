@@ -656,7 +656,7 @@ export const PENT = {
   reload: 1.4,
   shotSpeed: 230,
   shotLife: 5.0,
-  shotRadius: 11 * BODY,
+  shotRadius: 16 * BODY,
   fanSpread: 0.78,
 } as const
 
@@ -664,8 +664,11 @@ export const GIANT_PENT = {
   charge: 0.85,
   reload: 1.65,
   shotSpeed: 260,
-  fanSpread: 1.12,
+  fanSpread: 1.55,
   stagger: 0.16,
+  /** First fan count, then staggered follow-up. */
+  fanCount: 5,
+  fanFollow: 3,
 } as const
 
 export function giantPentagon(enemy: Enemy): boolean {
@@ -1355,20 +1358,34 @@ function firePentFan(state: GameState, enemy: Enemy, count: number, spread: numb
 }
 
 function firePentRadial(state: GameState, enemy: Enemy, speed: number): void {
-  const spread = 0.2
+  // Three bolts from each tip for a denser 360 burst.
+  const spread = 0.28
   for (let i = 0; i < 5; i++) {
     const a = enemy.angle + (i * Math.PI * 2) / 5
     const tipX = enemy.x + Math.cos(a) * enemy.radius
     const tipY = enemy.y + Math.sin(a) * enemy.radius
     spawnPentShot(state, tipX, tipY, a - spread, speed)
+    spawnPentShot(state, tipX, tipY, a, speed)
     spawnPentShot(state, tipX, tipY, a + spread, speed)
   }
 }
 
-function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, dx: number, dy: number, inside: boolean, fieldRank: number): void {
+function tickPentagon(
+  state: GameState,
+  enemy: Enemy,
+  dt: number,
+  dist: number,
+  dx: number,
+  dy: number,
+  inside: boolean,
+  fieldRank: number,
+  viewW: number,
+): void {
   const giant = giantPentagon(enemy)
   const band = giant ? GIANT_PENT : PENT
   const aim = Math.atan2(dy, dx)
+  // Only open fire once inside the screen's horizontal edge (player is centered).
+  const fireRange = Math.max(220, viewW * 0.5)
 
   // Always spin like other hostiles — never lock a tip toward the player.
   enemy.angle += enemy.spin * dt
@@ -1401,8 +1418,8 @@ function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, 
     const speed = giant ? GIANT_PENT.shotSpeed : PENT.shotSpeed
     if (giant) {
       if (enemy.salvo % 2 === 0) {
-        firePentFan(state, enemy, 7, GIANT_PENT.fanSpread, speed, aim)
-        enemy.pendingFan = 6
+        firePentFan(state, enemy, GIANT_PENT.fanCount, GIANT_PENT.fanSpread, speed, aim)
+        enemy.pendingFan = GIANT_PENT.fanFollow
         enemy.pendingCd = GIANT_PENT.stagger
       } else {
         firePentRadial(state, enemy, speed)
@@ -1428,7 +1445,7 @@ function tickPentagon(state: GameState, enemy: Enemy, dt: number, dist: number, 
   enemy.y += enemy.vy * dt
 
   enemy.shotCd = Math.max(0, enemy.shotCd - dt)
-  if (enemy.shotCd <= 0) {
+  if (enemy.shotCd <= 0 && dist <= fireRange) {
     enemy.windup = band.charge
     holdStill()
   }
@@ -1472,7 +1489,7 @@ function moveEnemies(state: GameState, input: Input, dt: number): void {
     const fieldRank = state.mods.field
     const inside = fieldRank > 0 && dist < fieldRadius(fieldRank) + e.radius
     if (isPentagon(e)) {
-      tickPentagon(state, e, dt, dist, dx, dy, inside, fieldRank)
+      tickPentagon(state, e, dt, dist, dx, dy, inside, fieldRank, input.viewW)
       continue
     }
     if (!e.ballistic) {

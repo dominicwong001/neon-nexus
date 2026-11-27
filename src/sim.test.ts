@@ -7,6 +7,7 @@ import {
   DISC,
   chooseUpgrade,
   createGame,
+  GIANT_PENT,
   HEX_FUSE,
   PENT,
   giantPentagon,
@@ -513,6 +514,19 @@ describe('hostiles', () => {
     run(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 0.3)
     assert.equal(pent.parked, false)
     assert.ok(pent.x < startX)
+    // Far outside the horizontal screen edge — ready to fire but will not charge yet.
+    pent.x = 900
+    pent.shotCd = 0
+    pent.windup = 0
+    step(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 60)
+    assert.equal(pent.windup, 0)
+    assert.equal(pent.parked, false)
+    // Inside the horizontal edge — charge can begin.
+    pent.x = 500
+    pent.shotCd = 0
+    step(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 60)
+    assert.ok(pent.windup > 0)
+    assert.equal(pent.parked, true)
     // Body keeps spinning — no tip lock toward the player.
     const spun = pent.angle
     step(state, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 30)
@@ -533,6 +547,7 @@ describe('hostiles', () => {
     assert.equal(bolts.length, 3)
     for (const bolt of bolts) {
       assert.equal(bolt.immortal, true)
+      assert.ok(bolt.radius >= PENT.shotRadius - 0.01)
       assert.ok(Math.abs(bolt.spin) > 0)
       assert.ok(Math.hypot(bolt.vx, bolt.vy) <= PENT.shotSpeed + 1)
       assert.ok(Math.hypot(bolt.x - tipX, bolt.y - tipY) < PENT.shotSpeed / 50 + 6)
@@ -597,8 +612,32 @@ describe('hostiles', () => {
     assert.equal(giantPentagon(elite), true)
     assert.ok(Math.abs(elite.radius - 40 * BODY * 1.95) < 0.01)
     step(giant, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 30)
-    // Radial burst: 2 shots from each of 5 tips.
-    assert.equal(giant.enemies.filter((e) => e.ballistic && e.kind === 1).length, 10)
+    // Radial burst: 3 shots from each of 5 tips.
+    assert.equal(giant.enemies.filter((e) => e.ballistic && e.kind === 1).length, 15)
+
+    // Shotgun volley: fewer bolts, wider fan.
+    const shotgun = createGame(0, 46)
+    shotgun.spawnCd = 999
+    shotgun.fireCd = 10
+    shotgun.invuln = 30
+    const bruiser = enemy({
+      x: 400,
+      y: 0,
+      hp: 2500,
+      maxHp: 2500,
+      radius: 40 * BODY * 1.95,
+      speed: 0,
+      kind: 1,
+      parked: true,
+      shotCd: 0,
+      windup: 0.01,
+      salvo: 0,
+      angle: Math.PI,
+    })
+    shotgun.enemies.push(bruiser)
+    step(shotgun, input({ aimActive: false, viewW: 1400, viewH: 900 }), 1 / 30)
+    assert.equal(shotgun.enemies.filter((e) => e.ballistic && e.kind === 1).length, GIANT_PENT.fanCount)
+    assert.ok(GIANT_PENT.fanSpread > PENT.fanSpread)
   })
 
   it('shoves every hostile inside the hex ring when the hull cracks', () => {
